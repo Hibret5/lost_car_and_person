@@ -12,15 +12,23 @@ export default function AboutPage() {
       {/* --- WRAPPER FOR CONTENT AND SHAPES --- */}
       <Box style={{ flex: 1, position: 'relative', overflowX: 'hidden' }}>
         
-        {/* Background Shapes - zIndex 0 ensures they stay behind everything */}
+        {/* Background Shapes */}
         <Box style={{ position: 'absolute', top: 0, right: 0, width: '55%', height: '700px', backgroundColor: '#EAF2FF', clipPath: 'polygon(45% 0, 100% 0, 100% 100%, 0% 80%)', zIndex: 0 }} />
         <Box style={{ position: 'absolute', bottom: 0, left: 0, width: '45%', height: '600px', backgroundColor: '#EAF2FF', clipPath: 'polygon(0 15%, 85% 100%, 0 100%)', zIndex: 0 }} />
 
-        {/* Header - zIndex 10 to stay above shapes */}
+        {/* Header */}
         <header style={{ height: 90, display: 'flex', alignItems: 'center', position: 'relative', zIndex: 10 }}>
           <Container size="lg" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <Link href="/">
-              <Image src="/logo.jpg" alt="Logo" width={60} height={60} style={{ borderRadius: '8px' }} />
+              {/* ✅ ADJUSTED LOGO: Maintain original aspect ratio */}
+              <Image 
+                src="/logo.jpg" 
+                alt="Logo" 
+                width={0} 
+                height={60} 
+                sizes="100vw"
+                style={{ width: 'auto', height: '60px', borderRadius: '8px' }} 
+              />
             </Link>
             <Group gap="xl">
               <Anchor component={Link} href="/" c="dark" size="sm" fw={600}>Home</Anchor>
@@ -39,15 +47,12 @@ export default function AboutPage() {
               <Text c="dimmed" size="lg" mb={30}>Subheading for description or instructions</Text>
               
               <Text size="sm" fw={700} mb="md">
-                Body text for your whole article or post. We'll put in some lorem ipsum to show how a filled-out page might look:
+                Body text for your whole article or post.
               </Text>
               
               <Text size="sm" mb={40} style={{ lineHeight: 1.8, color: '#1A1B1E' }}>
                 Excepteur efficient emerging, minim veniam anim aute carefully curated Ginza conversation exquisite perfect nostrud nisi 
-                intricate Content. Qui international first-class nulla ut. Punctual adipisicing, essential lovely queen tempor eiusmod irure. 
-                Exclusive izakaya charming Scandinavian impeccable aute quality of life soft power pariatur Melbourne occaecat discerning. 
-                Qui wardrobe aliquip, et Porter destination Toto remarkable officia Helsinki excepteur Basset hound. Zürich sleepy perfect 
-                consectetur.
+                intricate Content. Qui international first-class nulla ut.
               </Text>
 
               <Box mt={50}>
@@ -59,7 +64,8 @@ export default function AboutPage() {
                   </SimpleGrid>
                   <TextInput label="Email address" placeholder="email@userexample.net" mb="md" radius="md" size="md" />
                   <Textarea label="Your message" placeholder="Enter your question or message" minRows={4} mb="xl" radius="md" />
-                  <Button size="lg" fullWidth radius="md" color="blue">Submit</Button>
+                  {/* ✅ Curvy Button to match theme */}
+                  <Button size="lg" fullWidth radius="xl" color="blue">Submit</Button>
                 </form>
               </Box>
             </Grid.Col>
@@ -73,7 +79,6 @@ export default function AboutPage() {
         </Container>
       </Box>
 
-      {/* --- FOOTER IS NOW OUTSIDE THE SHAPE BOX --- */}
       <MainFooter />
     </Box>
   );

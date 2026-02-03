@@ -7,7 +7,7 @@ import {
 import { 
   IconSearch, IconChevronRight, IconArrowRight, IconBell, 
   IconUser, IconHistory, IconSettings, IconLogout, IconShieldCheck, IconStarFilled,
-  IconArrowLeft, IconChevronLeft
+  IconChevronLeft
 } from '@tabler/icons-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -24,14 +24,16 @@ export default function Dashboard() {
         <Container size="xl">
           <Group justify="space-between">
             {/* Logo adjusted for original aspect ratio */}
-            <Image 
-              src="/logo.jpg" 
-              alt="Logo" 
-              width={0} 
-              height={50} 
-              sizes="100vw"
-              style={{ width: 'auto', height: '50px', borderRadius: '8px' }} 
-            />
+            <Link href="/">
+              <Image 
+                src="/logo.jpg" 
+                alt="Logo" 
+                width={0} 
+                height={50} 
+                sizes="100vw"
+                style={{ width: 'auto', height: '50px', borderRadius: '8px', cursor: 'pointer' }} 
+              />
+            </Link>
             <TextInput 
               placeholder="Search..." 
               leftSection={<IconSearch size={16} />}
@@ -88,7 +90,7 @@ export default function Dashboard() {
               <Group mb="xl">
                 <Button 
                   component={Link}
-                  href="/signup"
+                  href="/register-person" // Changed from /signup to /register-person
                   size="xl" 
                   bg="black" 
                   color="white" 
@@ -208,7 +210,7 @@ export default function Dashboard() {
           <Group justify="center" gap="xl" mb={60}>
             <Paper p="xl" radius="md" withBorder shadow="sm" w={280} ta="left">
                <Group gap={2} mb="xs">
-                  {[1,2,3,4,5].map(s => <IconStarFilled key={s} size={14} color="#FAB005" />)}
+                 {[1,2,3,4,5].map(s => <IconStarFilled key={s} size={14} color="#FAB005" />)}
                </Group>
                <Text size="sm" mb="md">"I found my car within 24 hours of posting here. The AI detection is incredible!"</Text>
                <Group gap="sm">
@@ -218,7 +220,7 @@ export default function Dashboard() {
             </Paper>
             <Paper p="xl" radius="md" withBorder shadow="sm" w={280} ta="left" opacity={0.6}>
                <Group gap={2} mb="xs">
-                  {[1,2,3,4,5].map(s => <IconStarFilled key={s} size={14} color="#FAB005" />)}
+                 {[1,2,3,4,5].map(s => <IconStarFilled key={s} size={14} color="#FAB005" />)}
                </Group>
                <Text size="sm" mb="md">"The alert system is so fast. Thank you for helping me find my brother."</Text>
                <Group gap="sm">
