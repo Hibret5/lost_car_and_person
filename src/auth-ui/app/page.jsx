@@ -1,44 +1,17 @@
 "use client";
 
-import {
-  Box,
-  Container,
-  Title,
-  Text,
-  Button,
-  Group,
-  TextInput,
-  Avatar,
-  Paper,
-  SimpleGrid,
-  ScrollArea,
-  Card,
-  Grid,
-  ActionIcon,
-  Menu,
-  UnstyledButton,
-  Stack,
-} from "@mantine/core";
-import {
-  IconSearch,
-  IconChevronRight,
-  IconArrowRight,
-  IconBell,
-  IconUser,
-  IconHistory,
-  IconSettings,
-  IconLogout,
-  IconShieldCheck,
-  IconStarFilled,
-  IconArrowLeft,
-  IconChevronLeft,
-  IconAlertCircle,
-} from "@tabler/icons-react";
-import Image from "next/image";
-import Link from "next/link";
-import MainFooter from "../components/MainFooter";
-
-import AlertPage from "./alert/page.jsx";
+import { 
+  Box, Container, Title, Text, Button, Group, TextInput, 
+  Avatar, Paper, SimpleGrid, ScrollArea, Card, Grid, ActionIcon, Menu, UnstyledButton, Stack
+} from '@mantine/core';
+import { 
+  IconSearch, IconChevronRight, IconArrowRight, IconBell, 
+  IconUser, IconHistory, IconSettings, IconLogout, IconShieldCheck, IconStarFilled,
+  IconChevronLeft
+} from '@tabler/icons-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import MainFooter from '../components/MainFooter';
 
 export default function Dashboard() {
   const items = [1, 2, 3, 4, 5, 6];
@@ -59,16 +32,18 @@ export default function Dashboard() {
         <Container size="xl">
           <Group justify="space-between">
             {/* Logo adjusted for original aspect ratio */}
-            <Image
-              src="/logo.jpg"
-              alt="Logo"
-              width={0}
-              height={50}
-              sizes="100vw"
-              style={{ width: "auto", height: "50px", borderRadius: "8px" }}
-            />
-            <TextInput
-              placeholder="Search..."
+            <Link href="/">
+              <Image 
+                src="/logo.jpg" 
+                alt="Logo" 
+                width={0} 
+                height={50} 
+                sizes="100vw"
+                style={{ width: 'auto', height: '50px', borderRadius: '8px', cursor: 'pointer' }} 
+              />
+            </Link>
+            <TextInput 
+              placeholder="Search..." 
               leftSection={<IconSearch size={16} />}
               style={{ width: "40%" }}
               radius="xl"
@@ -173,11 +148,11 @@ export default function Dashboard() {
               <Group mb="xl">
                 <Button
                   component={Link}
-                  href="/signup"
-                  size="xl"
-                  bg="black"
-                  color="white"
-                  radius="xl"
+                  href="/register-person" // Changed from /signup to /register-person
+                  size="xl" 
+                  bg="black" 
+                  color="white" 
+                  radius="xl" 
                   rightSection={<IconArrowRight size={22} />}
                 >
                   Get Started
@@ -354,46 +329,24 @@ export default function Dashboard() {
 
           <Group justify="center" gap="xl" mb={60}>
             <Paper p="xl" radius="md" withBorder shadow="sm" w={280} ta="left">
-              <Group gap={2} mb="xs">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <IconStarFilled key={s} size={14} color="#FAB005" />
-                ))}
-              </Group>
-              <Text size="sm" mb="md">
-                "I found my car within 24 hours of posting here. The AI
-                detection is incredible!"
-              </Text>
-              <Group gap="sm">
-                <Avatar size="sm" color="blue" radius="xl" />
-                <Text size="xs" fw={700}>
-                  Sara Johnson
-                </Text>
-              </Group>
+               <Group gap={2} mb="xs">
+                 {[1,2,3,4,5].map(s => <IconStarFilled key={s} size={14} color="#FAB005" />)}
+               </Group>
+               <Text size="sm" mb="md">"I found my car within 24 hours of posting here. The AI detection is incredible!"</Text>
+               <Group gap="sm">
+                  <Avatar size="sm" color="blue" radius="xl" />
+                  <Text size="xs" fw={700}>Sara Johnson</Text>
+               </Group>
             </Paper>
-            <Paper
-              p="xl"
-              radius="md"
-              withBorder
-              shadow="sm"
-              w={280}
-              ta="left"
-              opacity={0.6}
-            >
-              <Group gap={2} mb="xs">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <IconStarFilled key={s} size={14} color="#FAB005" />
-                ))}
-              </Group>
-              <Text size="sm" mb="md">
-                "The alert system is so fast. Thank you for helping me find my
-                brother."
-              </Text>
-              <Group gap="sm">
-                <Avatar size="sm" color="gray" radius="xl" />
-                <Text size="xs" fw={700}>
-                  Kebede M.
-                </Text>
-              </Group>
+            <Paper p="xl" radius="md" withBorder shadow="sm" w={280} ta="left" opacity={0.6}>
+               <Group gap={2} mb="xs">
+                 {[1,2,3,4,5].map(s => <IconStarFilled key={s} size={14} color="#FAB005" />)}
+               </Group>
+               <Text size="sm" mb="md">"The alert system is so fast. Thank you for helping me find my brother."</Text>
+               <Group gap="sm">
+                  <Avatar size="sm" color="gray" radius="xl" />
+                  <Text size="xs" fw={700}>Kebede M.</Text>
+               </Group>
             </Paper>
           </Group>
 
