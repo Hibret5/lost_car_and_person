@@ -12,8 +12,6 @@ import {
 import Image from 'next/image';
 import { useState } from 'react';
 import Link from 'next/link';
-
-// ✅ USE ALIAS IMPORT
 import SocialLoginIcons from '../../components/SocialLoginIcons';
 
 export default function LoginPage() {
@@ -32,12 +30,20 @@ export default function LoginPage() {
     >
       <Container size={420}>
         <Paper radius="lg" p="xl" shadow="md" bg="#dbeafe">
+          {/* ✅ Logo adjusted for original aspect ratio */}
           <Image
             src="/logo.jpg"
             alt="Logo"
-            width={70}
+            width={0}
             height={70}
-            style={{ display: 'block', margin: '0 auto 12px' }}
+            sizes="100vw"
+            style={{ 
+              display: 'block', 
+              margin: '0 auto 12px', 
+              width: 'auto', 
+              height: '70px',
+              borderRadius: '8px' 
+            }}
           />
 
           <Title order={3} ta="center" fw={700}>
@@ -65,7 +71,12 @@ export default function LoginPage() {
             onChange={(e) => setValue(e.currentTarget.value)}
           />
 
-          <Button fullWidth mt="md">
+          <Button 
+            fullWidth 
+            mt="md" 
+            component={Link} 
+            href="/about"
+          >
             Continue
           </Button>
 
@@ -93,7 +104,6 @@ export default function LoginPage() {
 
           <Divider my="md" label="or sign in using" />
 
-          {/* 🔥 THIS WAS THE CRASH POINT */}
           <SocialLoginIcons />
 
           <Text size="xs" ta="center" mt="md" c="dimmed">

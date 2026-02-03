@@ -51,12 +51,20 @@ export default function SignupPage() {
     >
       <Container size={420}>
         <Paper radius="lg" p="xl" shadow="md" bg="#dbeafe">
+          {/* ✅ Logo adjusted for original aspect ratio */}
           <Image
             src="/logo.jpg"
             alt="Logo"
-            width={70}
+            width={0}
             height={70}
-            style={{ display: 'block', margin: '0 auto 16px' }}
+            sizes="100vw"
+            style={{ 
+              display: 'block', 
+              margin: '0 auto 16px', 
+              width: 'auto', 
+              height: '70px',
+              borderRadius: '8px' 
+            }}
           />
 
           <Title order={3} ta="center" fw={700}>

@@ -1,10 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Ensure Turbopack uses this package folder as the workspace root
-  turbopack: {
-    root: '.',
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+    ],
   },
+  // We removed the 'turbo' key from experimental to stop the error
 };
 
 export default nextConfig;
-
