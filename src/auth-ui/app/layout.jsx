@@ -1,5 +1,5 @@
 import '@mantine/core/styles.css';
-import { MantineProvider } from '@mantine/core';
+import { MantineProvider, ColorSchemeScript } from '@mantine/core';
 
 export const metadata = {
   title: 'Auth UI',
@@ -8,12 +8,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <ColorSchemeScript />
+      </head>
       <body style={{ margin: 0 }}>
-        <MantineProvider
-          theme={{ primaryColor: 'blue' }}
-          withGlobalStyles
-          withNormalizeCSS
-        >
+        <MantineProvider theme={{ primaryColor: 'blue' }}>
           {children}
         </MantineProvider>
       </body>

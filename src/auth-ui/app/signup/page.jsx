@@ -12,8 +12,33 @@ import {
 } from '@mantine/core';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
+
+const passwordRegex =
+  /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/;
 
 export default function SignupPage() {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    if (!passwordRegex.test(password)) {
+      setError(
+        'Password must include 1 capital letter, 1 number, and 1 special character'
+      );
+      return;
+    }
+
+    if (password !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setError('');
+    console.log('Signup success ✅');
+  };
+
   return (
     <div
       style={{
@@ -61,10 +86,25 @@ export default function SignupPage() {
             required
           />
 
-          <PasswordInput label="Password" mt="md" required />
-          <PasswordInput label="Confirm password" mt="md" required />
+          <PasswordInput
+            label="Password"
+            mt="md"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            error={error}
+            required
+          />
 
-          <Button fullWidth mt="xl">
+          <PasswordInput
+            label="Confirm password"
+            mt="md"
+            value={confirm}
+            onChange={(e) => setConfirm(e.currentTarget.value)}
+            error={error}
+            required
+          />
+
+          <Button fullWidth mt="xl" onClick={handleSubmit}>
             Submit
           </Button>
 
