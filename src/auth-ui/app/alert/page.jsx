@@ -41,6 +41,9 @@ import {
   IconMapPinFilled,
   IconPhone,
   IconMail,
+  IconDots,
+  IconEdit,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import MainFooter from "../../components/MainFooter";
@@ -59,7 +62,8 @@ const alerts = [
     location: "Mexico/AZ",
     time: "Last year",
     status: "active",
-    imageUrl: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
+    imageUrl:
+      "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
     fullDescription: `Gara, Toyota Corolla car vakugad vusur fiyatgaib vijerghasluq hr ru. Additional details about the vehicle condition, special features, and history. This is a longer description that will require vertical scrolling. More details about the vehicle's history, condition report, and special features.
 
 The vehicle was last serviced at 50,000 miles with full maintenance records available. Includes premium audio system, leather seats, and advanced safety features. GPS tracking was installed but may not be active.
@@ -105,12 +109,14 @@ The owner has provided additional information about custom modifications includi
       "Rear Cross Traffic Alert",
       "Parking Sensors",
     ],
-    lastSeen: "Downtown Area, Main Street near Central Park, intersection of 5th Avenue and Broadway. The vehicle was parked outside the main shopping mall entrance.",
+    lastSeen:
+      "Downtown Area, Main Street near Central Park, intersection of 5th Avenue and Broadway. The vehicle was parked outside the main shopping mall entrance.",
     contact: {
       name: "John Doe",
       phone: "+1 (555) 123-4567",
       email: "report@example.com",
-      additional: "Available for contact Monday-Friday, 9AM-5PM. Please mention case number 5h7 when calling.",
+      additional:
+        "Available for contact Monday-Friday, 9AM-5PM. Please mention case number 5h7 when calling.",
     },
     reportDate: "2023-10-15",
     additionalInfo: {
@@ -132,8 +138,10 @@ The owner has provided additional information about custom modifications includi
     location: "California/LA",
     time: "2 months ago",
     status: "active",
-    imageUrl: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
-    fullDescription: "Santa Cordilla with special features and custom modifications. This vehicle was last seen in the downtown area.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
+    fullDescription:
+      "Santa Cordilla with special features and custom modifications. This vehicle was last seen in the downtown area.",
     features: [
       "Premium Package",
       "Leather Seats",
@@ -158,13 +166,11 @@ The owner has provided additional information about custom modifications includi
     location: "Mexico/AZ",
     time: "Last year",
     status: "resolved",
-    imageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
-    fullDescription: "Black Toyota Corolla with pink accents. Found and returned to owner.",
-    features: [
-      "Custom Paint",
-      "Sport Package",
-      "Premium Sound System",
-    ],
+    imageUrl:
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
+    fullDescription:
+      "Black Toyota Corolla with pink accents. Found and returned to owner.",
+    features: ["Custom Paint", "Sport Package", "Premium Sound System"],
     lastSeen: "Airport Area",
     contact: {
       name: "Robert Smith",
@@ -173,7 +179,7 @@ The owner has provided additional information about custom modifications includi
     },
     reportDate: "2023-09-10",
   },
-  
+
   {
     id: 5,
     code: "6n8",
@@ -183,8 +189,10 @@ The owner has provided additional information about custom modifications includi
     location: "Texas/Dallas",
     time: "1 week ago",
     status: "active",
-    imageUrl: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
-    fullDescription: "Red Ford Mustang with black stripes. High-performance vehicle.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
+    fullDescription:
+      "Red Ford Mustang with black stripes. High-performance vehicle.",
     features: [
       "V8 Engine",
       "Manual Transmission",
@@ -208,8 +216,10 @@ The owner has provided additional information about custom modifications includi
     location: "New York/NYC",
     time: "3 days ago",
     status: "resolved",
-    imageUrl: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
-    fullDescription: "Black BMW X5 SUV with gray interior. Vehicle has been recovered.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
+    fullDescription:
+      "Black BMW X5 SUV with gray interior. Vehicle has been recovered.",
     features: [
       "xDrive AWD",
       "M Sport Package",
@@ -234,25 +244,25 @@ export default function AlertPage() {
   // Freeze background scrolling when popup is open
   useEffect(() => {
     if (selectedAlert) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     }
-    
+
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     };
   }, [selectedAlert]);
 
   const scrollLeft = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -350, behavior: 'smooth' });
+      scrollRef.current.scrollBy({ left: -350, behavior: "smooth" });
     }
   };
 
   const scrollRight = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: 350, behavior: 'smooth' });
+      scrollRef.current.scrollBy({ left: 350, behavior: "smooth" });
     }
   };
 
@@ -270,7 +280,7 @@ export default function AlertPage() {
   };
 
   return (
-    <Box bg="white" style={{ minHeight: "100vh", position: 'relative' }}>
+    <Box bg="white" style={{ minHeight: "100vh", position: "relative" }}>
       {/* Header */}
       <Box
         bg="white"
@@ -394,77 +404,169 @@ export default function AlertPage() {
             <div>
               <Text fw={600}>Alert Notifications</Text>
               <Text size="sm" c="dimmed">
-                You have {alerts.filter(a => a.status === "active").length} active alerts
+                You have {alerts.filter((a) => a.status === "active").length}{" "}
+                active alerts
               </Text>
             </div>
           </Group>
         </Paper>
 
-        <Group justify="space-between" align="center" mb="md">
-          <ActionIcon variant="light" radius="xl" color="blue" size="lg" onClick={scrollLeft}>
-            <IconChevronLeft />
-          </ActionIcon>
-          
-          <Title order={2} style={{ textAlign: 'center' }}>
-            Reported Informations
-          </Title>
-          
-          <ActionIcon variant="light" radius="xl" color="blue" size="lg" onClick={scrollRight}>
-            <IconChevronRight />
-          </ActionIcon>
-        </Group>
+        <Title order={2} style={{ textAlign: "center", marginBottom: 20 }}>
+          Reported Informations
+        </Title>
 
-        <Box style={{ position: 'relative', marginBottom: 40 }}>
+        <Box style={{ position: "relative", marginBottom: 40 }}>
           <ActionIcon
             variant="filled"
             color="gray"
             radius="xl"
             size="xl"
             style={{
-              position: 'absolute',
+              position: "absolute",
               left: -25,
-              top: '50%',
-              transform: 'translateY(-50%)',
+              top: "50%",
+              transform: "translateY(-50%)",
               zIndex: 10,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             }}
             onClick={scrollLeft}
           >
             <IconChevronLeft size={20} />
           </ActionIcon>
 
-          <ScrollArea 
-            w="100%" 
+          <ScrollArea
+            w="100%"
             type="hover"
             viewportRef={scrollRef}
             scrollbarSize={0}
-            styles={{ scrollbar: { display: 'none' } }}
+            styles={{ scrollbar: { display: "none" } }}
           >
             <Group wrap="nowrap" gap="lg" p="md">
               {alerts.map((alert) => (
-                <Card 
-                  key={alert.id} 
-                  withBorder 
-                  shadow="sm" 
-                  radius="md" 
-                  p={0} 
-                  style={{ 
-                    overflow: 'hidden',
+                <Card
+                  key={alert.id}
+                  withBorder
+                  shadow="sm"
+                  radius="md"
+                  p={0}
+                  style={{
+                    overflow: "hidden",
                     minWidth: 320,
                     flexShrink: 0,
-                    border: '1px solid #e0e0e0',
+                    border: "1px solid #e0e0e0",
+                    position: "relative", // Added for absolute positioning
                   }}
                 >
-                  <Box style={{ height: 180, position: 'relative' }}>
+                  {/* Car Image with Overlay Icons */}
+                  <Box style={{ height: 180, position: "relative" }}>
                     <Image
                       src={alert.imageUrl}
                       alt={alert.brand}
                       fill
-                      style={{ objectFit: 'cover' }}
+                      style={{ objectFit: "cover" }}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
+
+                    {/* Overlay Icons Container */}
+                    <Box
+                      style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        right: 12,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        zIndex: 2,
+                      }}
+                    >
+                      {/* Bell Icon - Left side */}
+                      <ActionIcon
+                        variant="filled"
+                        color="white"
+                        size="md"
+                        radius="xl"
+                        style={{
+                          backgroundColor: "rgba(0, 0, 0, 0.4)",
+                          backdropFilter: "blur(4px)",
+                          border: "1px solid rgba(255, 255, 255, 0.2)",
+                        }}
+                        onClick={() => router.push(`/alert-detail/${alert.id}`)} // Will build later
+                      >
+                        <IconBell size={18} />
+                      </ActionIcon>
+
+                      {/* Menu Icon - Right side */}
+                      <Menu
+                        shadow="md"
+                        width={120}
+                        position="bottom-end"
+                        withArrow
+                        arrowPosition="center"
+                        transitionProps={{ transition: "pop-top-right" }}
+                      >
+                        <Menu.Target>
+                          <ActionIcon
+                            variant="filled"
+                            color="white"
+                            size="md"
+                            radius="xl"
+                            style={{
+                              backgroundColor: "rgba(0, 0, 0, 0.4)",
+                              backdropFilter: "blur(4px)",
+                              border: "1px solid rgba(255, 255, 255, 0.2)",
+                            }}
+                          >
+                            <IconDots size={18} />
+                          </ActionIcon>
+                        </Menu.Target>
+
+                        <Menu.Dropdown>
+                          <Menu.Item
+                            leftSection={<IconEdit size={16} />}
+                            onClick={() => {
+                              // Edit functionality
+                              alert(`Edit alert ${alert.code}`);
+                            }}
+                          >
+                            Edit
+                          </Menu.Item>
+                          <Menu.Divider />
+                          <Menu.Item
+                            color="red"
+                            leftSection={<IconTrash size={16} />}
+                            onClick={() => {
+                              // Remove functionality
+                              if (
+                                confirm(
+                                  `Are you sure you want to remove alert ${alert.code}?`,
+                                )
+                              ) {
+                                alert(`Alert ${alert.code} removed`);
+                              }
+                            }}
+                          >
+                            Remove
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </Box>
+
+                    {/* Dark gradient overlay at top for better icon visibility */}
+                    <Box
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: "50px",
+                        background:
+                          "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 100%)",
+                        zIndex: 1,
+                      }}
+                    />
                   </Box>
-                  
+
                   <Box p="lg">
                     <Group justify="space-between" mb="md">
                       <Badge
@@ -523,12 +625,12 @@ export default function AlertPage() {
             radius="xl"
             size="xl"
             style={{
-              position: 'absolute',
+              position: "absolute",
               right: -25,
-              top: '50%',
-              transform: 'translateY(-50%)',
+              top: "50%",
+              transform: "translateY(-50%)",
               zIndex: 10,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             }}
             onClick={scrollRight}
           >
@@ -572,36 +674,36 @@ export default function AlertPage() {
           {/* Overlay */}
           <Box
             style={{
-              position: 'fixed',
+              position: "fixed",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.75)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
               zIndex: 1000,
             }}
             onClick={handleBackgroundClick}
           />
-          
+
           {/* Detail Card Container - FIXED POSITION WITH SCROLL */}
           <Box
             style={{
-              position: 'fixed',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '95%',
-              maxWidth: '900px',
-              height: '90vh', // Fixed height
-              backgroundColor: 'white',
-              borderRadius: '20px',
-              overflow: 'hidden',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "95%",
+              maxWidth: "900px",
+              height: "90vh", // Fixed height
+              backgroundColor: "white",
+              borderRadius: "20px",
+              overflow: "hidden",
+              boxShadow: "0 25px 50px rgba(0, 0, 0, 0.5)",
               zIndex: 1001,
-              display: 'flex',
-              flexDirection: 'column',
+              display: "flex",
+              flexDirection: "column",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -612,7 +714,7 @@ export default function AlertPage() {
               radius="xl"
               size="lg"
               style={{
-                position: 'absolute',
+                position: "absolute",
                 top: 20,
                 right: 20,
                 zIndex: 1002,
@@ -623,18 +725,20 @@ export default function AlertPage() {
             </ActionIcon>
 
             {/* SCROLLABLE CONTENT - THIS IS WHAT SCROLLS */}
-            <Box style={{ 
-              flex: 1, 
-              overflowY: 'auto', // Enables vertical scrolling
-              paddingBottom: '20px', // Space for shadow
-            }}>
+            <Box
+              style={{
+                flex: 1,
+                overflowY: "auto", // Enables vertical scrolling
+                paddingBottom: "20px", // Space for shadow
+              }}
+            >
               {/* Main Image */}
-              <Box style={{ height: 300, position: 'relative' }}>
+              <Box style={{ height: 300, position: "relative" }}>
                 <Image
                   src={selectedAlert.imageUrl}
                   alt={selectedAlert.brand}
                   fill
-                  style={{ objectFit: 'cover' }}
+                  style={{ objectFit: "cover" }}
                   sizes="100vw"
                   priority
                 />
@@ -643,15 +747,26 @@ export default function AlertPage() {
               {/* Content */}
               <Box p="xl">
                 <Group justify="space-between" mb="xl">
-                  <Badge size="xl" color={selectedAlert.status === "active" ? "red" : "green"}>
-                    {selectedAlert.status === "active" ? "ACTIVE ALERT" : "RESOLVED"}
+                  <Badge
+                    size="xl"
+                    color={selectedAlert.status === "active" ? "red" : "green"}
+                  >
+                    {selectedAlert.status === "active"
+                      ? "ACTIVE ALERT"
+                      : "RESOLVED"}
                   </Badge>
-                  <Text fw={800} size="2rem" c="blue.6">{selectedAlert.code}</Text>
+                  <Text fw={800} size="2rem" c="blue.6">
+                    {selectedAlert.code}
+                  </Text>
                 </Group>
 
                 <Box mb="xl">
-                  <Text fw={800} size="2rem" mb="xs">{selectedAlert.brand}</Text>
-                  <Text size="xl" c="dimmed" fw={500}>{selectedAlert.details}</Text>
+                  <Text fw={800} size="2rem" mb="xs">
+                    {selectedAlert.brand}
+                  </Text>
+                  <Text size="xl" c="dimmed" fw={500}>
+                    {selectedAlert.details}
+                  </Text>
                 </Box>
 
                 <Divider mb="xl" />
@@ -660,10 +775,15 @@ export default function AlertPage() {
                 <Box mb="xl">
                   <Group mb="md">
                     <IconInfoCircle size={24} />
-                    <Text fw={700} size="xl">Full Description</Text>
+                    <Text fw={700} size="xl">
+                      Full Description
+                    </Text>
                   </Group>
                   <Paper p="xl" withBorder radius="md" bg="gray.0">
-                    <Text size="lg" style={{ lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                    <Text
+                      size="lg"
+                      style={{ lineHeight: 1.6, whiteSpace: "pre-line" }}
+                    >
                       {selectedAlert.fullDescription}
                     </Text>
                   </Paper>
@@ -671,7 +791,9 @@ export default function AlertPage() {
 
                 {/* Features Grid */}
                 <Box mb="xl">
-                  <Text fw={700} size="xl" mb="lg">Vehicle Features</Text>
+                  <Text fw={700} size="xl" mb="lg">
+                    Vehicle Features
+                  </Text>
                   <SimpleGrid cols={3} spacing="lg">
                     {selectedAlert.features?.map((feature, index) => (
                       <Group key={index} gap="sm">
@@ -685,32 +807,54 @@ export default function AlertPage() {
                 {/* Additional Info */}
                 {selectedAlert.additionalInfo && (
                   <Box mb="xl">
-                    <Text fw={700} size="xl" mb="lg">Technical Specifications</Text>
+                    <Text fw={700} size="xl" mb="lg">
+                      Technical Specifications
+                    </Text>
                     <Paper p="xl" withBorder radius="md">
                       <SimpleGrid cols={2} spacing="lg">
                         <Box>
-                          <Text fw={600} mb="xs">VIN Number</Text>
+                          <Text fw={600} mb="xs">
+                            VIN Number
+                          </Text>
                           <Text>{selectedAlert.additionalInfo.vin}</Text>
                         </Box>
                         <Box>
-                          <Text fw={600} mb="xs">Engine Size</Text>
+                          <Text fw={600} mb="xs">
+                            Engine Size
+                          </Text>
                           <Text>{selectedAlert.additionalInfo.engineSize}</Text>
                         </Box>
                         <Box>
-                          <Text fw={600} mb="xs">Insurance Company</Text>
-                          <Text>{selectedAlert.additionalInfo.insuranceCompany}</Text>
+                          <Text fw={600} mb="xs">
+                            Insurance Company
+                          </Text>
+                          <Text>
+                            {selectedAlert.additionalInfo.insuranceCompany}
+                          </Text>
                         </Box>
                         <Box>
-                          <Text fw={600} mb="xs">Policy Number</Text>
-                          <Text>{selectedAlert.additionalInfo.policyNumber}</Text>
+                          <Text fw={600} mb="xs">
+                            Policy Number
+                          </Text>
+                          <Text>
+                            {selectedAlert.additionalInfo.policyNumber}
+                          </Text>
                         </Box>
                         <Box>
-                          <Text fw={600} mb="xs">Fuel Capacity</Text>
-                          <Text>{selectedAlert.additionalInfo.fuelCapacity}</Text>
+                          <Text fw={600} mb="xs">
+                            Fuel Capacity
+                          </Text>
+                          <Text>
+                            {selectedAlert.additionalInfo.fuelCapacity}
+                          </Text>
                         </Box>
                         <Box>
-                          <Text fw={600} mb="xs">Seating Capacity</Text>
-                          <Text>{selectedAlert.additionalInfo.seatingCapacity}</Text>
+                          <Text fw={600} mb="xs">
+                            Seating Capacity
+                          </Text>
+                          <Text>
+                            {selectedAlert.additionalInfo.seatingCapacity}
+                          </Text>
                         </Box>
                       </SimpleGrid>
                     </Paper>
@@ -722,45 +866,61 @@ export default function AlertPage() {
                   <Paper p="xl" withBorder radius="md">
                     <Group mb="md">
                       <IconMapPinFilled size={24} color="blue" />
-                      <Text fw={700} size="lg">Last Known Location</Text>
+                      <Text fw={700} size="lg">
+                        Last Known Location
+                      </Text>
                     </Group>
                     <Text size="md">{selectedAlert.lastSeen}</Text>
                   </Paper>
                   <Paper p="xl" withBorder radius="md">
                     <Group mb="md">
                       <IconCalendar size={24} color="blue" />
-                      <Text fw={700} size="lg">Report Timeline</Text>
+                      <Text fw={700} size="lg">
+                        Report Timeline
+                      </Text>
                     </Group>
                     <Text size="md">Reported: {selectedAlert.reportDate}</Text>
-                    <Text size="md" mt="sm">Last Updated: Today</Text>
+                    <Text size="md" mt="sm">
+                      Last Updated: Today
+                    </Text>
                   </Paper>
                 </SimpleGrid>
 
                 {/* Contact Information */}
                 <Paper p="xl" withBorder radius="md" bg="blue.0" mb="xl">
-                  <Text fw={700} size="xl" mb="lg">Contact Information</Text>
+                  <Text fw={700} size="xl" mb="lg">
+                    Contact Information
+                  </Text>
                   <Stack gap="xl">
                     <Box>
                       <Group mb="sm">
                         <IconUser size={22} />
-                        <Text fw={600} size="lg">Reported By</Text>
+                        <Text fw={600} size="lg">
+                          Reported By
+                        </Text>
                       </Group>
                       <Text size="md">{selectedAlert.contact.name}</Text>
                       {selectedAlert.contact.additional && (
-                        <Text size="sm" c="dimmed" mt={4}>{selectedAlert.contact.additional}</Text>
+                        <Text size="sm" c="dimmed" mt={4}>
+                          {selectedAlert.contact.additional}
+                        </Text>
                       )}
                     </Box>
                     <Box>
                       <Group mb="sm">
                         <IconPhone size={22} />
-                        <Text fw={600} size="lg">Contact Number</Text>
+                        <Text fw={600} size="lg">
+                          Contact Number
+                        </Text>
                       </Group>
                       <Text size="md">{selectedAlert.contact.phone}</Text>
                     </Box>
                     <Box>
                       <Group mb="sm">
                         <IconMail size={22} />
-                        <Text fw={600} size="lg">Email Address</Text>
+                        <Text fw={600} size="lg">
+                          Email Address
+                        </Text>
                       </Group>
                       <Text size="md">{selectedAlert.contact.email}</Text>
                     </Box>
@@ -769,26 +929,28 @@ export default function AlertPage() {
 
                 {/* Additional Images */}
                 <Box mb="xl">
-                  <Text fw={700} size="xl" mb="lg">Additional Evidence</Text>
+                  <Text fw={700} size="xl" mb="lg">
+                    Additional Evidence
+                  </Text>
                   <Group gap="lg">
                     {[1, 2, 3, 4].map((i) => (
-                      <Box 
-                        key={i} 
-                        style={{ 
-                          width: 150, 
-                          height: 150, 
-                          position: 'relative', 
-                          borderRadius: '12px', 
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          border: '3px solid #e9ecef',
+                      <Box
+                        key={i}
+                        style={{
+                          width: 150,
+                          height: 150,
+                          position: "relative",
+                          borderRadius: "12px",
+                          overflow: "hidden",
+                          cursor: "pointer",
+                          border: "3px solid #e9ecef",
                         }}
                       >
                         <Image
                           src={selectedAlert.imageUrl}
                           alt={`Evidence ${i}`}
                           fill
-                          style={{ objectFit: 'cover' }}
+                          style={{ objectFit: "cover" }}
                         />
                       </Box>
                     ))}
@@ -797,11 +959,15 @@ export default function AlertPage() {
 
                 {/* Vehicle History */}
                 <Paper p="xl" withBorder radius="md" mb="xl">
-                  <Text fw={700} size="xl" mb="lg">Search History</Text>
+                  <Text fw={700} size="xl" mb="lg">
+                    Search History
+                  </Text>
                   <Stack gap="md">
                     <Group justify="apart">
                       <Text fw={600}>Search Radius</Text>
-                      <Badge color="blue" size="lg">50 mile radius</Badge>
+                      <Badge color="blue" size="lg">
+                        50 mile radius
+                      </Badge>
                     </Group>
                     <Group justify="apart">
                       <Text fw={600}>Search Duration</Text>
@@ -817,11 +983,14 @@ export default function AlertPage() {
             </Box>
 
             {/* Fixed Bottom Buttons */}
-            <Box p="xl" style={{ 
-              borderTop: '2px solid #e0e0e0', 
-              background: 'white',
-              flexShrink: 0, // Prevents shrinking
-            }}>
+            <Box
+              p="xl"
+              style={{
+                borderTop: "2px solid #e0e0e0",
+                background: "white",
+                flexShrink: 0, // Prevents shrinking
+              }}
+            >
               <Group justify="space-between">
                 <Button
                   size="lg"
@@ -839,7 +1008,7 @@ export default function AlertPage() {
                     variant="outline"
                     color="blue"
                     leftSection={<IconBell size={20} />}
-                    onClick={() => alert('Notifications sent!')}
+                    onClick={() => alert("Notifications sent!")}
                     radius="md"
                   >
                     Notify Me
@@ -849,7 +1018,7 @@ export default function AlertPage() {
                     color="blue"
                     leftSection={<IconCheck size={20} />}
                     onClick={() => {
-                      alert('Marked as reviewed!');
+                      alert("Marked as reviewed!");
                       handleCloseDetail();
                     }}
                     radius="md"
