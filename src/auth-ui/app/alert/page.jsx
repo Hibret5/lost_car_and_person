@@ -1,4 +1,5 @@
 "use client";
+import { notifications } from "@mantine/notifications";
 
 import {
   Box,
@@ -241,6 +242,192 @@ export default function AlertPage() {
   const scrollRef = useRef(null);
   const [selectedAlert, setSelectedAlert] = useState(null);
 
+  const [alerts, setAlerts] = useState([
+    {
+      id: 1,
+      code: "5h7",
+      type: "car",
+      brand: "Toyota Corolla",
+      details: "Diesel equipped",
+      location: "Mexico/AZ",
+      time: "Last year",
+      status: "active",
+      imageUrl:
+        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
+      fullDescription: `Gara, Toyota Corolla car vakugad vusur fiyatgaib vijerghasluq hr ru. Additional details about the vehicle condition, special features, and history. This is a longer description that will require vertical scrolling. More details about the vehicle's history, condition report, and special features.
+
+The vehicle was last serviced at 50,000 miles with full maintenance records available. Includes premium audio system, leather seats, and advanced safety features. GPS tracking was installed but may not be active.
+
+Vehicle identification number: JTDBU4EE7AJ123456
+Engine serial number: 2AZ123456789
+Transmission type: Automatic 6-speed
+Fuel type: Diesel
+Color: Silver Metallic
+Year: 2018
+Mileage: 65,432
+Interior color: Black
+
+Additional Notes:
+The vehicle was last seen with minor damage to the rear bumper. The license plate frame is broken on the right side. There is a distinctive sticker on the rear windshield depicting a mountain landscape.
+
+Recent Activity:
+- Last serviced: 2023-08-15
+- Insurance valid until: 2024-06-30
+- Registration expires: 2024-12-31
+- Reported stolen: 2023-10-15
+
+The owner has provided additional information about custom modifications including aftermarket wheels and a custom exhaust system. The vehicle may be difficult to identify due to these modifications.`,
+      features: [
+        "Diesel Engine",
+        "Automatic Transmission",
+        "Air Conditioning",
+        "Power Windows",
+        "Alloy Wheels",
+        "Bluetooth Connectivity",
+        "Leather Seats",
+        "Sunroof",
+        "Navigation System",
+        "Backup Camera",
+        "Heated Seats",
+        "Premium Audio System",
+        "Keyless Entry",
+        "Push Button Start",
+        "Lane Departure Warning",
+        "Automatic Emergency Braking",
+        "Adaptive Cruise Control",
+        "Blind Spot Monitoring",
+        "Rear Cross Traffic Alert",
+        "Parking Sensors",
+      ],
+      lastSeen:
+        "Downtown Area, Main Street near Central Park, intersection of 5th Avenue and Broadway. The vehicle was parked outside the main shopping mall entrance.",
+      contact: {
+        name: "John Doe",
+        phone: "+1 (555) 123-4567",
+        email: "report@example.com",
+        additional:
+          "Available for contact Monday-Friday, 9AM-5PM. Please mention case number 5h7 when calling.",
+      },
+      reportDate: "2023-10-15",
+      additionalInfo: {
+        insuranceCompany: "StateFarm Insurance",
+        policyNumber: "SF-789456123",
+        vin: "JTDBU4EE7AJ123456",
+        engineSize: "2.0L",
+        fuelCapacity: "13.2 gallons",
+        seatingCapacity: "5",
+        weight: "2,900 lbs",
+      }, // ... rest of your alert data
+    },
+    {
+      id: 2,
+      code: "8k3",
+      type: "car",
+      brand: "Santa Cordilla",
+      details: "PARC AR: 761",
+      location: "California/LA",
+      time: "2 months ago",
+      status: "active",
+      imageUrl:
+        "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
+      // ... rest of alert 2 data
+      fullDescription:
+        "Santa Cordilla with special features and custom modifications. This vehicle was last seen in the downtown area.",
+      features: [
+        "Premium Package",
+        "Leather Seats",
+        "Navigation System",
+        "Sunroof",
+        "Backup Camera",
+      ],
+      lastSeen: "Main Boulevard",
+      contact: {
+        name: "Maria Garcia",
+        phone: "+1 (555) 987-6543",
+        email: "maria@example.com",
+      },
+      reportDate: "2023-11-20",
+    },
+    {
+      id: 3,
+      code: "2j9",
+      type: "car",
+      brand: "Toyota Corolla",
+      details: "Blk., Pink A/C 615",
+      location: "Mexico/AZ",
+      time: "Last year",
+      status: "resolved",
+      imageUrl:
+        "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
+      fullDescription:
+        "Black Toyota Corolla with pink accents. Found and returned to owner.",
+      features: ["Custom Paint", "Sport Package", "Premium Sound System"],
+      lastSeen: "Airport Area",
+      contact: {
+        name: "Robert Smith",
+        phone: "+1 (555) 456-7890",
+        email: "robert@example.com",
+      },
+      reportDate: "2023-09-10",
+    },
+
+    {
+      id: 5,
+      code: "6n8",
+      type: "car",
+      brand: "Ford Mustang",
+      details: "Red, Black A/C 321",
+      location: "Texas/Dallas",
+      time: "1 week ago",
+      status: "active",
+      imageUrl:
+        "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
+      fullDescription:
+        "Red Ford Mustang with black stripes. High-performance vehicle.",
+      features: [
+        "V8 Engine",
+        "Manual Transmission",
+        "Performance Package",
+        "Track Mode",
+      ],
+      lastSeen: "Highway 75",
+      contact: {
+        name: "Mike Johnson",
+        phone: "+1 (555) 876-5432",
+        email: "mike@example.com",
+      },
+      reportDate: "2024-01-15",
+    },
+    {
+      id: 6,
+      code: "9p2",
+      type: "car",
+      brand: "BMW X5",
+      details: "Black, Gray A/C 654",
+      location: "New York/NYC",
+      time: "3 days ago",
+      status: "resolved",
+      imageUrl:
+        "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
+      fullDescription:
+        "Black BMW X5 SUV with gray interior. Vehicle has been recovered.",
+      features: [
+        "xDrive AWD",
+        "M Sport Package",
+        "Heated Seats",
+        "Panoramic Sunroof",
+      ],
+      lastSeen: "Financial District",
+      contact: {
+        name: "David Brown",
+        phone: "+1 (555) 345-6789",
+        email: "david@example.com",
+      },
+      reportDate: "2024-01-10",
+    },
+    // ... all your other alerts
+  ]);
+
   // Freeze background scrolling when popup is open
   useEffect(() => {
     if (selectedAlert) {
@@ -277,6 +464,43 @@ export default function AlertPage() {
   const handleBackgroundClick = (e) => {
     e.stopPropagation();
     handleCloseDetail();
+  };
+
+  // Add this function after your existing functions
+  const handleDeleteAlert = (alertId, alertCode) => {
+    // Get the alert to be deleted
+    const alertToDelete = alerts.find((alert) => alert.id === alertId);
+
+    // Show custom confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to delete alert "${alertCode}"?\n\n` +
+        `Brand: ${alertToDelete?.brand}\n` +
+        `Location: ${alertToDelete?.location}\n\n` +
+        `This action cannot be undone!`,
+    );
+
+    if (confirmed) {
+      // Remove the alert from the array
+      setAlerts((prevAlerts) =>
+        prevAlerts.filter((alert) => alert.id !== alertId),
+      );
+
+      // Close detail popup if open
+      if (selectedAlert && selectedAlert.id === alertId) {
+        setSelectedAlert(null);
+      }
+
+      // Show success notification
+      notifications.show({
+        title: "Alert Deleted",
+        message: `Alert "${alertCode}" has been successfully deleted.`,
+        color: "red",
+        icon: <IconTrash size={16} />,
+      });
+
+      // Optional: Update localStorage or API call here
+      // saveToLocalStorage(alerts);
+    }
   };
 
   return (
@@ -535,18 +759,11 @@ export default function AlertPage() {
                           <Menu.Item
                             color="red"
                             leftSection={<IconTrash size={16} />}
-                            onClick={() => {
-                              // Remove functionality
-                              if (
-                                confirm(
-                                  `Are you sure you want to remove alert ${alert.code}?`,
-                                )
-                              ) {
-                                alert(`Alert ${alert.code} removed`);
-                              }
-                            }}
+                            onClick={() =>
+                              handleDeleteAlert(alert.id, alert.code)
+                            }
                           >
-                            Remove
+                            Delete
                           </Menu.Item>
                         </Menu.Dropdown>
                       </Menu>
