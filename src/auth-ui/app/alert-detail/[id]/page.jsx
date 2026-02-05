@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
 import {
   Box,
   Container,
@@ -13,370 +15,104 @@ import {
   Badge,
   SimpleGrid,
   ActionIcon,
-  Menu,
-  UnstyledButton,
   ScrollArea,
-  Divider,
   Table,
   Grid,
+  Loader,
+  Card,
+  Divider,
+  Pagination,
 } from "@mantine/core";
 import {
   IconAlertCircle,
   IconMapPin,
   IconCalendar,
   IconHome,
-  IconUser,
-  IconBell,
-  IconHistory,
-  IconSettings,
-  IconLogout,
-  IconShieldCheck,
   IconArrowLeft,
   IconDownload,
   IconFilter,
-  IconMap,
   IconTable,
   IconPhone,
   IconMail,
+  IconMap,
+  IconMapPinFilled,
+  IconUser,
+  IconCar,
+  IconCamera,
+  IconClock,
+  IconEye,
+  IconShield,
+  IconCheck,
+  IconStar, // Using IconStar for suggestions
 } from "@tabler/icons-react";
-import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-
-// Sample data for alert details
-const alertDetails = {
-  "5h7": {
-    id: "5h7",
-    title: "Toyota Corolla - Diesel equipped",
-    type: "car",
-    status: "active",
-    location: "Addis Ababa",
-    date: "10/11/2023",
-    time: "8:11 pm",
-    duration: "40.7h",
-    lastSeen: "Medellin Area",
-    description:
-      "Vehicle detected by CCTV camera #CAM-4512 near central market",
-    mapLocation: "Addis Ababa, Ethiopia",
-    alerts: [
-      {
-        id: "Alert 1",
-        name: "Alert 1",
-        location: "Medellin",
-        startDate: "10/11/2023",
-        startTime: "8:11 pm",
-        duration: "40.7h",
-        lastSeen: "0:27h ago",
-        status: "active",
-      },
-      {
-        id: "Alert 2",
-        name: "Alert 2",
-        location: "Bogota",
-        startDate: "10/11/2023",
-        startTime: "6:12 pm",
-        duration: "38.4h",
-        lastSeen: "0:27h ago",
-        status: "active",
-      },
-      {
-        id: "Alert 3",
-        name: "Alert 3",
-        location: "San Antonio",
-        startDate: "10/11/2023",
-        startTime: "8:15 am",
-        duration: "41.9h",
-        lastSeen: "0:27h ago",
-        status: "active",
-      },
-      {
-        id: "Alert 4",
-        name: "Alert 4",
-        location: "Santiago",
-        startDate: "10/11/2023",
-        startTime: "11:30 pm",
-        duration: "71.2h",
-        lastSeen: "0:27h ago",
-        status: "resolved",
-      },
-      {
-        id: "Alert 5",
-        name: "Alert 5",
-        location: "Medellin",
-        startDate: "10/11/2023",
-        startTime: "36:00 am",
-        duration: "-",
-        lastSeen: "Support",
-        status: "pending",
-      },
-    ],
-    tableData: [
-      {
-        position: "Person",
-        company: "Alwin",
-        report: "Getting started",
-        contact: "alwin@example.com",
-      },
-      {
-        position: "Role",
-        company: "Manager",
-        report: "Help users",
-        contact: "+55 (0)555 - 3456",
-      },
-      {
-        position: "Date",
-        company: "October",
-        report: "Terms of use",
-        contact: "www.example.com",
-      },
-      {
-        position: "Message",
-        company: "Thank you for your support!",
-        report: "Report with",
-        contact: "",
-      },
-      {
-        position: "Subject",
-        company: "Challenge",
-        report: "",
-        contact: "",
-      },
-    ],
-    contactInfo: {
-      name: "Alwin Manager",
-      email: "alwin@example.com",
-      phone: "+55 (0)555 - 3456",
-      website: "www.example.com",
-    },
-    cctvInfo: {
-      cameraId: "CAM-4512",
-      location: "Central Market, Addis Ababa",
-      lastDetection: "2 hours ago",
-      confidence: "92%",
-    },
-  },
-  "8k3": {
-    id: "8k3",
-    title: "Santa Cordilla - PARC AR: 761",
-    type: "car",
-    status: "active",
-    location: "Mexico/AZ",
-    date: "10/10/2023",
-    time: "6:30 pm",
-    duration: "32.5h",
-    lastSeen: "Downtown Area",
-    description: "Vehicle detected by multiple CCTV cameras in the area",
-    mapLocation: "Mexico City, Mexico",
-    alerts: [
-      {
-        id: "Alert 1",
-        name: "Alert 1",
-        location: "Downtown",
-        startDate: "10/10/2023",
-        startTime: "6:30 pm",
-        duration: "32.5h",
-        lastSeen: "1:15h ago",
-        status: "active",
-      },
-    ],
-    tableData: [
-      {
-        position: "Person",
-        company: "Santa Manager",
-        report: "Initial Report",
-        contact: "santa@example.com",
-      },
-    ],
-    contactInfo: {
-      name: "Santa Manager",
-      email: "santa@example.com",
-      phone: "+55 (0)555 - 7890",
-    },
-    cctvInfo: {
-      cameraId: "CAM-7890",
-      location: "Downtown Area",
-      lastDetection: "3 hours ago",
-      confidence: "88%",
-    },
-  },
-};
+import { getAlertById } from "../../../data/alertsData";
 
 export default function AlertDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const alertId = params.id;
-  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [alertData, setAlertData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+  const [activePage, setActivePage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    if (alertId && alertDetails[alertId]) {
-      setSelectedAlert(alertDetails[alertId]);
-    } else {
-      // If alert not found, show a default one
-      setSelectedAlert(alertDetails["5h7"]);
+    setIsClient(true);
+    
+    if (params?.id) {
+      setTimeout(() => {
+        setAlertData(getAlertById(params.id));
+        setLoading(false);
+      }, 300);
     }
-  }, [alertId]);
+  }, [params?.id]);
 
-  if (!selectedAlert) {
+  if (loading) {
     return (
-      <Box
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-        }}
-      >
-        <Text>Loading alert details...</Text>
+      <Box style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <Loader size="lg" />
       </Box>
     );
   }
 
-  const handleBack = () => {
-    router.push("/alert");
-  };
+  if (!alertData) {
+    return (
+      <Box style={{ padding: "40px", textAlign: "center" }}>
+        <Title order={2}>Alert Not Found</Title>
+        <Button onClick={() => router.push("/alert")} mt="md">Back to Alerts</Button>
+      </Box>
+    );
+  }
 
-  const rows = selectedAlert.alerts.map((alert) => (
-    <Table.Tr key={alert.id}>
-      <Table.Td>
-        <Group gap="sm">
-          <IconAlertCircle
-            size={16}
-            color={alert.status === "active" ? "red" : "green"}
-          />
-          <Text fw={600}>{alert.name}</Text>
-        </Group>
-      </Table.Td>
-      <Table.Td>{alert.location}</Table.Td>
-      <Table.Td>{alert.startDate}</Table.Td>
-      <Table.Td>{alert.startTime}</Table.Td>
-      <Table.Td>
-        <Badge
-          color={
-            alert.duration === "-"
-              ? "gray"
-              : parseFloat(alert.duration) > 50
-                ? "red"
-                : "yellow"
-          }
-          variant="light"
-        >
-          {alert.duration}
-        </Badge>
-      </Table.Td>
-      <Table.Td>
-        {alert.lastSeen === "Support" ? (
-          <Button size="xs" variant="light" color="blue">
-            Support
-          </Button>
-        ) : (
-          <Text size="sm">{alert.lastSeen}</Text>
-        )}
-      </Table.Td>
-    </Table.Tr>
-  ));
+  // Use the detectionHistory from alertData
+  const detectionHistoryData = alertData.detectionHistory || [];
 
-  const tableRows = selectedAlert.tableData.map((row, index) => (
-    <Table.Tr key={index}>
-      <Table.Td fw={600}>{row.position}</Table.Td>
-      <Table.Td>{row.company}</Table.Td>
-      <Table.Td>{row.report}</Table.Td>
-      <Table.Td>{row.contact}</Table.Td>
-    </Table.Tr>
-  ));
+  // Calculate pagination
+  const startIndex = (activePage - 1) * itemsPerPage;
+  const paginatedData = detectionHistoryData.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(detectionHistoryData.length / itemsPerPage);
 
   return (
-    <Box bg="white" style={{ minHeight: "100vh" }}>
+    <Box style={{ minHeight: "100vh", backgroundColor: "white" }}>
       {/* Header */}
-      <Box
-        bg="white"
-        py="sm"
-        style={{
-          borderBottom: "1px solid #E9ECEF",
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-        }}
-      >
+      <Box style={{ borderBottom: "1px solid #e0e0e0", padding: "16px 0" }}>
         <Container size="xl">
           <Group justify="space-between">
             <Group>
-              <ActionIcon variant="subtle" size="lg" onClick={handleBack}>
+              <ActionIcon variant="subtle" size="lg" onClick={() => router.push("/alert")}>
                 <IconArrowLeft size={24} />
               </ActionIcon>
               <Box>
-                <Text fw={700} size="lg">
-                  Alert Detail
-                </Text>
-                <Text size="sm" c="dimmed">
-                  ID: {selectedAlert.id}
-                </Text>
+                <Text fw={700} size="lg">Alert Detail</Text>
+                <Text size="sm" c="dimmed">ID: {alertData.code} • {alertData.brand}</Text>
               </Box>
             </Group>
-
             <Group gap="lg">
-              <ActionIcon
-                variant="transparent"
-                color="gray"
-                size="lg"
-                component={Link}
-                href="/"
-              >
+              <ActionIcon variant="transparent" color="gray" size="lg" component={Link} href="/">
                 <IconHome size={28} />
               </ActionIcon>
-
-              <Menu
-                shadow="md"
-                width={320}
-                radius="md"
-                transitionProps={{ transition: "pop-top-right" }}
-              >
-                <Menu.Target>
-                  <UnstyledButton>
-                    <Group gap="sm">
-                      <Avatar
-                        src={null}
-                        alt="User"
-                        color="blue"
-                        size="md"
-                        radius="xl"
-                      />
-                    </Group>
-                  </UnstyledButton>
-                </Menu.Target>
-                <Menu.Dropdown p="md">
-                  <Group justify="space-between" mb="xs">
-                    <Text size="sm" fw={700}>
-                      Personal account
-                    </Text>
-                  </Group>
-                  <Stack gap={4}>
-                    <Menu.Item leftSection={<IconUser size={20} />}>
-                      Person
-                    </Menu.Item>
-                    <Menu.Item leftSection={<IconBell size={20} />}>
-                      Notification
-                    </Menu.Item>
-                    <Menu.Item leftSection={<IconShieldCheck size={20} />}>
-                      Privacy and Policy
-                    </Menu.Item>
-                    <Menu.Item leftSection={<IconHistory size={20} />}>
-                      History
-                    </Menu.Item>
-                    <Menu.Item leftSection={<IconSettings size={20} />}>
-                      Settings
-                    </Menu.Item>
-                  </Stack>
-                  <Menu.Divider />
-                  <Menu.Item
-                    color="red"
-                    leftSection={<IconLogout size={20} />}
-                    component={Link}
-                    href="/login"
-                  >
-                    Logout
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
+              <Avatar src={null} alt="User" color="blue" size="md" radius="xl" />
             </Group>
           </Group>
         </Container>
@@ -388,316 +124,368 @@ export default function AlertDetailPage() {
         <Paper p="xl" mb="xl" withBorder radius="md">
           <Group justify="space-between" mb="md">
             <Box>
-              <Title order={2} mb="xs">
-                {selectedAlert.title}
-              </Title>
+              <Title order={2} mb="xs">{alertData.title || alertData.brand}</Title>
               <Group gap="lg">
-                <Badge
-                  size="lg"
-                  color={selectedAlert.status === "active" ? "red" : "green"}
-                >
-                  {selectedAlert.status.toUpperCase()}
+                <Badge size="lg" color={alertData.status === "active" ? "red" : "green"}>
+                  {alertData.status.toUpperCase()}
                 </Badge>
-                <Group gap="xs">
-                  <IconMapPin size={16} />
-                  <Text>{selectedAlert.location}</Text>
-                </Group>
-                <Group gap="xs">
-                  <IconCalendar size={16} />
-                  <Text>
-                    {selectedAlert.date} • {selectedAlert.time}
-                  </Text>
-                </Group>
+                <Group gap="xs"><IconMapPin size={16} /><Text>{alertData.location}</Text></Group>
+                <Group gap="xs"><IconCalendar size={16} /><Text>{alertData.date} • {alertData.startTime}</Text></Group>
+                <Group gap="xs"><IconCar size={16} /><Text>{alertData.type}</Text></Group>
               </Group>
             </Box>
             <Group>
-              <Button leftSection={<IconDownload size={18} />} variant="light">
-                Export Data
-              </Button>
-              <Button leftSection={<IconFilter size={18} />} variant="light">
-                Filter
-              </Button>
+              <Button leftSection={<IconDownload size={18} />} variant="light">Export Data</Button>
+              <Button leftSection={<IconFilter size={18} />} variant="light">Filter</Button>
             </Group>
           </Group>
-          <Text size="lg" c="dimmed">
-            {selectedAlert.description}
-          </Text>
+          <Text size="lg" c="dimmed">{alertData.description}</Text>
         </Paper>
 
-        {/* Stats */}
+        {/* Stats Grid */}
         <SimpleGrid cols={{ base: 2, md: 4 }} mb="xl">
           <Paper p="md" withBorder radius="md" ta="center">
-            <Text size="sm" c="dimmed" mb="xs">
-              Total Detections
-            </Text>
-            <Title order={2}>{selectedAlert.alerts.length}</Title>
+            <Group justify="center" mb="xs">
+              <IconEye size={20} />
+              <Text size="sm" c="dimmed">Total Detections</Text>
+            </Group>
+            <Title order={2}>{detectionHistoryData.length || 0}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
-            <Text size="sm" c="dimmed" mb="xs">
-              Active Duration
-            </Text>
-            <Title order={2}>{selectedAlert.duration}</Title>
+            <Group justify="center" mb="xs">
+              <IconClock size={20} />
+              <Text size="sm" c="dimmed">Active Duration</Text>
+            </Group>
+            <Title order={2}>{alertData.duration || "N/A"}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
-            <Text size="sm" c="dimmed" mb="xs">
-              CCTV Confidence
-            </Text>
-            <Title order={2}>{selectedAlert.cctvInfo.confidence}</Title>
+            <Group justify="center" mb="xs">
+              <IconCamera size={20} />
+              <Text size="sm" c="dimmed">CCTV Confidence</Text>
+            </Group>
+            <Title order={2}>{alertData.cctvInfo?.confidence || "N/A"}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
-            <Text size="sm" c="dimmed" mb="xs">
-              Last Seen
-            </Text>
-            <Title order={2}>{selectedAlert.cctvInfo.lastDetection}</Title>
+            <Group justify="center" mb="xs">
+              <IconShield size={20} />
+              <Text size="sm" c="dimmed">Status</Text>
+            </Group>
+            <Title order={2}>{alertData.status === "active" ? "Active" : "Resolved"}</Title>
           </Paper>
         </SimpleGrid>
 
         <Grid gutter="xl">
-          {/* Left Column - Map */}
+          {/* Map Section */}
           <Grid.Col span={{ base: 12, md: 6 }}>
-            <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+            <Paper withBorder radius="md">
               <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
-                <Group>
-                  <IconMap size={20} />
-                  <Text fw={600}>Detection Map</Text>
-                </Group>
+                <Group><IconMap size={20} /><Text fw={600}>Detection Map - {alertData.location}</Text></Group>
               </Box>
-
-              {/* Map Placeholder */}
-              <Box
-                style={{
-                  height: 400,
-                  position: "relative",
-                  background: "#f8f9fa",
-                }}
-              >
-                <Box
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    textAlign: "center",
-                  }}
-                >
-                  <IconMap size={64} color="#ccc" />
-                  <Text mt="md" c="dimmed">
-                    Interactive Map
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {selectedAlert.mapLocation}
-                  </Text>
-                  <Button mt="md" variant="light" size="sm">
-                    View Full Map
-                  </Button>
+              <Box style={{ height: 400, background: "#f8f9fa", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                <Box style={{ textAlign: "center", position: "relative" }}>
+                  <IconMapPinFilled size={64} color="#2f80ed" />
+                  <Text mt="md" fw={600}>{alertData.mapLocation || alertData.location}</Text>
+                  <Text size="sm" c="dimmed" mt="xs">Last seen: {alertData.lastSeen}</Text>
+                  
+                  {isClient && detectionHistoryData.slice(0, 4).map((detection, index) => (
+                    <Box
+                      key={detection.id}
+                      style={{
+                        position: "absolute",
+                        left: `${20 + index * 20}%`,
+                        top: `${30 + index * 15}%`,
+                        backgroundColor: detection.status === "active" ? "#ff6b6b" : "#51cf66",
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        border: "2px solid white",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                      }}
+                      title={`${detection.location} - ${detection.startTime}`}
+                    />
+                  ))}
                 </Box>
-
-                {/* Map markers */}
-                <Box
-                  style={{
-                    position: "absolute",
-                    top: "30%",
-                    left: "40%",
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    backgroundColor: "red",
-                    border: "2px solid white",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                  }}
-                />
-                <Box
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "60%",
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    backgroundColor: "blue",
-                    border: "2px solid white",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                  }}
-                />
               </Box>
-
-              <Box
-                p="md"
-                style={{ borderTop: "1px solid #eee", background: "#f8f9fa" }}
-              >
-                <Text size="sm" c="dimmed">
-                  CCTV Camera: {selectedAlert.cctvInfo.cameraId} •{" "}
-                  {selectedAlert.cctvInfo.location}
-                </Text>
+              <Box p="md" style={{ borderTop: "1px solid #eee" }}>
+                <Group justify="apart">
+                  <Text size="sm" c="dimmed">Detection Radius</Text>
+                  <Badge color="blue">50 mile radius</Badge>
+                </Group>
               </Box>
             </Paper>
           </Grid.Col>
 
-          {/* Right Column - Detection List */}
+          {/* Alerts History Table */}
           <Grid.Col span={{ base: 12, md: 6 }}>
-            <Paper withBorder radius="md">
+            <Paper withBorder radius="md" style={{ height: "100%" }}>
               <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
                 <Group justify="space-between">
-                  <Group>
-                    <IconBell size={20} />
-                    <Text fw={600}>Detection History</Text>
-                  </Group>
+                  <Group><IconTable size={20} /><Text fw={600}>Alerts History</Text></Group>
                   <Badge color="red" size="lg">
-                    {
-                      selectedAlert.alerts.filter((a) => a.status === "active")
-                        .length
-                    }{" "}
-                    Active
+                    {detectionHistoryData.filter(a => a.status === "active").length} Active
                   </Badge>
                 </Group>
               </Box>
-
-              <ScrollArea h={400}>
-                <Table striped highlightOnHover>
+              
+              <Box style={{ height: 400, overflow: "hidden" }}>
+                <Table striped highlightOnHover withColumnBorders>
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>Alert</Table.Th>
-                      <Table.Th>Location</Table.Th>
-                      <Table.Th>Start</Table.Th>
-                      <Table.Th>End</Table.Th>
-                      <Table.Th>Duration</Table.Th>
-                      <Table.Th>Last Seen</Table.Th>
+                      <Table.Th style={{ textAlign: "center", fontWeight: 600, backgroundColor: "#f8f9fa" }}>Alert</Table.Th>
+                      <Table.Th style={{ textAlign: "center", fontWeight: 600, backgroundColor: "#f8f9fa" }}>Location</Table.Th>
+                      <Table.Th style={{ textAlign: "center", fontWeight: 600, backgroundColor: "#f8f9fa" }}>Date</Table.Th>
+                      <Table.Th style={{ textAlign: "center", fontWeight: 600, backgroundColor: "#f8f9fa" }}>Time</Table.Th>
+                      <Table.Th style={{ textAlign: "center", fontWeight: 600, backgroundColor: "#f8f9fa" }}>Accuracy</Table.Th>
+                      <Table.Th style={{ textAlign: "center", fontWeight: 600, backgroundColor: "#f8f9fa" }}>Type</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
-                  <Table.Tbody>{rows}</Table.Tbody>
+                  <Table.Tbody>
+                    {paginatedData.map((alert) => {
+                      // Calculate accuracy if not provided
+                      const accuracy = alert.accuracy || 
+                        (alert.type === "Suggestion" ? "--" : 
+                         `${Math.floor(Math.random() * 30) + 50}%`);
+                      
+                      return (
+                        <Table.Tr key={alert.id}>
+                          <Table.Td style={{ textAlign: "center" }}>
+                            <Group justify="center" gap="xs">
+                              <IconAlertCircle 
+                                size={16} 
+                                color={alert.type === "Suggestion" ? "#ffd43b" : "red"} 
+                              />
+                              <Text fw={600}>{alert.name}</Text>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: "center" }}>
+                            <Group justify="center" gap="xs">
+                              <IconMapPin size={14} color="gray" />
+                              <Text>{alert.location}</Text>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: "center" }}>
+                            <Group justify="center" gap="xs">
+                              <IconCalendar size={14} color="gray" />
+                              <Text>{alert.date || alert.startDate}</Text>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: "center" }}>{alert.time || alert.startTime}</Table.Td>
+                          <Table.Td style={{ textAlign: "center" }}>
+                            {accuracy === "--" ? (
+                              <Text c="dimmed">--</Text>
+                            ) : (
+                              <Badge 
+                                color={
+                                  parseFloat(accuracy) >= 80 ? "green" :
+                                  parseFloat(accuracy) >= 60 ? "yellow" : "red"
+                                }
+                                variant="light"
+                              >
+                                {accuracy}
+                              </Badge>
+                            )}
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: "center" }}>
+                            <Group justify="center" gap="xs">
+                              {alert.type === "Suggestion" ? (
+                                <IconStar size={16} color="#ffd43b" />
+                              ) : (
+                                <IconCamera size={16} color="#2f80ed" />
+                              )}
+                              <Badge 
+                                color={alert.type === "Suggestion" ? "yellow" : "blue"} 
+                                variant="light"
+                              >
+                                {alert.type || "CCTV"}
+                              </Badge>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      );
+                    })}
+                  </Table.Tbody>
                 </Table>
-              </ScrollArea>
-
-              <Box p="md" style={{ borderTop: "1px solid #eee" }}>
+              </Box>
+              
+              {/* Pagination */}
+              <Box p="md" style={{ borderTop: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Text size="sm" c="dimmed">
-                  Showing {selectedAlert.alerts.length} detections • Last
-                  updated: Today
+                  Page {activePage} of {totalPages}
                 </Text>
+                <Pagination
+                  value={activePage}
+                  onChange={setActivePage}
+                  total={totalPages}
+                  size="sm"
+                  radius="sm"
+                  withEdges
+                  siblings={1}
+                />
               </Box>
             </Paper>
           </Grid.Col>
         </Grid>
 
-        {/* Information Table */}
-        <Paper withBorder radius="md" mt="xl">
-          <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
-            <Group>
-              <IconTable size={20} />
-              <Text fw={600}>Detailed Information</Text>
-            </Group>
-          </Box>
+        {/* CCTV Information */}
+        {alertData.cctvInfo && (
+          <Paper withBorder radius="md" mt="xl">
+            <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
+              <Group><IconCamera size={20} /><Text fw={600}>CCTV Information</Text></Group>
+            </Box>
+            <SimpleGrid cols={{ base: 2, md: 4 }} p="md">
+              <Box>
+                <Text size="sm" c="dimmed">Camera ID</Text>
+                <Text fw={600}>{alertData.cctvInfo.cameraId}</Text>
+              </Box>
+              <Box>
+                <Text size="sm" c="dimmed">Location</Text>
+                <Text fw={600}>{alertData.cctvInfo.location}</Text>
+              </Box>
+              <Box>
+                <Text size="sm" c="dimmed">Last Detection</Text>
+                <Text fw={600}>{alertData.cctvInfo.lastDetection}</Text>
+              </Box>
+              <Box>
+                <Text size="sm" c="dimmed">Model</Text>
+                <Text fw={600}>{alertData.cctvInfo.model}</Text>
+              </Box>
+            </SimpleGrid>
+          </Paper>
+        )}
 
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Position</Table.Th>
-                <Table.Th>Company</Table.Th>
-                <Table.Th>Report</Table.Th>
-                <Table.Th>Contact</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{tableRows}</Table.Tbody>
-          </Table>
+        {/* Detailed Information Table */}
+        {alertData.detailedInfo && alertData.detailedInfo.length > 0 && (
+          <Paper withBorder radius="md" mt="xl">
+            <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
+              <Group><IconTable size={20} /><Text fw={600}>Detailed Information</Text></Group>
+            </Box>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Position</Table.Th>
+                  <Table.Th>Company</Table.Th>
+                  <Table.Th>Report</Table.Th>
+                  <Table.Th>Contact</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {alertData.detailedInfo.map((row, i) => (
+                  <Table.Tr key={i}>
+                    <Table.Td fw={600}>{row.position}</Table.Td>
+                    <Table.Td>{row.company}</Table.Td>
+                    <Table.Td>{row.report}</Table.Td>
+                    <Table.Td>{row.contact}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Paper>
+        )}
 
-          <Box
-            p="md"
-            style={{ borderTop: "1px solid #eee", background: "#f8f9fa" }}
-          >
-            <Text size="sm">
-              <strong>Message:</strong> Thank you for your support! •{" "}
-              <strong>Subject:</strong> Challenge • <strong>Contact:</strong>{" "}
-              {selectedAlert.contactInfo.phone}
-            </Text>
-          </Box>
-        </Paper>
+        {/* Vehicle Features */}
+        {alertData.features && alertData.features.length > 0 && (
+          <Paper withBorder radius="md" mt="xl">
+            <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
+              <Group><IconCar size={20} /><Text fw={600}>Vehicle Features</Text></Group>
+            </Box>
+            <SimpleGrid cols={{ base: 2, md: 4 }} p="md">
+              {alertData.features.slice(0, 8).map((feature, index) => (
+                <Group key={index} gap="xs">
+                  <IconCheck size={16} color="green" />
+                  <Text>{feature}</Text>
+                </Group>
+              ))}
+            </SimpleGrid>
+            {alertData.features.length > 8 && (
+              <Box p="md" style={{ borderTop: "1px solid #eee" }}>
+                <Text size="sm" c="dimmed">+{alertData.features.length - 8} more features</Text>
+              </Box>
+            )}
+          </Paper>
+        )}
 
         {/* Contact Information */}
-        <SimpleGrid cols={{ base: 1, md: 3 }} mt="xl">
-          <Paper p="lg" withBorder radius="md">
-            <Group mb="md">
-              <IconUser size={20} />
-              <Text fw={600}>Contact Person</Text>
-            </Group>
-            <Text size="lg" fw={700}>
-              {selectedAlert.contactInfo.name}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Primary Contact
-            </Text>
-          </Paper>
-
-          <Paper p="lg" withBorder radius="md">
-            <Group mb="md">
-              <IconMail size={20} />
-              <Text fw={600}>Email</Text>
-            </Group>
-            <Text size="lg" fw={700}>
-              {selectedAlert.contactInfo.email}
-            </Text>
-            <Text size="sm" c="dimmed">
-              24/7 Support
-            </Text>
-          </Paper>
-
-          <Paper p="lg" withBorder radius="md">
-            <Group mb="md">
-              <IconPhone size={20} />
-              <Text fw={600}>Phone</Text>
-            </Group>
-            <Text size="lg" fw={700}>
-              {selectedAlert.contactInfo.phone}
-            </Text>
-            <Text size="sm" c="dimmed">
-              Emergency Line
-            </Text>
-          </Paper>
-        </SimpleGrid>
-      </Container>
-
-      {/* Footer */}
-      <Box mt={60} style={{ borderTop: "1px solid #eee" }}>
-        <Container size="xl" py={40}>
-          <SimpleGrid cols={{ base: 2, md: 4 }}>
-            <Box>
-              <Text fw={600} mb="sm">
-                Privacy Policy
-              </Text>
-              <Text size="sm" c="dimmed">
-                Learn about our data protection
-              </Text>
-            </Box>
-            <Box>
-              <Text fw={600} mb="sm">
-                Cookie Policy
-              </Text>
-              <Text size="sm" c="dimmed">
-                How we use cookies
-              </Text>
-            </Box>
-            <Box>
-              <Text fw={600} mb="sm">
-                Terms & Conditions
-              </Text>
-              <Text size="sm" c="dimmed">
-                Service terms and agreements
-              </Text>
-            </Box>
-            <Box>
-              <Text fw={600} mb="sm">
-                Contact Us
-              </Text>
-              <Text size="sm" c="dimmed">
-                Get in touch with support
-              </Text>
-            </Box>
+        {alertData.contactInfo && (
+          <SimpleGrid cols={{ base: 1, md: 3 }} mt="xl">
+            <Card withBorder radius="md" p="lg">
+              <Group mb="md">
+                <IconUser size={20} color="blue" />
+                <Text fw={600}>Contact Person</Text>
+              </Group>
+              <Text size="lg" fw={700}>{alertData.contactInfo.name}</Text>
+              <Text size="sm" c="dimmed" mt={4}>{alertData.contactInfo.role}</Text>
+            </Card>
+            <Card withBorder radius="md" p="lg">
+              <Group mb="md">
+                <IconMail size={20} color="blue" />
+                <Text fw={600}>Email</Text>
+              </Group>
+              <Text size="lg" fw={700}>{alertData.contactInfo.email}</Text>
+              <Text size="sm" c="dimmed" mt={4}>Primary contact</Text>
+            </Card>
+            <Card withBorder radius="md" p="lg">
+              <Group mb="md">
+                <IconPhone size={20} color="blue" />
+                <Text fw={600}>Phone</Text>
+              </Group>
+              <Text size="lg" fw={700}>{alertData.contactInfo.phone}</Text>
+              <Text size="sm" c="dimmed" mt={4}>Available 24/7</Text>
+            </Card>
           </SimpleGrid>
-          <Divider my="xl" />
-          <Text size="sm" c="dimmed" ta="center">
-            © 2024 Lost & Found System. All rights reserved. Alert ID:{" "}
-            {selectedAlert.id}
-          </Text>
-        </Container>
-      </Box>
+        )}
+
+        {/* Timeline */}
+        {alertData.timeline && (
+          <Paper withBorder radius="md" mt="xl">
+            <Box p="md" style={{ borderBottom: "1px solid #eee" }}>
+              <Group><IconCalendar size={20} /><Text fw={600}>Case Timeline</Text></Group>
+            </Box>
+            <Stack p="md" gap="md">
+              {alertData.timeline.map((event, index) => (
+                <Group key={index} justify="space-between">
+                  <Group>
+                    <Box
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        backgroundColor: index === 0 ? "#2f80ed" : "#51cf66",
+                      }}
+                    />
+                    <Box>
+                      <Text fw={600}>{event.event}</Text>
+                      <Text size="sm" c="dimmed">{event.date} • {event.time}</Text>
+                    </Box>
+                  </Group>
+                  {index === 0 && (
+                    <Badge color="blue">Reported</Badge>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+        )}
+
+        {/* Actions */}
+        <Group justify="center" mt="xl">
+          <Button
+            size="lg"
+            variant="light"
+            color="gray"
+            leftSection={<IconArrowLeft size={18} />}
+            onClick={() => router.push("/alert")}
+          >
+            Back to Alerts
+          </Button>
+          <Button
+            size="lg"
+            color="blue"
+            leftSection={<IconDownload size={18} />}
+          >
+            Download Full Report
+          </Button>
+        </Group>
+      </Container>
     </Box>
   );
 }

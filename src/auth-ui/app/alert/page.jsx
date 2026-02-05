@@ -45,388 +45,60 @@ import {
   IconDots,
   IconEdit,
   IconTrash,
+  IconBike,
+  IconTruck,
+  IconBattery,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import MainFooter from "../../components/MainFooter";
+import MainFooter from "../../components/MainFooter.jsx";
 import Link from "next/link";
 import Image from "next/image";
 import { useRef, useState, useEffect } from "react";
-
-// Sample data with LOTS of content for scrolling
-const alerts = [
-  {
-    id: 1,
-    code: "5h7",
-    type: "car",
-    brand: "Toyota Corolla",
-    details: "Diesel equipped",
-    location: "Mexico/AZ",
-    time: "Last year",
-    status: "active",
-    imageUrl:
-      "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
-    fullDescription: `Gara, Toyota Corolla car vakugad vusur fiyatgaib vijerghasluq hr ru. Additional details about the vehicle condition, special features, and history. This is a longer description that will require vertical scrolling. More details about the vehicle's history, condition report, and special features.
-
-The vehicle was last serviced at 50,000 miles with full maintenance records available. Includes premium audio system, leather seats, and advanced safety features. GPS tracking was installed but may not be active.
-
-Vehicle identification number: JTDBU4EE7AJ123456
-Engine serial number: 2AZ123456789
-Transmission type: Automatic 6-speed
-Fuel type: Diesel
-Color: Silver Metallic
-Year: 2018
-Mileage: 65,432
-Interior color: Black
-
-Additional Notes:
-The vehicle was last seen with minor damage to the rear bumper. The license plate frame is broken on the right side. There is a distinctive sticker on the rear windshield depicting a mountain landscape.
-
-Recent Activity:
-- Last serviced: 2023-08-15
-- Insurance valid until: 2024-06-30
-- Registration expires: 2024-12-31
-- Reported stolen: 2023-10-15
-
-The owner has provided additional information about custom modifications including aftermarket wheels and a custom exhaust system. The vehicle may be difficult to identify due to these modifications.`,
-    features: [
-      "Diesel Engine",
-      "Automatic Transmission",
-      "Air Conditioning",
-      "Power Windows",
-      "Alloy Wheels",
-      "Bluetooth Connectivity",
-      "Leather Seats",
-      "Sunroof",
-      "Navigation System",
-      "Backup Camera",
-      "Heated Seats",
-      "Premium Audio System",
-      "Keyless Entry",
-      "Push Button Start",
-      "Lane Departure Warning",
-      "Automatic Emergency Braking",
-      "Adaptive Cruise Control",
-      "Blind Spot Monitoring",
-      "Rear Cross Traffic Alert",
-      "Parking Sensors",
-    ],
-    lastSeen:
-      "Downtown Area, Main Street near Central Park, intersection of 5th Avenue and Broadway. The vehicle was parked outside the main shopping mall entrance.",
-    contact: {
-      name: "John Doe",
-      phone: "+1 (555) 123-4567",
-      email: "report@example.com",
-      additional:
-        "Available for contact Monday-Friday, 9AM-5PM. Please mention case number 5h7 when calling.",
-    },
-    reportDate: "2023-10-15",
-    additionalInfo: {
-      insuranceCompany: "StateFarm Insurance",
-      policyNumber: "SF-789456123",
-      vin: "JTDBU4EE7AJ123456",
-      engineSize: "2.0L",
-      fuelCapacity: "13.2 gallons",
-      seatingCapacity: "5",
-      weight: "2,900 lbs",
-    },
-  },
-  {
-    id: 2,
-    code: "8k3",
-    type: "car",
-    brand: "Santa Cordilla",
-    details: "PARC AR: 761",
-    location: "California/LA",
-    time: "2 months ago",
-    status: "active",
-    imageUrl:
-      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
-    fullDescription:
-      "Santa Cordilla with special features and custom modifications. This vehicle was last seen in the downtown area.",
-    features: [
-      "Premium Package",
-      "Leather Seats",
-      "Navigation System",
-      "Sunroof",
-      "Backup Camera",
-    ],
-    lastSeen: "Main Boulevard",
-    contact: {
-      name: "Maria Garcia",
-      phone: "+1 (555) 987-6543",
-      email: "maria@example.com",
-    },
-    reportDate: "2023-11-20",
-  },
-  {
-    id: 3,
-    code: "2j9",
-    type: "car",
-    brand: "Toyota Corolla",
-    details: "Blk., Pink A/C 615",
-    location: "Mexico/AZ",
-    time: "Last year",
-    status: "resolved",
-    imageUrl:
-      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
-    fullDescription:
-      "Black Toyota Corolla with pink accents. Found and returned to owner.",
-    features: ["Custom Paint", "Sport Package", "Premium Sound System"],
-    lastSeen: "Airport Area",
-    contact: {
-      name: "Robert Smith",
-      phone: "+1 (555) 456-7890",
-      email: "robert@example.com",
-    },
-    reportDate: "2023-09-10",
-  },
-
-  {
-    id: 5,
-    code: "6n8",
-    type: "car",
-    brand: "Ford Mustang",
-    details: "Red, Black A/C 321",
-    location: "Texas/Dallas",
-    time: "1 week ago",
-    status: "active",
-    imageUrl:
-      "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
-    fullDescription:
-      "Red Ford Mustang with black stripes. High-performance vehicle.",
-    features: [
-      "V8 Engine",
-      "Manual Transmission",
-      "Performance Package",
-      "Track Mode",
-    ],
-    lastSeen: "Highway 75",
-    contact: {
-      name: "Mike Johnson",
-      phone: "+1 (555) 876-5432",
-      email: "mike@example.com",
-    },
-    reportDate: "2024-01-15",
-  },
-  {
-    id: 6,
-    code: "9p2",
-    type: "car",
-    brand: "BMW X5",
-    details: "Black, Gray A/C 654",
-    location: "New York/NYC",
-    time: "3 days ago",
-    status: "resolved",
-    imageUrl:
-      "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
-    fullDescription:
-      "Black BMW X5 SUV with gray interior. Vehicle has been recovered.",
-    features: [
-      "xDrive AWD",
-      "M Sport Package",
-      "Heated Seats",
-      "Panoramic Sunroof",
-    ],
-    lastSeen: "Financial District",
-    contact: {
-      name: "David Brown",
-      phone: "+1 (555) 345-6789",
-      email: "david@example.com",
-    },
-    reportDate: "2024-01-10",
-  },
-];
+import { getAllAlerts, getStats } from "../../data/alertsData";
 
 export default function AlertPage() {
   const router = useRouter();
   const scrollRef = useRef(null);
   const [selectedAlert, setSelectedAlert] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredAlerts, setFilteredAlerts] = useState([]);
 
-  const [alerts, setAlerts] = useState([
-    {
-      id: 1,
-      code: "5h7",
-      type: "car",
-      brand: "Toyota Corolla",
-      details: "Diesel equipped",
-      location: "Mexico/AZ",
-      time: "Last year",
-      status: "active",
-      imageUrl:
-        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
-      fullDescription: `Gara, Toyota Corolla car vakugad vusur fiyatgaib vijerghasluq hr ru. Additional details about the vehicle condition, special features, and history. This is a longer description that will require vertical scrolling. More details about the vehicle's history, condition report, and special features.
+  // Get all alerts from our data file
+  const allAlerts = getAllAlerts();
+  const stats = getStats();
 
-The vehicle was last serviced at 50,000 miles with full maintenance records available. Includes premium audio system, leather seats, and advanced safety features. GPS tracking was installed but may not be active.
+  // Initialize filtered alerts
+  useEffect(() => {
+    setFilteredAlerts(allAlerts);
+  }, []);
 
-Vehicle identification number: JTDBU4EE7AJ123456
-Engine serial number: 2AZ123456789
-Transmission type: Automatic 6-speed
-Fuel type: Diesel
-Color: Silver Metallic
-Year: 2018
-Mileage: 65,432
-Interior color: Black
+  // Search functionality
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredAlerts(allAlerts);
+      return;
+    }
 
-Additional Notes:
-The vehicle was last seen with minor damage to the rear bumper. The license plate frame is broken on the right side. There is a distinctive sticker on the rear windshield depicting a mountain landscape.
+    const query = searchQuery.toLowerCase();
+    const filtered = allAlerts.filter(alert =>
+      alert.brand.toLowerCase().includes(query) ||
+      alert.code.toLowerCase().includes(query) ||
+      alert.location.toLowerCase().includes(query) ||
+      alert.details.toLowerCase().includes(query) ||
+      alert.status.toLowerCase().includes(query)
+    );
+    setFilteredAlerts(filtered);
+  }, [searchQuery, allAlerts]);
 
-Recent Activity:
-- Last serviced: 2023-08-15
-- Insurance valid until: 2024-06-30
-- Registration expires: 2024-12-31
-- Reported stolen: 2023-10-15
-
-The owner has provided additional information about custom modifications including aftermarket wheels and a custom exhaust system. The vehicle may be difficult to identify due to these modifications.`,
-      features: [
-        "Diesel Engine",
-        "Automatic Transmission",
-        "Air Conditioning",
-        "Power Windows",
-        "Alloy Wheels",
-        "Bluetooth Connectivity",
-        "Leather Seats",
-        "Sunroof",
-        "Navigation System",
-        "Backup Camera",
-        "Heated Seats",
-        "Premium Audio System",
-        "Keyless Entry",
-        "Push Button Start",
-        "Lane Departure Warning",
-        "Automatic Emergency Braking",
-        "Adaptive Cruise Control",
-        "Blind Spot Monitoring",
-        "Rear Cross Traffic Alert",
-        "Parking Sensors",
-      ],
-      lastSeen:
-        "Downtown Area, Main Street near Central Park, intersection of 5th Avenue and Broadway. The vehicle was parked outside the main shopping mall entrance.",
-      contact: {
-        name: "John Doe",
-        phone: "+1 (555) 123-4567",
-        email: "report@example.com",
-        additional:
-          "Available for contact Monday-Friday, 9AM-5PM. Please mention case number 5h7 when calling.",
-      },
-      reportDate: "2023-10-15",
-      additionalInfo: {
-        insuranceCompany: "StateFarm Insurance",
-        policyNumber: "SF-789456123",
-        vin: "JTDBU4EE7AJ123456",
-        engineSize: "2.0L",
-        fuelCapacity: "13.2 gallons",
-        seatingCapacity: "5",
-        weight: "2,900 lbs",
-      }, // ... rest of your alert data
-    },
-    {
-      id: 2,
-      code: "8k3",
-      type: "car",
-      brand: "Santa Cordilla",
-      details: "PARC AR: 761",
-      location: "California/LA",
-      time: "2 months ago",
-      status: "active",
-      imageUrl:
-        "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
-      // ... rest of alert 2 data
-      fullDescription:
-        "Santa Cordilla with special features and custom modifications. This vehicle was last seen in the downtown area.",
-      features: [
-        "Premium Package",
-        "Leather Seats",
-        "Navigation System",
-        "Sunroof",
-        "Backup Camera",
-      ],
-      lastSeen: "Main Boulevard",
-      contact: {
-        name: "Maria Garcia",
-        phone: "+1 (555) 987-6543",
-        email: "maria@example.com",
-      },
-      reportDate: "2023-11-20",
-    },
-    {
-      id: 3,
-      code: "2j9",
-      type: "car",
-      brand: "Toyota Corolla",
-      details: "Blk., Pink A/C 615",
-      location: "Mexico/AZ",
-      time: "Last year",
-      status: "resolved",
-      imageUrl:
-        "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
-      fullDescription:
-        "Black Toyota Corolla with pink accents. Found and returned to owner.",
-      features: ["Custom Paint", "Sport Package", "Premium Sound System"],
-      lastSeen: "Airport Area",
-      contact: {
-        name: "Robert Smith",
-        phone: "+1 (555) 456-7890",
-        email: "robert@example.com",
-      },
-      reportDate: "2023-09-10",
-    },
-
-    {
-      id: 5,
-      code: "6n8",
-      type: "car",
-      brand: "Ford Mustang",
-      details: "Red, Black A/C 321",
-      location: "Texas/Dallas",
-      time: "1 week ago",
-      status: "active",
-      imageUrl:
-        "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
-      fullDescription:
-        "Red Ford Mustang with black stripes. High-performance vehicle.",
-      features: [
-        "V8 Engine",
-        "Manual Transmission",
-        "Performance Package",
-        "Track Mode",
-      ],
-      lastSeen: "Highway 75",
-      contact: {
-        name: "Mike Johnson",
-        phone: "+1 (555) 876-5432",
-        email: "mike@example.com",
-      },
-      reportDate: "2024-01-15",
-    },
-    {
-      id: 6,
-      code: "9p2",
-      type: "car",
-      brand: "BMW X5",
-      details: "Black, Gray A/C 654",
-      location: "New York/NYC",
-      time: "3 days ago",
-      status: "resolved",
-      imageUrl:
-        "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
-      fullDescription:
-        "Black BMW X5 SUV with gray interior. Vehicle has been recovered.",
-      features: [
-        "xDrive AWD",
-        "M Sport Package",
-        "Heated Seats",
-        "Panoramic Sunroof",
-      ],
-      lastSeen: "Financial District",
-      contact: {
-        name: "David Brown",
-        phone: "+1 (555) 345-6789",
-        email: "david@example.com",
-      },
-      reportDate: "2024-01-10",
-    },
-    // ... all your other alerts
-  ]);
+  // Get icon based on vehicle type
+  const getVehicleIcon = (type) => {
+    switch (type) {
+      case 'motorcycle': return <IconBike size={16} color="blue" />;
+      case 'truck': return <IconTruck size={16} color="blue" />;
+      case 'electric': return <IconBattery size={16} color="blue" />;
+      default: return <IconCar size={16} color="blue" />;
+    }
+  };
 
   // Freeze background scrolling when popup is open
   useEffect(() => {
@@ -466,12 +138,9 @@ The owner has provided additional information about custom modifications includi
     handleCloseDetail();
   };
 
-  // Add this function after your existing functions
   const handleDeleteAlert = (alertId, alertCode) => {
-    // Get the alert to be deleted
-    const alertToDelete = alerts.find((alert) => alert.id === alertId);
+    const alertToDelete = filteredAlerts.find((alert) => alert.id === alertId);
 
-    // Show custom confirmation dialog
     const confirmed = window.confirm(
       `Are you sure you want to delete alert "${alertCode}"?\n\n` +
         `Brand: ${alertToDelete?.brand}\n` +
@@ -480,26 +149,21 @@ The owner has provided additional information about custom modifications includi
     );
 
     if (confirmed) {
-      // Remove the alert from the array
-      setAlerts((prevAlerts) =>
+      // In a real app, this would be an API call
+      setFilteredAlerts((prevAlerts) =>
         prevAlerts.filter((alert) => alert.id !== alertId),
       );
 
-      // Close detail popup if open
       if (selectedAlert && selectedAlert.id === alertId) {
         setSelectedAlert(null);
       }
 
-      // Show success notification
       notifications.show({
         title: "Alert Deleted",
         message: `Alert "${alertCode}" has been successfully deleted.`,
         color: "red",
         icon: <IconTrash size={16} />,
       });
-
-      // Optional: Update localStorage or API call here
-      // saveToLocalStorage(alerts);
     }
   };
 
@@ -528,10 +192,12 @@ The owner has provided additional information about custom modifications includi
             />
 
             <TextInput
-              placeholder="Search..."
+              placeholder="Search alerts by brand, code, location..."
               leftSection={<IconSearch size={16} />}
               style={{ width: "40%" }}
               radius="xl"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
 
             <Group gap="lg">
@@ -628,35 +294,37 @@ The owner has provided additional information about custom modifications includi
             <div>
               <Text fw={600}>Alert Notifications</Text>
               <Text size="sm" c="dimmed">
-                You have {alerts.filter((a) => a.status === "active").length}{" "}
-                active alerts
+                You have {filteredAlerts.filter((a) => a.status === "active").length}{" "}
+                active alerts {searchQuery && `matching "${searchQuery}"`}
               </Text>
             </div>
           </Group>
         </Paper>
 
         <Title order={2} style={{ textAlign: "center", marginBottom: 20 }}>
-          Reported Informations
+          Reported Vehicles ({filteredAlerts.length} found)
         </Title>
 
         <Box style={{ position: "relative", marginBottom: 40 }}>
-          <ActionIcon
-            variant="filled"
-            color="gray"
-            radius="xl"
-            size="xl"
-            style={{
-              position: "absolute",
-              left: -25,
-              top: "50%",
-              transform: "translateY(-50%)",
-              zIndex: 10,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            }}
-            onClick={scrollLeft}
-          >
-            <IconChevronLeft size={20} />
-          </ActionIcon>
+          {filteredAlerts.length > 3 && (
+            <ActionIcon
+              variant="filled"
+              color="gray"
+              radius="xl"
+              size="xl"
+              style={{
+                position: "absolute",
+                left: -25,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 10,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+              onClick={scrollLeft}
+            >
+              <IconChevronLeft size={20} />
+            </ActionIcon>
+          )}
 
           <ScrollArea
             w="100%"
@@ -666,7 +334,7 @@ The owner has provided additional information about custom modifications includi
             styles={{ scrollbar: { display: "none" } }}
           >
             <Group wrap="nowrap" gap="lg" p="md">
-              {alerts.map((alert) => (
+              {filteredAlerts.map((alert) => (
                 <Card
                   key={alert.id}
                   withBorder
@@ -678,10 +346,10 @@ The owner has provided additional information about custom modifications includi
                     minWidth: 320,
                     flexShrink: 0,
                     border: "1px solid #e0e0e0",
-                    position: "relative", // Added for absolute positioning
+                    position: "relative",
                   }}
                 >
-                  {/* Car Image with Overlay Icons */}
+                  {/* Vehicle Image with Overlay Icons */}
                   <Box style={{ height: 180, position: "relative" }}>
                     <Image
                       src={alert.imageUrl}
@@ -715,7 +383,7 @@ The owner has provided additional information about custom modifications includi
                           backdropFilter: "blur(4px)",
                           border: "1px solid rgba(255, 255, 255, 0.2)",
                         }}
-                        onClick={() => router.push(`/alert-detail/${alert.id}`)} // Will build later
+                        onClick={() => router.push(`/alert-detail/${alert.code}`)}
                       >
                         <IconBell size={18} />
                       </ActionIcon>
@@ -749,8 +417,11 @@ The owner has provided additional information about custom modifications includi
                           <Menu.Item
                             leftSection={<IconEdit size={16} />}
                             onClick={() => {
-                              // Edit functionality
-                              alert(`Edit alert ${alert.code}`);
+                              notifications.show({
+                                title: "Edit Alert",
+                                message: `Edit functionality for ${alert.code} would open here`,
+                                color: "blue",
+                              });
                             }}
                           >
                             Edit
@@ -799,7 +470,7 @@ The owner has provided additional information about custom modifications includi
 
                     <Stack gap="xs">
                       <Group gap="xs">
-                        <IconCar size={16} color="blue" />
+                        {getVehicleIcon(alert.type)}
                         <Text fw={700} size="lg">
                           {alert.brand}
                         </Text>
@@ -817,6 +488,13 @@ The owner has provided additional information about custom modifications includi
                       <Group gap="xs">
                         <IconCalendar size={16} color="gray" />
                         <Text size="sm">{alert.time}</Text>
+                      </Group>
+
+                      <Group gap="xs">
+                        <IconAlertCircle size={16} color={alert.status === "active" ? "red" : "green"} />
+                        <Text size="sm" c={alert.status === "active" ? "red" : "green"}>
+                          {alert.status === "active" ? `${alert.detectionHistory?.length || 0} detections` : "Case resolved"}
+                        </Text>
                       </Group>
                     </Stack>
 
@@ -836,30 +514,32 @@ The owner has provided additional information about custom modifications includi
             </Group>
           </ScrollArea>
 
-          <ActionIcon
-            variant="filled"
-            color="black"
-            radius="xl"
-            size="xl"
-            style={{
-              position: "absolute",
-              right: -25,
-              top: "50%",
-              transform: "translateY(-50%)",
-              zIndex: 10,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            }}
-            onClick={scrollRight}
-          >
-            <IconChevronRight size={20} />
-          </ActionIcon>
+          {filteredAlerts.length > 3 && (
+            <ActionIcon
+              variant="filled"
+              color="black"
+              radius="xl"
+              size="xl"
+              style={{
+                position: "absolute",
+                right: -25,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 10,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+              onClick={scrollRight}
+            >
+              <IconChevronRight size={20} />
+            </ActionIcon>
+          )}
         </Box>
 
         <Paper withBorder p="lg" mt="xl" radius="md">
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <Stack align="center" gap={0}>
               <Text size="xl" fw={800} c="blue.6">
-                {alerts.length}
+                {stats.total}
               </Text>
               <Text size="sm" c="dimmed">
                 Total Alerts
@@ -867,7 +547,7 @@ The owner has provided additional information about custom modifications includi
             </Stack>
             <Stack align="center" gap={0}>
               <Text size="xl" fw={800} c="green.6">
-                {alerts.filter((a) => a.status === "resolved").length}
+                {stats.resolved}
               </Text>
               <Text size="sm" c="dimmed">
                 Resolved
@@ -875,7 +555,7 @@ The owner has provided additional information about custom modifications includi
             </Stack>
             <Stack align="center" gap={0}>
               <Text size="xl" fw={800} c="red.6">
-                {alerts.filter((a) => a.status === "active").length}
+                {stats.active}
               </Text>
               <Text size="sm" c="dimmed">
                 Active
@@ -904,7 +584,7 @@ The owner has provided additional information about custom modifications includi
             onClick={handleBackgroundClick}
           />
 
-          {/* Detail Card Container - FIXED POSITION WITH SCROLL */}
+          {/* Detail Card Container */}
           <Box
             style={{
               position: "fixed",
@@ -913,7 +593,7 @@ The owner has provided additional information about custom modifications includi
               transform: "translate(-50%, -50%)",
               width: "95%",
               maxWidth: "900px",
-              height: "90vh", // Fixed height
+              height: "90vh",
               backgroundColor: "white",
               borderRadius: "20px",
               overflow: "hidden",
@@ -941,12 +621,12 @@ The owner has provided additional information about custom modifications includi
               <IconX size={20} />
             </ActionIcon>
 
-            {/* SCROLLABLE CONTENT - THIS IS WHAT SCROLLS */}
+            {/* SCROLLABLE CONTENT */}
             <Box
               style={{
                 flex: 1,
-                overflowY: "auto", // Enables vertical scrolling
-                paddingBottom: "20px", // Space for shadow
+                overflowY: "auto",
+                paddingBottom: "20px",
               }}
             >
               {/* Main Image */}
@@ -978,9 +658,12 @@ The owner has provided additional information about custom modifications includi
                 </Group>
 
                 <Box mb="xl">
-                  <Text fw={800} size="2rem" mb="xs">
-                    {selectedAlert.brand}
-                  </Text>
+                  <Group gap="md" mb="xs">
+                    {getVehicleIcon(selectedAlert.type)}
+                    <Text fw={800} size="2rem">
+                      {selectedAlert.brand}
+                    </Text>
+                  </Group>
                   <Text size="xl" c="dimmed" fw={500}>
                     {selectedAlert.details}
                   </Text>
@@ -1007,72 +690,38 @@ The owner has provided additional information about custom modifications includi
                 </Box>
 
                 {/* Features Grid */}
-                <Box mb="xl">
-                  <Text fw={700} size="xl" mb="lg">
-                    Vehicle Features
-                  </Text>
-                  <SimpleGrid cols={3} spacing="lg">
-                    {selectedAlert.features?.map((feature, index) => (
-                      <Group key={index} gap="sm">
-                        <IconCheck size={20} color="green" />
-                        <Text fw={500}>{feature}</Text>
-                      </Group>
-                    ))}
-                  </SimpleGrid>
-                </Box>
+                {selectedAlert.features && selectedAlert.features.length > 0 && (
+                  <Box mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      Vehicle Features
+                    </Text>
+                    <SimpleGrid cols={3} spacing="lg">
+                      {selectedAlert.features.map((feature, index) => (
+                        <Group key={index} gap="sm">
+                          <IconCheck size={20} color="green" />
+                          <Text fw={500}>{feature}</Text>
+                        </Group>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
+                )}
 
-                {/* Additional Info */}
-                {selectedAlert.additionalInfo && (
+                {/* Technical Specifications */}
+                {selectedAlert.technicalSpecs && (
                   <Box mb="xl">
                     <Text fw={700} size="xl" mb="lg">
                       Technical Specifications
                     </Text>
                     <Paper p="xl" withBorder radius="md">
                       <SimpleGrid cols={2} spacing="lg">
-                        <Box>
-                          <Text fw={600} mb="xs">
-                            VIN Number
-                          </Text>
-                          <Text>{selectedAlert.additionalInfo.vin}</Text>
-                        </Box>
-                        <Box>
-                          <Text fw={600} mb="xs">
-                            Engine Size
-                          </Text>
-                          <Text>{selectedAlert.additionalInfo.engineSize}</Text>
-                        </Box>
-                        <Box>
-                          <Text fw={600} mb="xs">
-                            Insurance Company
-                          </Text>
-                          <Text>
-                            {selectedAlert.additionalInfo.insuranceCompany}
-                          </Text>
-                        </Box>
-                        <Box>
-                          <Text fw={600} mb="xs">
-                            Policy Number
-                          </Text>
-                          <Text>
-                            {selectedAlert.additionalInfo.policyNumber}
-                          </Text>
-                        </Box>
-                        <Box>
-                          <Text fw={600} mb="xs">
-                            Fuel Capacity
-                          </Text>
-                          <Text>
-                            {selectedAlert.additionalInfo.fuelCapacity}
-                          </Text>
-                        </Box>
-                        <Box>
-                          <Text fw={600} mb="xs">
-                            Seating Capacity
-                          </Text>
-                          <Text>
-                            {selectedAlert.additionalInfo.seatingCapacity}
-                          </Text>
-                        </Box>
+                        {Object.entries(selectedAlert.technicalSpecs).map(([key, value]) => (
+                          <Box key={key}>
+                            <Text fw={600} mb="xs" tt="capitalize">
+                              {key.replace(/([A-Z])/g, ' $1')}
+                            </Text>
+                            <Text>{value}</Text>
+                          </Box>
+                        ))}
                       </SimpleGrid>
                     </Paper>
                   </Box>
@@ -1088,6 +737,9 @@ The owner has provided additional information about custom modifications includi
                       </Text>
                     </Group>
                     <Text size="md">{selectedAlert.lastSeen}</Text>
+                    <Text size="sm" c="dimmed" mt="sm">
+                      {selectedAlert.mapLocation}
+                    </Text>
                   </Paper>
                   <Paper p="xl" withBorder radius="md">
                     <Group mb="md">
@@ -1096,106 +748,122 @@ The owner has provided additional information about custom modifications includi
                         Report Timeline
                       </Text>
                     </Group>
-                    <Text size="md">Reported: {selectedAlert.reportDate}</Text>
+                    <Text size="md">Reported: {selectedAlert.reportDate || selectedAlert.date}</Text>
                     <Text size="md" mt="sm">
+                      Duration: {selectedAlert.duration}
+                    </Text>
+                    <Text size="sm" c="dimmed" mt="sm">
                       Last Updated: Today
                     </Text>
                   </Paper>
                 </SimpleGrid>
 
                 {/* Contact Information */}
-                <Paper p="xl" withBorder radius="md" bg="blue.0" mb="xl">
-                  <Text fw={700} size="xl" mb="lg">
-                    Contact Information
-                  </Text>
-                  <Stack gap="xl">
-                    <Box>
-                      <Group mb="sm">
-                        <IconUser size={22} />
-                        <Text fw={600} size="lg">
-                          Reported By
-                        </Text>
-                      </Group>
-                      <Text size="md">{selectedAlert.contact.name}</Text>
-                      {selectedAlert.contact.additional && (
+                {selectedAlert.contactInfo && (
+                  <Paper p="xl" withBorder radius="md" bg="blue.0" mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      Contact Information
+                    </Text>
+                    <Stack gap="xl">
+                      <Box>
+                        <Group mb="sm">
+                          <IconUser size={22} />
+                          <Text fw={600} size="lg">
+                            Reported By
+                          </Text>
+                        </Group>
+                        <Text size="md">{selectedAlert.contactInfo.name}</Text>
                         <Text size="sm" c="dimmed" mt={4}>
-                          {selectedAlert.contact.additional}
+                          {selectedAlert.contactInfo.role}
                         </Text>
-                      )}
-                    </Box>
-                    <Box>
-                      <Group mb="sm">
-                        <IconPhone size={22} />
-                        <Text fw={600} size="lg">
-                          Contact Number
-                        </Text>
-                      </Group>
-                      <Text size="md">{selectedAlert.contact.phone}</Text>
-                    </Box>
-                    <Box>
-                      <Group mb="sm">
-                        <IconMail size={22} />
-                        <Text fw={600} size="lg">
-                          Email Address
-                        </Text>
-                      </Group>
-                      <Text size="md">{selectedAlert.contact.email}</Text>
-                    </Box>
-                  </Stack>
-                </Paper>
+                        {selectedAlert.contactInfo.additional && (
+                          <Text size="sm" c="dimmed" mt={4}>
+                            {selectedAlert.contactInfo.additional}
+                          </Text>
+                        )}
+                      </Box>
+                      <Box>
+                        <Group mb="sm">
+                          <IconPhone size={22} />
+                          <Text fw={600} size="lg">
+                            Contact Number
+                          </Text>
+                        </Group>
+                        <Text size="md">{selectedAlert.contactInfo.phone}</Text>
+                      </Box>
+                      <Box>
+                        <Group mb="sm">
+                          <IconMail size={22} />
+                          <Text fw={600} size="lg">
+                            Email Address
+                          </Text>
+                        </Group>
+                        <Text size="md">{selectedAlert.contactInfo.email}</Text>
+                      </Box>
+                    </Stack>
+                  </Paper>
+                )}
 
                 {/* Additional Images */}
-                <Box mb="xl">
-                  <Text fw={700} size="xl" mb="lg">
-                    Additional Evidence
-                  </Text>
-                  <Group gap="lg">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Box
-                        key={i}
-                        style={{
-                          width: 150,
-                          height: 150,
-                          position: "relative",
-                          borderRadius: "12px",
-                          overflow: "hidden",
-                          cursor: "pointer",
-                          border: "3px solid #e9ecef",
-                        }}
-                      >
-                        <Image
-                          src={selectedAlert.imageUrl}
-                          alt={`Evidence ${i}`}
-                          fill
-                          style={{ objectFit: "cover" }}
-                        />
-                      </Box>
-                    ))}
-                  </Group>
-                </Box>
+                {selectedAlert.additionalImages && selectedAlert.additionalImages.length > 0 && (
+                  <Box mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      Additional Evidence
+                    </Text>
+                    <Group gap="lg">
+                      {selectedAlert.additionalImages.slice(0, 4).map((img, i) => (
+                        <Box
+                          key={i}
+                          style={{
+                            width: 150,
+                            height: 150,
+                            position: "relative",
+                            borderRadius: "12px",
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            border: "3px solid #e9ecef",
+                          }}
+                        >
+                          <Image
+                            src={img}
+                            alt={`Evidence ${i + 1}`}
+                            fill
+                            style={{ objectFit: "cover" }}
+                          />
+                        </Box>
+                      ))}
+                    </Group>
+                  </Box>
+                )}
 
-                {/* Vehicle History */}
-                <Paper p="xl" withBorder radius="md" mb="xl">
-                  <Text fw={700} size="xl" mb="lg">
-                    Search History
-                  </Text>
-                  <Stack gap="md">
-                    <Group justify="apart">
-                      <Text fw={600}>Search Radius</Text>
-                      <Badge color="blue" size="lg">
-                        50 mile radius
-                      </Badge>
-                    </Group>
-                    <Group justify="apart">
-                      <Text fw={600}>Search Duration</Text>
-                      <Text>Ongoing</Text>
-                    </Group>
-                    <Group justify="apart">
-                      <Text fw={600}>Search Team</Text>
-                      <Text>Local Police & Volunteer Group</Text>
-                    </Group>
-                  </Stack>
-                </Paper>
+                {/* Detection Statistics */}
+                {selectedAlert.stats && (
+                  <Paper p="xl" withBorder radius="md" mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      Detection Statistics
+                    </Text>
+                    <SimpleGrid cols={3} spacing="lg">
+                      <Box ta="center">
+                        <Text size="sm" c="dimmed" mb="xs">
+                          Total Detections
+                        </Text>
+                        <Title order={2}>{selectedAlert.stats.totalDetections || 0}</Title>
+                      </Box>
+                      <Box ta="center">
+                        <Text size="sm" c="dimmed" mb="xs">
+                          Active Duration
+                        </Text>
+                        <Title order={2}>{selectedAlert.duration || "N/A"}</Title>
+                      </Box>
+                      <Box ta="center">
+                        <Text size="sm" c="dimmed" mb="xs">
+                          CCTV Confidence
+                        </Text>
+                        <Title order={2}>{selectedAlert.cctvInfo?.confidence || "N/A"}</Title>
+                      </Box>
+                    </SimpleGrid>
+                  </Paper>
+                )}
               </Box>
             </Box>
 
@@ -1205,7 +873,7 @@ The owner has provided additional information about custom modifications includi
               style={{
                 borderTop: "2px solid #e0e0e0",
                 background: "white",
-                flexShrink: 0, // Prevents shrinking
+                flexShrink: 0,
               }}
             >
               <Group justify="space-between">
@@ -1225,7 +893,13 @@ The owner has provided additional information about custom modifications includi
                     variant="outline"
                     color="blue"
                     leftSection={<IconBell size={20} />}
-                    onClick={() => alert("Notifications sent!")}
+                    onClick={() => {
+                      notifications.show({
+                        title: "Notifications Sent",
+                        message: `Updates will be sent for alert ${selectedAlert.code}`,
+                        color: "blue",
+                      });
+                    }}
                     radius="md"
                   >
                     Notify Me
@@ -1235,7 +909,11 @@ The owner has provided additional information about custom modifications includi
                     color="blue"
                     leftSection={<IconCheck size={20} />}
                     onClick={() => {
-                      alert("Marked as reviewed!");
+                      notifications.show({
+                        title: "Marked as Reviewed",
+                        message: `Alert ${selectedAlert.code} has been reviewed`,
+                        color: "green",
+                      });
                       handleCloseDetail();
                     }}
                     radius="md"
