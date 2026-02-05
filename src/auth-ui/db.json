@@ -14,17 +14,17 @@
       "lastLogin": "2026-02-05T08:48:42.693Z"
     },
     {
-      "id": "e6bb9b87-cb57-4c50-ab21-85954afe2542",
-      "firstName": "Tinebeb",
-      "lastName": "Amsalu",
-      "email": "tinebebamsalu@gmail.com",
-      "phone": "0980397465",
-      "password": "7211219@Ti",
-      "createdAt": "2026-02-05T09:36:06.982Z",
-      "updatedAt": "2026-02-05T09:36:15.565Z",
+      "id": "a94e831a-9536-4310-a772-f864e5bd975a",
+      "firstName": "Hibrewerk",
+      "lastName": "Mossie",
+      "email": "user1@gmail.com",
+      "phone": "0962061126",
+      "password": "User@1111",
+      "createdAt": "2026-02-05T14:38:14.973Z",
+      "updatedAt": "2026-02-05T20:42:40.120Z",
       "isActive": true,
       "role": "user",
-      "lastLogin": "2026-02-05T09:36:15.564Z"
+      "lastLogin": "2026-02-05T20:42:40.120Z"
     }
   ]
 }

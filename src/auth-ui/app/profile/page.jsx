@@ -4,19 +4,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, Container, Title, Text, Button, TextInput, 
   Textarea, Avatar, Paper, Stack, Divider, 
-  ActionIcon, Flex, UnstyledButton, Group, Switch, Modal, PasswordInput, Select, Table, Badge
+  ActionIcon, Flex, UnstyledButton, Group, Switch, Modal, PasswordInput, Select, Table, Badge,
+  useMantineColorScheme // Added this for real theme switching
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { 
   IconUser, IconBell, IconShield, IconHistory, 
   IconSettings, IconLogout, IconCamera, IconChevronRight, IconArrowLeft,
-  IconClock, IconWorld, IconTrash, IconExternalLink
+  IconClock, IconWorld, IconTrash, IconExternalLink,
+  IconLock 
 } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const { colorScheme, setColorScheme } = useMantineColorScheme(); // Added Hook
   
   const [activeTab, setActiveTab] = useState('Person');
   const [user, setUser] = useState({ firstName: '', lastName: '', email: '' });
@@ -27,16 +30,10 @@ export default function ProfilePage() {
   const [pwdOpened, { open: openPwd, close: closePwd }] = useDisclosure(false);
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
 
-  // --- LOGOUT LOGIC ---
   const handleLogout = () => {
-    // 1. Clear session storage/local storage
     localStorage.removeItem('currentUser');
-    localStorage.removeItem('isLoggedIn'); // If you use a login flag
-    
-    // 2. Redirect to the signup/main page
+    localStorage.removeItem('isLoggedIn'); 
     router.push('/');
-    
-    // 3. Optional: Refresh to clear any sensitive state in memory
     router.refresh();
   };
 
@@ -55,11 +52,11 @@ export default function ProfilePage() {
         if (userData) {
           setUser(JSON.parse(userData));
         } else {
-          // If no user found, they shouldn't be here
           router.push('/');
         }
-
+        // Use the absolute URL for JSON Server
         const response = await fetch('http://localhost:3001/alerts');
+        if (!response.ok) throw new Error('Failed to fetch');
         const data = await response.json();
         setAlerts(data);
       } catch (error) {
@@ -124,6 +121,62 @@ export default function ProfilePage() {
                  <NotificationToggle title="SMS Alert" description="Get text message for urgent alert" />
                </Stack>
              </Paper>
+          </Stack>
+        );
+
+      case 'Security':
+        return (
+          <Stack gap="xl" maw={650} mx="auto">
+            <Paper p="xl" radius="md" bg="#F8F9FA">
+              <Text fw={700} mb="md">Appearance</Text>
+              <Stack gap="md">
+                <Select label="Language" defaultValue="English" data={['English', 'Amharic', 'Oromo']} styles={inputStyles} />
+                {/* Real Theme Logic */}
+                <Select 
+                    label="Theme" 
+                    value={colorScheme} 
+                    onChange={setColorScheme}
+                    data={[
+                        { value: 'light', label: 'Light' },
+                        { value: 'dark', label: 'Dark' },
+                        { value: 'auto', label: 'System' }
+                    ]} 
+                    styles={inputStyles} 
+                />
+              </Stack>
+            </Paper>
+
+            <Paper p="xl" radius="md" bg="#F8F9FA">
+              <Text fw={700} mb="md">Security Preference</Text>
+              <Stack gap="md">
+                <Group justify="space-between">
+                  <Box>
+                    <Text fw={600} size="sm">Auto-Lock</Text>
+                    <Text size="xs" c="dimmed">Lock account after inactivity</Text>
+                  </Box>
+                  <Switch size="md" color="blue" defaultChecked />
+                </Group>
+                <Select label="Auto-lock timeout" defaultValue="5 min" data={['1 min', '5 min', '10 min']} styles={inputStyles} />
+              </Stack>
+            </Paper>
+
+            <Paper p="xl" radius="md" bg="#F8F9FA">
+              <Text fw={700} mb="md">Data & Storage</Text>
+              <Stack gap="sm">
+                <UnstyledButton p="md" bg="white" style={{ borderRadius: '8px', border: '1px solid #eee' }}>
+                  <Group justify="space-between">
+                    <Text size="sm" fw={600}>Clear Cache</Text>
+                    <IconChevronRight size={18} color="#adb5bd" />
+                  </Group>
+                </UnstyledButton>
+                <UnstyledButton p="md" bg="white" style={{ borderRadius: '8px', border: '1px solid #eee' }}>
+                  <Group justify="space-between">
+                    <Text size="sm" fw={600}>Export Data</Text>
+                    <IconChevronRight size={18} color="#adb5bd" />
+                  </Group>
+                </UnstyledButton>
+              </Stack>
+            </Paper>
           </Stack>
         );
 
@@ -201,7 +254,13 @@ export default function ProfilePage() {
                     <Text fw={600} size="sm">Dark Mode</Text>
                     <Text size="xs" c="dimmed">Switch between light and dark themes</Text>
                   </Box>
-                  <Switch size="md" color="blue" />
+                  {/* Real theme toggle Switch */}
+                  <Switch 
+                    size="md" 
+                    color="blue" 
+                    checked={colorScheme === 'dark'} 
+                    onChange={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
+                  />
                 </Group>
               </Stack>
             </Paper>
@@ -243,18 +302,16 @@ export default function ProfilePage() {
       </Box>
 
       <Flex style={{ height: 'calc(100vh - 70px)' }}>
-        {/* SIDEBAR */}
         <Box w={320} bg="#A5C9F3" p="md" style={{ borderRight: '1px solid #dee2e6' }}>
           <Stack gap="sm">
             <SidebarItem icon={<IconUser size={20}/>} label="Person" active={activeTab === 'Person'} onClick={() => setActiveTab('Person')} />
             <SidebarItem icon={<IconBell size={20}/>} label="Notification" active={activeTab === 'Notification'} onClick={() => setActiveTab('Notification')} />
+            <SidebarItem icon={<IconLock size={20}/>} label="Security" active={activeTab === 'Security'} onClick={() => setActiveTab('Security')} />
             <SidebarItem icon={<IconShield size={20}/>} label="Privacy and Policy" active={activeTab === 'Privacy and Policy'} onClick={() => setActiveTab('Privacy and Policy')} />
             <SidebarItem icon={<IconHistory size={20}/>} label="Alert History" active={activeTab === 'Alert History'} onClick={() => setActiveTab('Alert History')} />
             <SidebarItem icon={<IconSettings size={20}/>} label="Settings" active={activeTab === 'Settings'} onClick={() => setActiveTab('Settings')} />
             
             <Divider my="xl" style={{ borderColor: '#8db6e6' }} />
-            
-            {/* UPDATED LOGOUT BUTTON */}
             <UnstyledButton p="md" bg="white" style={{ borderRadius: '12px' }} onClick={handleLogout}>
               <Group><IconLogout size={20} color="red" /><Text fw={600} c="red">Log Out</Text></Group>
             </UnstyledButton>
@@ -271,48 +328,48 @@ export default function ProfilePage() {
   );
 }
 
-// --- HELPERS (Logic remains same) ---
+// ... SidebarItem, ActionCard, NotificationToggle remain the same as your previous version ...
 function ActionCard({ label, description, hasSwitch = false, isDanger = false, onClick }) {
-  return (
-    <Paper withBorder p="sm" radius="md" bg="white" onClick={onClick} style={{ cursor: 'pointer' }}>
-      <Group justify="space-between" wrap="nowrap">
-        <Box>
-          <Text fw={600} size="sm" c={isDanger ? 'red' : 'black'}>{label}</Text>
-          {description && <Text size="xs" c="dimmed">{description}</Text>}
-        </Box>
-        {hasSwitch ? <Switch size="md" color="blue" /> : <IconChevronRight size={18} color="#adb5bd" />}
-      </Group>
-    </Paper>
-  );
-}
-
-function NotificationToggle({ title, description, defaultChecked = false }) {
-  return (
-    <Group justify="space-between" wrap="nowrap">
-      <Box><Text fw={600} size="sm">{title}</Text><Text size="xs" c="dimmed">{description}</Text></Box>
-      <Switch defaultChecked={defaultChecked} size="md" color="blue" />
-    </Group>
-  );
-}
-
-function SidebarItem({ icon, label, active, onClick }) {
-  return (
-    <UnstyledButton 
-      p="md" w="100%" bg="white" onClick={onClick}
-      style={{ borderRadius: '12px', border: active ? '2px solid #0038FF' : 'none' }}
-    >
-      <Group justify="space-between">
-        <Group gap="sm">
-          {React.cloneElement(icon, { color: active ? '#0038FF' : '#495057' })}
-          <Text fw={600} size="sm" c={active ? '#0038FF' : 'black'}>{label}</Text>
+    return (
+      <Paper withBorder p="sm" radius="md" bg="white" onClick={onClick} style={{ cursor: 'pointer' }}>
+        <Group justify="space-between" wrap="nowrap">
+          <Box>
+            <Text fw={600} size="sm" c={isDanger ? 'red' : 'black'}>{label}</Text>
+            {description && <Text size="xs" c="dimmed">{description}</Text>}
+          </Box>
+          {hasSwitch ? <Switch size="md" color="blue" /> : <IconChevronRight size={18} color="#adb5bd" />}
         </Group>
-        <IconChevronRight size={16} color={active ? '#0038FF' : '#ced4da'} />
+      </Paper>
+    );
+  }
+  
+  function NotificationToggle({ title, description, defaultChecked = false }) {
+    return (
+      <Group justify="space-between" wrap="nowrap">
+        <Box><Text fw={600} size="sm">{title}</Text><Text size="xs" c="dimmed">{description}</Text></Box>
+        <Switch defaultChecked={defaultChecked} size="md" color="blue" />
       </Group>
-    </UnstyledButton>
-  );
-}
-
-const inputStyles = {
-  label: { marginBottom: 8, fontWeight: 700, fontSize: '14px' },
-  input: { borderRadius: '8px', border: '1px solid #ced4da', height: '45px' }
-};
+    );
+  }
+  
+  function SidebarItem({ icon, label, active, onClick }) {
+    return (
+      <UnstyledButton 
+        p="md" w="100%" bg="white" onClick={onClick}
+        style={{ borderRadius: '12px', border: active ? '2px solid #0038FF' : 'none' }}
+      >
+        <Group justify="space-between">
+          <Group gap="sm">
+            {React.cloneElement(icon, { color: active ? '#0038FF' : '#495057' })}
+            <Text fw={600} size="sm" c={active ? '#0038FF' : 'black'}>{label}</Text>
+          </Group>
+          <IconChevronRight size={16} color={active ? '#0038FF' : '#ced4da'} />
+        </Group>
+      </UnstyledButton>
+    );
+  }
+  
+  const inputStyles = {
+    label: { marginBottom: 8, fontWeight: 700, fontSize: '14px' },
+    input: { borderRadius: '8px', border: '1px solid #ced4da', height: '45px' }
+  };
