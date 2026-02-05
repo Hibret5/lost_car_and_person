@@ -1,6 +1,8 @@
 import '@mantine/core/styles.css';
 import { MantineProvider, ColorSchemeScript } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
+import '@mantine/carousel/styles.css';
+import '@mantine/notifications/styles.css';
 
 export const metadata = {
   title: 'Auth UI',

@@ -3,6 +3,7 @@
 import { MantineProvider } from '@mantine/core';
 import { useState } from 'react';
 import { Notifications } from '@mantine/notifications';
+import '@mantine/notifications/styles.css';
 
 
 export default function Providers({ children }) {
