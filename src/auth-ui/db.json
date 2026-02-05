@@ -1,0 +1,17 @@
+{
+  "users": [
+    {
+      "id": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
+      "firstName": "user",
+      "lastName": "user",
+      "email": "User1@gmail.com",
+      "phone": "+251911111111",
+      "password": "User@1111",
+      "createdAt": "2026-02-05T06:52:23.735Z",
+      "updatedAt": "2026-02-05T07:28:30.224Z",
+      "isActive": true,
+      "role": "user",
+      "lastLogin": "2026-02-05T07:28:30.224Z"
+    }
+  ]
+}
