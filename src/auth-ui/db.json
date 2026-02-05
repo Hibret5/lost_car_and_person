@@ -12,6 +12,22 @@
       "isActive": true,
       "role": "user",
       "lastLogin": "2026-02-05T08:48:42.693Z"
+
+
+    },
+    {
+      "id": "a94e831a-9536-4310-a772-f864e5bd975a",
+      "firstName": "Hibrewerk",
+      "lastName": "Mossie",
+      "email": "user1@gmail.com",
+      "phone": "0962061126",
+      "password": "User@1111",
+      "createdAt": "2026-02-05T14:38:14.973Z",
+      "updatedAt": "2026-02-05T17:06:26.904Z",
+      "isActive": true,
+      "role": "user",
+      "lastLogin": "2026-02-05T17:06:26.904Z"
+
     }
   ]
 }
