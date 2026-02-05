@@ -12,10 +12,15 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <ColorSchemeScript />
+        {/* Forces the initial theme state to prevent white-flash on dark mode load */}
+        <ColorSchemeScript defaultColorScheme="light" />
       </head>
       <body style={{ margin: 0 }}>
-        <MantineProvider theme={{ primaryColor: 'blue' }}>
+        {/* Added defaultColorScheme here so the hook can manage it */}
+        <MantineProvider 
+          theme={{ primaryColor: 'blue' }} 
+          defaultColorScheme="light"
+        >
           <Notifications 
             position="top-right" 
             zIndex={9999}
