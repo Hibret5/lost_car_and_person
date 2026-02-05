@@ -12,6 +12,19 @@
       "isActive": true,
       "role": "user",
       "lastLogin": "2026-02-05T08:48:42.693Z"
+    },
+    {
+      "id": "e6bb9b87-cb57-4c50-ab21-85954afe2542",
+      "firstName": "Tinebeb",
+      "lastName": "Amsalu",
+      "email": "tinebebamsalu@gmail.com",
+      "phone": "0980397465",
+      "password": "7211219@Ti",
+      "createdAt": "2026-02-05T09:36:06.982Z",
+      "updatedAt": "2026-02-05T09:36:15.565Z",
+      "isActive": true,
+      "role": "user",
+      "lastLogin": "2026-02-05T09:36:15.564Z"
     }
   ]
 }

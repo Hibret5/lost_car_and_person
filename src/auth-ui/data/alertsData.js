@@ -12,6 +12,54 @@ export const alertsData = [
     status: "active",
     imageUrl: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
     
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Km Makassar Sat",
+      "Kota Makassar Sat", 
+      "Jalan Raya Makassar Sat",
+      "Jalan Raya Makassar Sat",
+      "Jalan R. Makassar Sat",
+      "Jalan R. Makassar Sat",
+      "Jalan R.Makassar Sat",
+      "Jalan R.Makassar Sat",
+      "Jalan R.MaKassar Sat",
+      "Jalan R.Makassar Sat",
+      "Jalan R.Maksar Sat",
+      "Jalan R.Makasar Sat",
+      "Jalan R.Makasar Sat",
+      "Jalan R.Makasrar Sat",
+      "Jalan R.Makasar Sat",
+      "Jalan R.Makasar Sat"
+    ],
+    
+    accuracy: "60%",
+    
+    category: {
+      type: "Car",
+      brandName: "Toyota",
+      plateNumber: "A.A 2 11111"
+    },
+    
+    color: "Silver",
+    
+    registeredLocation: "Address Abebe, Mexico Itoswerit at",
+    
+    registeredDate: "10/11/2023",
+    registeredTime: "8:11 PM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500",
+        "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500"
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: false,
+      isFalseAlert: false
+    },
+    
     // === DETAIL PAGE DATA (for AlertDetailPage) ===
     title: "Toyota Corolla - Diesel equipped",
     date: "10/11/2023",
@@ -373,6 +421,45 @@ The owner has provided additional information about custom modifications includi
     status: "active",
     imageUrl: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
     
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Santa Monica Blvd, LA",
+      "Hollywood Hills, CA",
+      "Downtown LA, Financial District",
+      "Beverly Hills, Rodeo Drive",
+      "Venice Beach Boardwalk",
+      "LAX Airport Area",
+      "Griffith Observatory",
+      "Universal Studios Hollywood",
+    ],
+    
+    accuracy: "65%",
+    
+    category: {
+      type: "Car",
+      brandName: "Santa",
+      plateNumber: "PARC AR 761"
+    },
+    
+    color: "White Pearl",
+    
+    registeredLocation: "Los Angeles, California 90001",
+    
+    registeredDate: "10/10/2023",
+    registeredTime: "6:30 PM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: false,
+      isFalseAlert: false
+    },
+    
     title: "Santa Cordilla - PARC AR: 761",
     date: "10/10/2023",
     startTime: "6:30 pm",
@@ -570,6 +657,43 @@ The owner has provided additional information about custom modifications includi
     status: "resolved",
     imageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
     
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Mexico City Airport Terminal 1",
+      "Airport Parking Zone B",
+      "International Arrivals Area",
+      "Baggage Claim Zone 3",
+      "Airport Hotel Parking",
+      "Rental Car Return Area",
+    ],
+    
+    accuracy: "95%",
+    
+    category: {
+      type: "Car",
+      brandName: "Toyota",
+      plateNumber: "PINK AC 615"
+    },
+    
+    color: "Black with Pink Accents",
+    
+    registeredLocation: "Mexico City Airport Complex",
+    
+    registeredDate: "09/10/2023",
+    registeredTime: "10:15 AM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: true,
+      isFalseAlert: false
+    },
+    
     title: "Toyota Corolla - Black, Pink A/C 615",
     date: "09/10/2023",
     startTime: "10:15 am",
@@ -685,6 +809,45 @@ The owner has provided additional information about custom modifications includi
     time: "1 week ago",
     status: "active",
     imageUrl: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
+    
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Highway 75 Northbound",
+      "Downtown Dallas, Main Street",
+      "Industrial Zone East",
+      "Dallas Shopping District",
+      "Residential Area North",
+      "I-35E Highway",
+      "Trinity Groves Area",
+      "Deep Ellum District",
+    ],
+    
+    accuracy: "78%",
+    
+    category: {
+      type: "Car",
+      brandName: "Ford",
+      plateNumber: "BLACK AC 321"
+    },
+    
+    color: "Red with Black Stripes",
+    
+    registeredLocation: "Dallas, Texas 75201",
+    
+    registeredDate: "01/15/2024",
+    registeredTime: "3:45 PM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: false,
+      isFalseAlert: false
+    },
     
     title: "Ford Mustang - Red, Black A/C 321",
     date: "01/15/2024",
@@ -854,6 +1017,43 @@ The owner has provided additional information about custom modifications includi
     status: "resolved",
     imageUrl: "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
     
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Wall Street, Financial District",
+      "Parking Garage B2 Level",
+      "Security Checkpoint Entrance",
+      "Broadway & Pine Street",
+      "NYC Financial Center",
+      "Underground Parking Facility",
+    ],
+    
+    accuracy: "94%",
+    
+    category: {
+      type: "Car",
+      brandName: "BMW",
+      plateNumber: "GRAY AC 654"
+    },
+    
+    color: "Black with Gray Interior",
+    
+    registeredLocation: "New York City Financial District",
+    
+    registeredDate: "01/10/2024",
+    registeredTime: "9:20 AM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1553440569-bcc63803a83d?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: true,
+      isFalseAlert: false
+    },
+    
     title: "BMW X5 - Black, Gray A/C 654",
     date: "01/10/2024",
     startTime: "9:20 am",
@@ -994,6 +1194,43 @@ The owner has provided additional information about custom modifications includi
     status: "active",
     imageUrl: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=500",
     
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Ocean Drive, South Beach",
+      "Collins Avenue, Miami",
+      "Lincoln Road Mall",
+      "Art Deco District",
+      "Miami Beach Boardwalk",
+      "South Pointe Park",
+    ],
+    
+    accuracy: "73%",
+    
+    category: {
+      type: "Motorcycle",
+      brandName: "Harley Davidson",
+      plateNumber: "CHROME 001"
+    },
+    
+    color: "Black with Chrome",
+    
+    registeredLocation: "Miami Beach, Florida 33139",
+    
+    registeredDate: "01/20/2024",
+    registeredTime: "4:30 PM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: false,
+      isFalseAlert: false
+    },
+    
     title: "Harley Davidson - Custom Chrome",
     date: "01/20/2024",
     startTime: "4:30 pm",
@@ -1075,6 +1312,43 @@ The owner has provided additional information about custom modifications includi
     status: "active",
     imageUrl: "https://images.unsplash.com/photo-1563720223485-8d6d5c5bfc63?q=80&w=500",
     
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Construction Zone A, Denver",
+      "Material Yard, Industrial Area",
+      "Highway 70 Westbound",
+      "Residential Construction Site",
+      "Downtown Denver Project",
+      "Mountain View Worksite",
+    ],
+    
+    accuracy: "81%",
+    
+    category: {
+      type: "Truck",
+      brandName: "Ford",
+      plateNumber: "WORK TRK 001"
+    },
+    
+    color: "White",
+    
+    registeredLocation: "Denver, Colorado 80202",
+    
+    registeredDate: "01/16/2024",
+    registeredTime: "7:45 AM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1563720223485-8d6d5c5bfc63?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: false,
+      isFalseAlert: false
+    },
+    
     title: "Ford F-150 - Work Truck",
     date: "01/16/2024",
     startTime: "7:45 am",
@@ -1155,6 +1429,43 @@ The owner has provided additional information about custom modifications includi
     time: "2 weeks ago",
     status: "resolved",
     imageUrl: "https://images.unsplash.com/photo-1560958089-b8a1929cea89?q=80&w=500",
+    
+    // === NEW FIELDS FROM IMAGE ===
+    mapAddresses: [
+      "Tech Campus Parking Garage",
+      "Electric Charging Station Area",
+      "Security Gate Entrance",
+      "Silicon Valley Tech Park",
+      "EV Parking Zone",
+      "Corporate Campus Grounds",
+    ],
+    
+    accuracy: "89%",
+    
+    category: {
+      type: "Electric Car",
+      brandName: "Tesla",
+      plateNumber: "ELECTRIC 001"
+    },
+    
+    color: "Blue",
+    
+    registeredLocation: "San Francisco Tech Campus",
+    
+    registeredDate: "01/05/2024",
+    registeredTime: "11:20 AM",
+    
+    capturedMedia: {
+      photos: [
+        "https://images.unsplash.com/photo-1560958089-b8a1929cea89?q=80&w=500",
+      ],
+      videos: []
+    },
+    
+    confirmationOptions: {
+      isOwner: true,
+      isFalseAlert: false
+    },
     
     title: "Tesla Model 3 - Electric Blue",
     date: "01/05/2024",
