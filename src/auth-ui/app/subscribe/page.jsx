@@ -45,10 +45,8 @@ export default function SubscriptionPage() {
   const [reportCount, setReportCount] = useState(0);
   const [activeIndex, setActiveIndex] = useState(1);
 
-  // ADD THIS FUNCTION
   const handleClose = () => {
     router.back(); // Goes back to previous page
-    // OR use: router.push("/dashboard"); // Goes to specific page
   };
 
   useEffect(() => {
@@ -156,10 +154,14 @@ export default function SubscriptionPage() {
 
   const handleUpgrade = () => {
     const selectedPlanData = plans.find((p) => p.id === selectedPlan);
+
     if (selectedPlanData.id === "enterprise") {
       router.push("/contact?plan=enterprise");
     } else {
-      alert(`You selected the ${selectedPlanData.name} plan!`);
+      // Redirect to the new payment page with plan details
+       router.push(
+      `/subscribe/payment?plan=${selectedPlanData.id}&name=${encodeURIComponent(selectedPlanData.name)}`,
+    );
     }
   };
 
@@ -292,30 +294,23 @@ export default function SubscriptionPage() {
         </Container>
       </Box>
       {/* ADD THIS: Close Button Section - Below Navbar */}
-     
-  <Container size="xl" style={{ marginTop: 20 }}>
-    
-      <Group justify="flex-end">
-        <ActionIcon
-          variant="light"
-          color="blue"
-          size={55}
-          radius="xs" // Very rectangular
-          onClick={handleClose}
-          style={{
-            cursor: "pointer",
-            border: "2px solid #2f80ed",
-          }}
-        >
-          <IconX 
-            size={30}
-            stroke={4}
-            color="#2f80ed"
-          />
-        </ActionIcon>
-      </Group>
-    
-  </Container>
+      <Container size="xl" style={{ marginTop: 20 }}>
+        <Group justify="flex-end">
+          <ActionIcon
+            variant="light"
+            color="blue"
+            size={55}
+            radius="xs" // Very rectangular
+            onClick={handleClose}
+            style={{
+              cursor: "pointer",
+              border: "2px solid #2f80ed",
+            }}
+          >
+            <IconX size={30} stroke={4} color="#2f80ed" />
+          </ActionIcon>
+        </Group>
+      </Container>
       {/* Main Content */}
       <Container
         size="xl"
