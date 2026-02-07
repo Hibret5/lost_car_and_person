@@ -50,26 +50,28 @@ export default function SubscriptionPage() {
   };
 
   useEffect(() => {
-    const checkAuth = () => {
-      const userData = localStorage.getItem("currentUser");
-      const reports = localStorage.getItem("userReports");
-
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setReportCount(parsedUser.reportCount || 0);
+  const checkAuth = () => {
+    const userData = localStorage.getItem("currentUser");
+    
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      
+      // Check if this is first registration (allow it for free)
+      const registrationCount = parseInt(localStorage.getItem("registrationCount") || "0");
+      
+      if (registrationCount === 0) {
+        // First registration is FREE - skip subscription
+        router.push("/register-person");
+        return;
       }
+    }
 
-      if (reports) {
-        const parsedReports = JSON.parse(reports);
-        setReportCount(parsedReports.length);
-      }
+    setLoading(false);
+  };
 
-      setLoading(false);
-    };
-
-    checkAuth();
-  }, []);
+  checkAuth();
+}, [router]);
 
   const plans = [
     {
