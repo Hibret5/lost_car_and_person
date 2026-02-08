@@ -1,67 +1,79 @@
 "use client";
 
-import React from 'react';
-import { AppShell, Box, Stack, UnstyledButton, Group, Text, ScrollArea, Image } from '@mantine/core';
+import React, { useState } from 'react';
+import { AppShell, Box, Stack, UnstyledButton, Group, Text, ScrollArea, Image, ActionIcon, Tooltip } from '@mantine/core';
 import { 
   IconLayoutDashboard, IconUsers, IconDatabase, IconFileCheck, 
-  IconCoin, IconBell, IconMessageDots, IconSettings, IconHistory, IconLogout 
+  IconCoin, IconBell, IconMessageDots, IconSettings, IconHistory, IconLogout,
+  IconChevronLeft, IconMenu2
 } from '@tabler/icons-react';
 import { usePathname, useRouter } from 'next/navigation';
 
 export default function AdminLayout({ children }) {
+  const [collapsed, setCollapsed] = useState(false); // State to toggle sidebar
   const pathname = usePathname();
   const router = useRouter();
 
-  // Navigation items mapping exactly to your sidebar screenshot
   const menuItems = [
-    { icon: <IconLayoutDashboard size={20} />, label: 'Dashboard', path: '/admin' },
-    { icon: <IconUsers size={20} />, label: 'Accounts', path: '/admin/accounts' },
-    { icon: <IconDatabase size={20} />, label: 'Data Management', path: '/admin/data' },
-    { icon: <IconFileCheck size={20} />, label: 'Document Validation', path: '/admin/docs' },
-    { icon: <IconCoin size={20} />, label: 'Finance', path: '/admin/finance' },
-    { icon: <IconBell size={20} />, label: 'Notifications', path: '/admin/notifications' },
-    { icon: <IconMessageDots size={20} />, label: 'Feedback', path: '/admin/feedback' },
-    { icon: <IconSettings size={20} />, label: 'Setting', path: '/admin/settings' },
-    { icon: <IconHistory size={20} />, label: 'Activities', path: '/admin/activities' },
+    { icon: <IconLayoutDashboard size={22} />, label: 'Dashboard', path: '/admin' },
+    { icon: <IconUsers size={22} />, label: 'Accounts', path: '/admin/accounts' },
+    { icon: <IconDatabase size={22} />, label: 'Data Management', path: '/admin/data' },
+    { icon: <IconFileCheck size={22} />, label: 'Document Validation', path: '/admin/docs' },
+    { icon: <IconCoin size={22} />, label: 'Finance', path: '/admin/finance' },
+    { icon: <IconBell size={22} />, label: 'Notifications', path: '/admin/notifications' },
+    { icon: <IconMessageDots size={22} />, label: 'Feedback', path: '/admin/feedback' },
+    { icon: <IconSettings size={22} />, label: 'Setting', path: '/admin/settings' },
+    { icon: <IconHistory size={22} />, label: 'Activities', path: '/admin/activities' },
   ];
-
-  const handleLogout = () => {
-    // Basic logout logic for frontend demo
-    router.push('/');
-  };
 
   return (
     <AppShell
-      navbar={{ width: 280, breakpoint: 'sm' }}
+      navbar={{ 
+        width: collapsed ? 80 : 280, // Dynamic width
+        breakpoint: 'sm' 
+      }}
       padding="0"
+      transitionDuration={300} // Smooth sliding animation
+      transitionTimingFunction="ease"
     >
       <AppShell.Navbar 
         p="md" 
         style={{ 
           background: 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)', 
           borderRight: 'none',
-          zIndex: 100
+          zIndex: 100,
+          transition: 'width 0.3s ease' // Animation for the navbar itself
         }}
       >
         <Stack justify="space-between" h="100%">
           <Box>
-            {/* LOGO SECTION - Loads from public/logo.jpg */}
-            <Group mb={40} mt={10} justify="center">
-              <Image 
-                src="/logo.jpg" 
-                alt="GFH Logo" 
-                w={160} 
-                fallbackSrc="https://placehold.co/200x80?text=GFH+LOGO"
-              />
+            {/* TOGGLE BUTTON & LOGO */}
+            <Group mb={30} mt={10} justify={collapsed ? "center" : "space-between"}>
+              {!collapsed && (
+                <Image 
+                  src="/logo.jpg" 
+                  alt="Logo" 
+                  w={120} 
+                  fallbackSrc="https://placehold.co/120x40?text=GFH+LOGO"
+                />
+              )}
+              <ActionIcon 
+                onClick={() => setCollapsed(!collapsed)} 
+                variant="transparent" 
+                color="white"
+              >
+                {collapsed ? <IconMenu2 size={24} /> : <IconChevronLeft size={24} />}
+              </ActionIcon>
             </Group>
 
-            {/* SCROLLABLE SIDEBAR MENU */}
-            <ScrollArea h="calc(100vh - 280px)" scrollbarSize={0}>
+            {/* NAVIGATION MENU */}
+            <ScrollArea h="calc(100vh - 250px)" scrollbarSize={0}>
               <Stack gap={4}>
                 {menuItems.map((item) => (
                   <AdminNavItem 
                     key={item.label}
                     {...item} 
+                    collapsed={collapsed}
                     active={pathname === item.path}
                     onClick={() => router.push(item.path)}
                   />
@@ -70,23 +82,18 @@ export default function AdminLayout({ children }) {
             </ScrollArea>
           </Box>
           
-          {/* BOTTOM ACTIONS SECTION */}
+          {/* BOTTOM ACTIONS */}
           <Stack gap={4} mb={20}>
             <AdminNavItem 
-              icon={<IconLogout size={20} />} 
+              icon={<IconLogout size={22} />} 
               label="Logout" 
-              onClick={handleLogout} 
-            />
-            <AdminNavItem 
-              icon={<IconDatabase size={20} />} 
-              label="Data Management" 
-              onClick={() => {}} 
+              collapsed={collapsed}
+              onClick={() => router.push('/')} 
             />
           </Stack>
         </Stack>
       </AppShell.Navbar>
 
-      {/* This renders the content of page.jsx (Dashboard or Accounts) */}
       <AppShell.Main bg="#F4F7FE" style={{ minHeight: '100vh' }}>
         {children}
       </AppShell.Main>
@@ -94,9 +101,8 @@ export default function AdminLayout({ children }) {
   );
 }
 
-// Helper component for individual navigation buttons
-function AdminNavItem({ icon, label, active, onClick }) {
-  return (
+function AdminNavItem({ icon, label, active, onClick, collapsed }) {
+  const content = (
     <UnstyledButton 
       onClick={onClick}
       p="md" 
@@ -104,12 +110,13 @@ function AdminNavItem({ icon, label, active, onClick }) {
       style={{ 
         borderRadius: '8px',
         backgroundColor: active ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-        transition: 'background 0.2s ease',
-        position: 'relative'
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        display: 'flex',
+        justifyContent: collapsed ? 'center' : 'flex-start'
       }}
     >
-      {/* The white indicator bar seen in your screenshot */}
-      {active && (
+      {active && !collapsed && (
         <Box 
           style={{ 
             position: 'absolute', 
@@ -123,12 +130,21 @@ function AdminNavItem({ icon, label, active, onClick }) {
         />
       )}
       
-      <Group gap="md">
+      <Group gap="md" wrap="nowrap">
         {React.cloneElement(icon, { color: 'white' })}
-        <Text c="white" size="sm" fw={active ? 700 : 400}>
-          {label}
-        </Text>
+        {!collapsed && (
+          <Text c="white" size="sm" fw={active ? 700 : 400} style={{ whiteSpace: 'nowrap' }}>
+            {label}
+          </Text>
+        )}
       </Group>
     </UnstyledButton>
   );
+
+  // If collapsed, show a tooltip on hover
+  return collapsed ? (
+    <Tooltip label={label} position="right" withArrow offset={15}>
+      {content}
+    </Tooltip>
+  ) : content;
 }

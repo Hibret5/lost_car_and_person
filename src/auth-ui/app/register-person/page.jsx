@@ -3,16 +3,21 @@
 import { useState, useEffect } from 'react';
 import { 
   Container, Box, Title, Text, TextInput, Select, NumberInput, 
-  Textarea, SimpleGrid, Paper, Button, Group, FileInput, Stack 
+  Textarea, SimpleGrid, Paper, Button, Group, FileInput, Stack,
+  Loader, Alert // ← ADD THESE IMPORTS
 } from '@mantine/core';
-import { IconUpload, IconMapPin, IconPlus, IconInfoCircle } from '@tabler/icons-react';
+import { IconUpload, IconMapPin, IconPlus, IconInfoCircle, IconAlertCircle } from '@tabler/icons-react'; // ← ADD IconAlertCircle
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; // ← ADD THIS IMPORT
 import MainFooter from '../../components/MainFooter';
-import carData from '../data/carData'; // Import the car data
+import carData from '../data/carData';
 
 export default function UnifiedRegisterPage() {
+  const router = useRouter(); // ← ADD THIS
   const [regType, setRegType] = useState('Person');
+  const [loading, setLoading] = useState(true); // ← ADD THIS
+  const [showSubscriptionRedirect, setShowSubscriptionRedirect] = useState(false); // ← ADD THIS
   
   // Vehicle selection states
   const [selectedBrand, setSelectedBrand] = useState(null);
@@ -37,6 +42,42 @@ export default function UnifiedRegisterPage() {
     'Southern Nations, Nationalities, and Peoples', 'South West Ethiopia',
     'Tigray'
   ];
+
+  // ← ADD THIS useEffect AT THE TOP (before other useEffects)
+  useEffect(() => {
+    // Check registration count on page load
+    const checkRegistrationCount = () => {
+      // Get current registration count
+      const registrationCount = parseInt(localStorage.getItem("registrationCount") || "0");
+      
+      console.log("Current registration count:", registrationCount);
+      
+      if (registrationCount >= 1) {
+        // This is 2nd+ registration, check if user has paid subscription
+        const hasPaid = localStorage.getItem("hasPaidSubscription") === "true";
+        
+        console.log("Has paid subscription:", hasPaid);
+        
+        if (!hasPaid) {
+          // Show subscription redirect warning
+          setShowSubscriptionRedirect(true);
+          
+          // Redirect to subscription page after 3 seconds
+          const timer = setTimeout(() => {
+            router.push("/subscribe");
+          }, 3000);
+          
+          setLoading(false);
+          return () => clearTimeout(timer);
+        }
+      }
+      
+      // If first registration or has paid subscription, allow access
+      setLoading(false);
+    };
+
+    checkRegistrationCount();
+  }, [router]);
 
   // Initialize brands from carData
   useEffect(() => {
@@ -71,9 +112,24 @@ export default function UnifiedRegisterPage() {
     }
   }, [selectedBrand, selectedModel]);
 
-  // Handle form submission
+  // Handle form submission - UPDATE THIS FUNCTION
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    // Get current registration count
+    const currentCount = parseInt(localStorage.getItem("registrationCount") || "0");
+    const newCount = currentCount + 1;
+    
+    // Update registration count
+    localStorage.setItem("registrationCount", newCount.toString());
+    
+    // Update user data
+    const userData = JSON.parse(localStorage.getItem("currentUser") || "{}");
+    userData.registrations = (userData.registrations || 0) + 1;
+    localStorage.setItem("currentUser", JSON.stringify(userData));
+    
+    console.log("New registration count:", newCount);
+    
     // Here you would handle form submission
     console.log({
       type: regType,
@@ -87,10 +143,61 @@ export default function UnifiedRegisterPage() {
         code: e.target.code?.value || null,
         plateNumber: e.target.plateNumber?.value || null
       } : null,
-      // Add other form data here
     });
-    alert('Form submitted!');
+    
+    alert(`Successfully registered ${regType.toLowerCase()} #${newCount}!`);
+    
+    // Redirect to dashboard after successful registration
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 1000);
   };
+
+  // ← ADD THIS loading check after the imports and before the return
+  if (loading) {
+    return (
+      <Box style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader size="lg" />
+      </Box>
+    );
+  }
+
+  // ← ADD THIS redirect warning
+  if (showSubscriptionRedirect) {
+    return (
+      <Box bg="#f8f9fa" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Container size="sm">
+          <Alert
+            icon={<IconAlertCircle size={24} />}
+            title="Subscription Required"
+            color="blue"
+            variant="filled"
+            radius="lg"
+            p="xl"
+          >
+            <Stack gap="md">
+              <Text c="white" size="lg">
+                You have already registered 1 {regType.toLowerCase()}.
+              </Text>
+              <Text c="white">
+                To register additional {regType === 'Person' ? 'people' : 'vehicles'}, you need to subscribe to a plan.
+              </Text>
+              <Text c="white" size="sm">
+                Redirecting to subscription page in 3 seconds...
+              </Text>
+              <Button
+                color="yellow"
+                onClick={() => router.push("/subscribe")}
+                mt="md"
+              >
+                Go to Subscription Now
+              </Button>
+            </Stack>
+          </Alert>
+        </Container>
+      </Box>
+    );
+  }
 
   return (
     <Box bg="#f8f9fa" style={{ minHeight: '100vh' }}>
@@ -110,8 +217,19 @@ export default function UnifiedRegisterPage() {
         </Container>
       </Box>
 
+      {/* ← ADD THIS Registration Count Banner */}
+      <Container size="md" pt={20}>
+        <Paper withBorder p="md" radius="md" mb={20} bg="blue.0">
+          <Group justify="space-between">
+            <Text fw={600}>Registration #{parseInt(localStorage.getItem("registrationCount") || "0") + 1}</Text>
+            <Text size="sm" c="dimmed">
+              First registration is free. Additional registrations require subscription.
+            </Text>
+          </Group>
+        </Paper>
+      </Container>
+
       <Container size="md" py={40}>
-        {/* --- BANNER AREA --- */}
         <Group align="center" gap="xl" mb={30} wrap="nowrap">
           {/* EBS Image - Increased to 160px */}
           <Box style={{ width: '160px', height: '160px', flexShrink: 0 }}>

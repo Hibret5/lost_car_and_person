@@ -167,22 +167,32 @@ export default function PaymentPage() {
   };
 
   const handlePinSubmit = async () => {
-    if (pin.length !== 4) {
-      alert("Please enter a 4-digit PIN");
-      return;
+  if (pin.length !== 4) {
+    alert("Please enter a 4-digit PIN");
+    return;
+  }
+
+  setShowPinModal(false);
+  setPaymentLoading(true);
+  
+  setTimeout(() => {
+    setPaymentLoading(false);
+    setPin("");
+    
+    if (pin === "1234") {
+      // Mark that user has paid for subscription
+      localStorage.setItem("hasPaidSubscription", "true");
+      
+      alert("Payment successful! You can now register additional people.");
+      
+      // Redirect back to registration page
+      router.push("/register-person");
+    } else {
+      alert("Incorrect PIN. Please try again.");
+      setShowPinModal(true);
     }
-
-    setShowPinModal(false);
-    setPaymentLoading(true);
-
-    // Simulate payment processing
-    setTimeout(() => {
-      setPaymentLoading(false);
-      setPin("");
-      alert(`Payment successful! ${currentPlan.name} plan activated.`);
-      router.push("/dashboard");
-    }, 1500);
-  };
+  }, 1500);
+};
 
   const handleEditForm = () => {
     // Go back to form view
