@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import {
@@ -21,6 +22,7 @@ import {
   Badge,
   useMantineTheme,
   Flex,
+  Table,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -48,6 +50,23 @@ import {
   IconGlobe,
   IconTarget,
   IconChartBar,
+  IconFileReport,
+  IconHome,
+  IconChartLine,
+  IconUsers,
+  IconMapPin as IconLocation,
+  IconClock,
+  IconAlertCircle,
+  IconFolder,
+  IconDatabase,
+  IconListDetails,
+  IconEye,
+  IconEdit,
+  IconTrash,
+  IconFilter,
+  IconSortAscending,
+  IconDownload,
+  IconRefresh,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -67,6 +86,16 @@ export default function Dashboard() {
   const theme = useMantineTheme();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const isTablet = useMediaQuery("(max-width: 1024px)");
+
+  // Mock reported cases data
+  const reportedCases = [
+    { id: 1, type: "Car", status: "Active", date: "2024-03-15", location: "Downtown", priority: "High" },
+    { id: 2, type: "Person", status: "Resolved", date: "2024-03-10", location: "North Park", priority: "Medium" },
+    { id: 3, type: "Document", status: "Active", date: "2024-03-14", location: "Airport", priority: "High" },
+    { id: 4, type: "Pet", status: "Investigation", date: "2024-03-12", location: "South Side", priority: "Medium" },
+    { id: 5, type: "Jewelry", status: "Resolved", date: "2024-03-08", location: "Mall", priority: "Low" },
+    { id: 6, type: "Electronics", status: "Active", date: "2024-03-13", location: "University", priority: "High" },
+  ];
 
   useEffect(() => {
     const checkAuth = () => {
@@ -100,6 +129,24 @@ export default function Dashboard() {
     return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
   };
 
+  const getStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'blue';
+      case 'resolved': return 'green';
+      case 'investigation': return 'orange';
+      default: return 'gray';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority.toLowerCase()) {
+      case 'high': return 'red';
+      case 'medium': return 'yellow';
+      case 'low': return 'green';
+      default: return 'gray';
+    }
+  };
+
   if (loading) {
     return (
       <Box
@@ -108,9 +155,37 @@ export default function Dashboard() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         }}
       >
-        <Text size="lg">Loading...</Text>
+        <Box
+          style={{
+            background: "rgba(255, 255, 255, 0.95)",
+            padding: "40px",
+            borderRadius: "20px",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            textAlign: "center",
+          }}
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              border: "4px solid #2f80ed",
+              borderTopColor: "transparent",
+              margin: "0 auto 20px",
+            }}
+          />
+          <Text size="lg" fw={700} style={{ color: "#2f80ed" }}>
+            Loading your dashboard...
+          </Text>
+          <Text size="sm" c="dimmed" mt="sm">
+            Please wait a moment
+          </Text>
+        </Box>
       </Box>
     );
   }
@@ -126,6 +201,8 @@ export default function Dashboard() {
           position: "sticky",
           top: 0,
           zIndex: 100,
+          backdropFilter: "blur(10px)",
+          background: "rgba(255, 255, 255, 0.95)",
         }}
       >
         <Container size="xl">
@@ -156,15 +233,34 @@ export default function Dashboard() {
               }}
               radius="xl"
               size={isMobile ? "sm" : "md"}
+              variant="filled"
             />
 
             <Group gap={isMobile ? "xs" : "md"} wrap="nowrap">
               <ActionIcon
-                variant="transparent"
+                variant="subtle"
                 color="gray"
                 size={isMobile ? "md" : "lg"}
                 component={Link}
                 href={user ? "/alert" : "/login"}
+                style={{
+                  position: "relative",
+                  "&::after": {
+                    content: '"3"',
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    background: "#ff6b6b",
+                    color: "white",
+                    borderRadius: "50%",
+                    width: 18,
+                    height: 18,
+                    fontSize: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                }}
               >
                 <IconBell size={isMobile ? 20 : 24} />
               </ActionIcon>
@@ -204,6 +300,9 @@ export default function Dashboard() {
                           color="blue"
                           size={isMobile ? "sm" : "md"}
                           radius="xl"
+                          style={{
+                            border: "2px solid #2f80ed",
+                          }}
                         >
                           {getUserInitials(user.firstName, user.lastName)}
                         </Avatar>
@@ -223,6 +322,7 @@ export default function Dashboard() {
                           color="blue"
                           size="lg"
                           radius="xl"
+                          style={{ border: "3px solid #2f80ed" }}
                         >
                           {getUserInitials(user.firstName, user.lastName)}
                         </Avatar>
@@ -262,6 +362,13 @@ export default function Dashboard() {
                         href="/profile"
                       >
                         My Profile
+                      </Menu.Item>
+                      <Menu.Item
+                        leftSection={<IconFileReport size={18} />}
+                        component={Link}
+                        href="/reported-cases"
+                      >
+                        Reported Cases
                       </Menu.Item>
                       <Menu.Item
                         leftSection={<IconBell size={18} />}
@@ -314,6 +421,9 @@ export default function Dashboard() {
                     href="/signup"
                     radius="xl"
                     size={isMobile ? "xs" : "sm"}
+                    style={{
+                      background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+                    }}
                   >
                     {isMobile ? "Join" : "Sign Up"}
                   </Button>
@@ -325,126 +435,206 @@ export default function Dashboard() {
       </Box>
 
       {/* --- HERO SECTION --- */}
-      <Box bg="#2f80ed" style={{ overflow: "hidden" }}>
+      <Box
+        bg="#2f80ed"
+        style={{
+          overflow: "hidden",
+          position: "relative",
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+          },
+        }}
+      >
         <Container size="xl" p={0}>
           <Grid gutter={0} align="stretch">
             <Grid.Col span={{ base: 12, md: 7 }} p={{ base: 40, md: 60 }}>
               <Stack
                 gap="md"
-                style={{ height: "100%", justifyContent: "center" }}
+                style={{ height: "100%", justifyContent: "center", position: "relative", zIndex: 1 }}
               >
                 {user ? (
                   <>
-                    <Title
-                      order={1}
-                      size={{ base: 32, md: 48, lg: 52 }}
-                      fw={900}
-                      mb={5}
-                      c="white"
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
                     >
-                      Welcome back, {user.firstName}!
-                    </Title>
-                    <Title
-                      order={2}
-                      size={{ base: 24, md: 36, lg: 42 }}
-                      fw={800}
-                      mb={5}
-                      c="black"
+                      <Title
+                        order={1}
+                        size={{ base: 32, md: 48, lg: 52 }}
+                        fw={900}
+                        mb={5}
+                        c="white"
+                        style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.3)" }}
+                      >
+                        Welcome back, {user.firstName}!
+                      </Title>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
                     >
-                      If you lost it we will find it
-                    </Title>
+                      <Title
+                        order={2}
+                        size={{ base: 24, md: 36, lg: 42 }}
+                        fw={800}
+                        mb={5}
+                        c="white"
+                      >
+                        If you lost it we will find it
+                      </Title>
+                    </motion.div>
                   </>
                 ) : (
                   <>
-                    <Title
-                      order={1}
-                      size={{ base: 32, md: 48, lg: 52 }}
-                      fw={900}
-                      mb={5}
-                      c="black"
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
                     >
-                      If you lost it we will find it
-                    </Title>
-                    <Title
-                      order={2}
-                      size={{ base: 24, md: 36, lg: 42 }}
-                      fw={800}
-                      mb={5}
-                      c="white"
+                      <Title
+                        order={1}
+                        size={{ base: 32, md: 48, lg: 52 }}
+                        fw={900}
+                        mb={5}
+                        c="white"
+                        style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.3)" }}
+                      >
+                        If you lost it we will find it
+                      </Title>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
                     >
-                      Join thousands who found their lost items
-                    </Title>
+                      <Title
+                        order={2}
+                        size={{ base: 24, md: 36, lg: 42 }}
+                        fw={800}
+                        mb={5}
+                        c="white"
+                      >
+                        Join thousands who found their lost items
+                      </Title>
+                    </motion.div>
                   </>
                 )}
-                <Text
-                  size={{ base: "md", md: "lg", lg: "xl" }}
-                  mb="xl"
-                  fw={600}
-                  c="white"
-                  maw={600}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
                 >
-                  Returning items is easier than ever with Flega's™ Black
-                  Lion's™ cloud based platform, accessible from any device.
-                </Text>
-                <Group mb="xl" wrap={isMobile ? "wrap" : "nowrap"}>
-                  {user ? (
-                    <Button
-                      component={Link}
-                      href="/subscribe" // Changed from "/register-person"
-                      size={isMobile ? "md" : "xl"}
-                      bg="black"
-                      color="white"
-                      radius="xl"
-                      rightSection={<IconArrowRight size={20} />}
-                      fullWidth={isMobile}
-                    >
-                      {user?.reportCount >= 1
-                        ? "Report Missing Item (Upgrade)"
-                        : "Report Missing Item"}
-                    </Button>
-                  ) : (
-                    <Button
-                      component={Link}
-                      href="/signup"
-                      size={isMobile ? "md" : "xl"}
-                      bg="black"
-                      color="white"
-                      radius="xl"
-                      rightSection={<IconArrowRight size={20} />}
-                      fullWidth={isMobile}
-                    >
-                      Get Started Free
-                    </Button>
-                  )}
-                  <Button
-                    size={isMobile ? "md" : "xl"}
-                    variant="outline"
-                    color="white"
-                    radius="xl"
-                    rightSection={<IconArrowRight size={20} />}
-                    component={Link}
-                    href="/how-it-works"
-                    fullWidth={isMobile}
+                  <Text
+                    size={{ base: "md", md: "lg", lg: "xl" }}
+                    mb="xl"
+                    fw={600}
+                    c="white"
+                    maw={600}
+                    style={{ opacity: 0.9 }}
                   >
-                    How it works
-                  </Button>
-                </Group>
-                {user && (
-                  <Group gap="md" wrap="wrap">
-                    <Text
-                      size="sm"
-                      fw={500}
-                      c="white"
-                      style={{ display: "flex", alignItems: "center", gap: 4 }}
+                    Returning items is easier than ever with Flegas™ Black
+                    Lions™ cloud based platform, accessible from any device.
+                  </Text>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                >
+                  <Group mb="xl" wrap={isMobile ? "wrap" : "nowrap"}>
+                    {user ? (
+                      <Button
+                        component={Link}
+                        href="/subscribe"
+                        size={isMobile ? "md" : "xl"}
+                        bg="black"
+                        color="white"
+                        radius="xl"
+                        rightSection={<IconArrowRight size={20} />}
+                        fullWidth={isMobile}
+                        style={{
+                          boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            transition: "transform 0.2s",
+                          },
+                        }}
+                      >
+                        {user?.reportCount >= 1
+                          ? "Report Missing Item (Upgrade)"
+                          : "Report Missing Item"}
+                      </Button>
+                    ) : (
+                      <Button
+                        component={Link}
+                        href="/signup"
+                        size={isMobile ? "md" : "xl"}
+                        bg="black"
+                        color="white"
+                        radius="xl"
+                        rightSection={<IconArrowRight size={20} />}
+                        fullWidth={isMobile}
+                        style={{
+                          boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                          "&:hover": {
+                            transform: "translateY(-2px)",
+                            transition: "transform 0.2s",
+                          },
+                        }}
+                      >
+                        Get Started Free
+                      </Button>
+                    )}
+                    <Button
+                      size={isMobile ? "md" : "xl"}
+                      variant="outline"
+                      color="white"
+                      radius="xl"
+                      rightSection={<IconArrowRight size={20} />}
+                      component={Link}
+                      href="/how-it-works"
+                      fullWidth={isMobile}
+                      style={{
+                        borderWidth: 2,
+                        "&:hover": {
+                          background: "rgba(255,255,255,0.1)",
+                        },
+                      }}
                     >
-                      <IconCalendar size={14} />
-                      Member since:{" "}
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </Text>
-                    <Badge color="green" variant="light">
-                      {user.isActive ? "Active Account" : "Inactive"}
-                    </Badge>
+                      How it works
+                    </Button>
                   </Group>
+                </motion.div>
+                {user && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                  >
+                    <Group gap="md" wrap="wrap">
+                      <Text
+                        size="sm"
+                        fw={500}
+                        c="white"
+                        style={{ display: "flex", alignItems: "center", gap: 4 }}
+                      >
+                        <IconCalendar size={14} />
+                        Member since:{" "}
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </Text>
+                      <Badge color="green" variant="light" size="lg">
+                        {user.isActive ? "Active Account" : "Inactive"}
+                      </Badge>
+                    </Group>
+                  </motion.div>
                 )}
               </Stack>
             </Grid.Col>
@@ -464,6 +654,16 @@ export default function Dashboard() {
                   priority
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
+                <Box
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "linear-gradient(to right, rgba(47, 128, 237, 0.9), rgba(47, 128, 237, 0.3))",
+                  }}
+                />
               </Box>
             </Grid.Col>
           </Grid>
@@ -473,44 +673,243 @@ export default function Dashboard() {
       {/* --- USER STATS DASHBOARD --- */}
       {user && (
         <Container size="xl" py={{ base: 30, md: 40 }}>
-          <Paper p={{ base: "lg", md: "xl" }} radius="lg" bg="blue.0" mb="xl">
-            <Title order={3} mb="md">
-              Your Dashboard Stats
-            </Title>
+          <Paper
+            p={{ base: "lg", md: "xl" }}
+            radius="lg"
+            bg="blue.0"
+            mb="xl"
+            style={{
+              boxShadow: "0 10px 30px rgba(47, 128, 237, 0.1)",
+              border: "1px solid rgba(47, 128, 237, 0.2)",
+            }}
+          >
+            <Group justify="space-between" mb="md">
+              <Title order={3} style={{ color: "#2f80ed" }}>
+                Your Dashboard Stats
+              </Title>
+              <Button
+                variant="subtle"
+                color="blue"
+                size="sm"
+                rightSection={<IconRefresh size={16} />}
+              >
+                Refresh
+              </Button>
+            </Group>
             <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing="lg">
-              <Paper p="md" bg="white" radius="md" withBorder h="100%">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">
-                    Reports Filed
-                  </Text>
-                  <Title order={2}>12</Title>
-                </Stack>
-              </Paper>
-              <Paper p="md" bg="white" radius="md" withBorder h="100%">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">
-                    Items Found
-                  </Text>
-                  <Title order={2}>8</Title>
-                </Stack>
-              </Paper>
-              <Paper p="md" bg="white" radius="md" withBorder h="100%">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">
-                    Active Searches
-                  </Text>
-                  <Title order={2}>4</Title>
-                </Stack>
-              </Paper>
-              <Paper p="md" bg="white" radius="md" withBorder h="100%">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">
-                    Community Help
-                  </Text>
-                  <Title order={2}>27</Title>
-                </Stack>
-              </Paper>
+              {[
+                { label: "Reports Filed", value: 12, color: "blue", icon: <IconFileReport />, trend: "+2" },
+                { label: "Items Found", value: 8, color: "green", icon: <IconCheck />, trend: "+3" },
+                { label: "Active Searches", value: 4, color: "orange", icon: <IconSearch />, trend: "+1" },
+                { label: "Community Help", value: 27, color: "grape", icon: <IconUsers />, trend: "+5" },
+              ].map((stat, index) => (
+                <Paper
+                  key={index}
+                  p="md"
+                  bg="white"
+                  radius="md"
+                  withBorder
+                  h="100%"
+                  style={{
+                    transition: "transform 0.3s, box-shadow 0.3s",
+                    "&:hover": {
+                      transform: "translateY(-5px)",
+                      boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
+                    },
+                  }}
+                >
+                  <Stack gap="xs">
+                    <Group justify="space-between">
+                      <Box style={{ color: `var(--mantine-color-${stat.color}-6)` }}>
+                        {stat.icon}
+                      </Box>
+                      <Badge size="sm" color={stat.color} variant="light">
+                        {stat.trend}
+                      </Badge>
+                    </Group>
+                    <Title order={2} style={{ color: `var(--mantine-color-${stat.color}-6)` }}>
+                      {stat.value}
+                    </Title>
+                    <Text size="sm" c="dimmed">
+                      {stat.label}
+                    </Text>
+                  </Stack>
+                </Paper>
+              ))}
             </SimpleGrid>
+          </Paper>
+        </Container>
+      )}
+
+      {/* --- REPORTED CASES SECTION (For logged-in users) --- */}
+      {user && (
+        <Container size="xl" pb={{ base: 30, md: 40 }}>
+          <Paper
+            p={{ base: "md", md: "lg" }}
+            radius="lg"
+            withBorder
+            shadow="sm"
+            style={{
+              background: "linear-gradient(to bottom, white, #f8f9fa)",
+            }}
+          >
+            <Group justify="space-between" mb="lg">
+              <Flex align="center" gap="sm">
+                <IconFileReport size={24} color="var(--mantine-color-blue-6)" />
+                <Box>
+                  <Title order={2} size="h3">
+                    Recent Reported Cases
+                  </Title>
+                  <Text size="sm" c="dimmed">
+                    Track and manage your reported cases
+                  </Text>
+                </Box>
+              </Flex>
+              <Group gap="sm">
+                <Button
+                  variant="outline"
+                  color="blue"
+                  leftSection={<IconFilter size={16} />}
+                  size="sm"
+                >
+                  Filter
+                </Button>
+                <Button
+                  variant="outline"
+                  color="blue"
+                  leftSection={<IconSortAscending size={16} />}
+                  size="sm"
+                >
+                  Sort
+                </Button>
+                <Button
+                  color="blue"
+                  leftSection={<IconDownload size={16} />}
+                  size="sm"
+                  style={{
+                    background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+                  }}
+                >
+                  Export
+                </Button>
+              </Group>
+            </Group>
+
+            {/* Reported Cases Table */}
+            <ScrollArea>
+              <Table
+                verticalSpacing="md"
+                horizontalSpacing="md"
+                highlightOnHover
+                withTableBorder
+                withColumnBorders
+              >
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Case ID</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                    <Table.Th>Status</Table.Th>
+                    <Table.Th>Priority</Table.Th>
+                    <Table.Th>Location</Table.Th>
+                    <Table.Th>Date</Table.Th>
+                    <Table.Th>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {reportedCases.map((caseItem) => (
+                    <Table.Tr key={caseItem.id}>
+                      <Table.Td>
+                        <Text fw={600}>#{caseItem.id}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          {caseItem.type === "Car" && <IconCar size={16} />}
+                          {caseItem.type === "Person" && <IconUserPerson size={16} />}
+                          {caseItem.type === "Pet" && <IconHeart size={16} />}
+                          <Text>{caseItem.type}</Text>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={getStatusColor(caseItem.status)}
+                          variant="light"
+                          size="sm"
+                        >
+                          {caseItem.status}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={getPriorityColor(caseItem.priority)}
+                          variant="light"
+                          size="sm"
+                        >
+                          {caseItem.priority}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          <IconLocation size={14} />
+                          <Text size="sm">{caseItem.location}</Text>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">
+                          {new Date(caseItem.date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs" wrap="nowrap">
+                          <ActionIcon
+                            variant="subtle"
+                            color="blue"
+                            size="sm"
+                            component={Link}
+                            href={`/case/${caseItem.id}`}
+                          >
+                            <IconEye size={16} />
+                          </ActionIcon>
+                          <ActionIcon
+                            variant="subtle"
+                            color="green"
+                            size="sm"
+                          >
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                          <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            size="sm"
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+
+            <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: "1px solid #e9ecef" }}>
+              <Text size="sm" c="dimmed">
+                Showing {reportedCases.length} of 45 cases
+              </Text>
+              <Button
+                variant="light"
+                color="blue"
+                rightSection={<IconChevronRight size={16} />}
+                component={Link}
+                href="/reported-cases"
+                radius="xl"
+              >
+                View All Cases
+              </Button>
+            </Group>
           </Paper>
         </Container>
       )}
@@ -523,6 +922,10 @@ export default function Dashboard() {
           p={{ base: "md", md: "lg" }}
           withBorder
           radius="lg"
+          style={{
+            boxShadow: "0 5px 15px rgba(0,0,0,0.05)",
+            background: "linear-gradient(to bottom, white, #f8f9fa)",
+          }}
         >
           <Group justify="space-between" mb="lg">
             <Flex align="center" gap="sm">
@@ -537,6 +940,7 @@ export default function Dashboard() {
               color="blue"
               component={Link}
               href="/cars"
+              size="lg"
             >
               <IconChevronRight />
             </ActionIcon>
@@ -550,7 +954,13 @@ export default function Dashboard() {
                   w={{ base: 180, sm: 220 }}
                   p={0}
                   withBorder
-                  style={{ flexShrink: 0 }}
+                  style={{
+                    flexShrink: 0,
+                    transition: "transform 0.3s",
+                    "&:hover": {
+                      transform: "scale(1.05)",
+                    },
+                  }}
                 >
                   <Box
                     style={{ position: "relative", height: 140, width: "100%" }}
@@ -580,6 +990,10 @@ export default function Dashboard() {
           p={{ base: "md", md: "lg" }}
           withBorder
           radius="lg"
+          style={{
+            boxShadow: "0 5px 15px rgba(0,0,0,0.05)",
+            background: "linear-gradient(to bottom, white, #f8f9fa)",
+          }}
         >
           <Group justify="space-between" mb="lg">
             <Flex align="center" gap="sm">
@@ -594,6 +1008,7 @@ export default function Dashboard() {
               color="blue"
               component={Link}
               href="/people"
+              size="lg"
             >
               <IconChevronRight />
             </ActionIcon>
@@ -607,7 +1022,13 @@ export default function Dashboard() {
                   w={{ base: 160, sm: 200 }}
                   p={0}
                   withBorder
-                  style={{ flexShrink: 0 }}
+                  style={{
+                    flexShrink: 0,
+                    transition: "transform 0.3s",
+                    "&:hover": {
+                      transform: "scale(1.05)",
+                    },
+                  }}
                 >
                   <Box
                     style={{ position: "relative", height: 200, width: "100%" }}
@@ -638,8 +1059,12 @@ export default function Dashboard() {
             p={{ base: "lg", md: 40 }}
             radius="lg"
             mb={{ base: 40, md: 60 }}
+            style={{
+              background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+              border: "1px solid rgba(47, 128, 237, 0.2)",
+            }}
           >
-            <Title order={2} mb="md">
+            <Title order={2} mb="md" style={{ color: "#2f80ed" }}>
               Join our community today
             </Title>
             <Text mb="xl" c="dark" size={{ base: "sm", md: "md" }}>
@@ -692,6 +1117,9 @@ export default function Dashboard() {
                     component={Link}
                     href="/signup"
                     fullWidth={isMobile}
+                    style={{
+                      background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+                    }}
                   >
                     SIGN UP FREE
                   </Button>
@@ -703,16 +1131,37 @@ export default function Dashboard() {
 
         {/* Our Company Section */}
         <Box py={{ base: 40, md: 60 }}>
-          <Title order={2} mb={{ base: 30, md: 50 }} ta="center">
+          <Title order={2} mb={{ base: 30, md: 50 }} ta="center" style={{ color: "#2f80ed" }}>
             Our Company
           </Title>
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, md: 6 }}>
-              <Paper shadow="md" p={0} radius="lg" withBorder h="100%">
-                <Box py="md" px="lg" style={{ borderBottom: "1px solid #eee" }}>
+              <Paper
+                shadow="md"
+                p={0}
+                radius="lg"
+                withBorder
+                h="100%"
+                style={{
+                  transition: "transform 0.3s",
+                  "&:hover": {
+                    transform: "translateY(-5px)",
+                  },
+                }}
+              >
+                <Box
+                  py="md"
+                  px="lg"
+                  style={{
+                    borderBottom: "1px solid #eee",
+                    background: "linear-gradient(to right, #2f80ed, #1e56a0)",
+                  }}
+                >
                   <Flex align="center" gap="sm">
-                    <IconTarget size={24} color="var(--mantine-color-blue-6)" />
-                    <Title order={3}>AIM</Title>
+                    <IconTarget size={24} color="white" />
+                    <Title order={3} c="white">
+                      AIM
+                    </Title>
                   </Flex>
                 </Box>
                 <Box
@@ -732,14 +1181,32 @@ export default function Dashboard() {
               </Paper>
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 6 }}>
-              <Paper shadow="md" p={0} radius="lg" withBorder h="100%">
-                <Box py="md" px="lg" style={{ borderBottom: "1px solid #eee" }}>
+              <Paper
+                shadow="md"
+                p={0}
+                radius="lg"
+                withBorder
+                h="100%"
+                style={{
+                  transition: "transform 0.3s",
+                  "&:hover": {
+                    transform: "translateY(-5px)",
+                  },
+                }}
+              >
+                <Box
+                  py="md"
+                  px="lg"
+                  style={{
+                    borderBottom: "1px solid #eee",
+                    background: "linear-gradient(to right, #2f80ed, #1e56a0)",
+                  }}
+                >
                   <Flex align="center" gap="sm">
-                    <IconChartBar
-                      size={24}
-                      color="var(--mantine-color-blue-6)"
-                    />
-                    <Title order={3}>Vision</Title>
+                    <IconChartBar size={24} color="white" />
+                    <Title order={3} c="white">
+                      Vision
+                    </Title>
                   </Flex>
                 </Box>
                 <Box
@@ -766,11 +1233,26 @@ export default function Dashboard() {
                 withBorder
                 maw={800}
                 mx="auto"
+                style={{
+                  transition: "transform 0.3s",
+                  "&:hover": {
+                    transform: "translateY(-5px)",
+                  },
+                }}
               >
-                <Box py="md" px="lg" style={{ borderBottom: "1px solid #eee" }}>
+                <Box
+                  py="md"
+                  px="lg"
+                  style={{
+                    borderBottom: "1px solid #eee",
+                    background: "linear-gradient(to right, #2f80ed, #1e56a0)",
+                  }}
+                >
                   <Flex align="center" gap="sm">
-                    <IconGlobe size={24} color="var(--mantine-color-blue-6)" />
-                    <Title order={3}>Strategy</Title>
+                    <IconGlobe size={24} color="white" />
+                    <Title order={3} c="white">
+                      Strategy
+                    </Title>
                   </Flex>
                 </Box>
                 <Box
@@ -801,8 +1283,12 @@ export default function Dashboard() {
                 p={{ base: "lg", md: 40 }}
                 radius="lg"
                 h="100%"
+                style={{
+                  background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                  border: "1px solid rgba(47, 128, 237, 0.2)",
+                }}
               >
-                <Title order={2} mb="xl">
+                <Title order={2} mb="xl" style={{ color: "#2f80ed" }}>
                   {user
                     ? "Ready to help someone today?"
                     : "Want to help others?"}
@@ -816,6 +1302,13 @@ export default function Dashboard() {
                     radius="md"
                     rightSection={<IconArrowRight size={18} />}
                     fullWidth={isMobile}
+                    style={{
+                      background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        transition: "transform 0.2s",
+                      },
+                    }}
                   >
                     {user ? "HELP OTHERS" : "JOIN TO HELP"}
                   </Button>
@@ -828,7 +1321,11 @@ export default function Dashboard() {
                 p={30}
                 radius="lg"
                 h="100%"
-                style={{ display: "flex", alignItems: "center" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+                }}
               >
                 <Title
                   order={3}
@@ -836,6 +1333,7 @@ export default function Dashboard() {
                   fw={700}
                   ta="center"
                   w="100%"
+                  c="white"
                 >
                   If you lost it we will find it
                 </Title>
@@ -852,7 +1350,7 @@ export default function Dashboard() {
             transition={{ duration: 0.6 }}
             viewport={{ once: true }}
           >
-            <Title order={2} fw={800} mb={5} ta="center">
+            <Title order={2} fw={800} mb={5} ta="center" style={{ color: "#2f80ed" }}>
               Real Stories, Real Results
             </Title>
             <Text size="sm" c="dimmed" mb={40} maw={600} mx="auto" ta="center">
@@ -1085,6 +1583,10 @@ export default function Dashboard() {
                     overflow: "hidden",
                     position: "relative",
                     aspectRatio: "16/9",
+                    transition: "transform 0.3s",
+                    "&:hover": {
+                      transform: "scale(1.02)",
+                    },
                   }}
                 >
                   <Image
@@ -1127,6 +1629,9 @@ export default function Dashboard() {
               radius="lg"
               bg="linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)"
               ta="center"
+              style={{
+                boxShadow: "0 20px 60px rgba(47, 128, 237, 0.3)",
+              }}
             >
               <Title order={2} c="white" mb="md">
                 Ready to get started?
@@ -1137,6 +1642,7 @@ export default function Dashboard() {
                 mb="xl"
                 maw={600}
                 mx="auto"
+                style={{ opacity: 0.9 }}
               >
                 Join thousands of users who have successfully found their lost
                 items and helped others in the community.
@@ -1168,6 +1674,9 @@ export default function Dashboard() {
                   component={Link}
                   href="/signup"
                   fullWidth={isMobile}
+                  style={{
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+                  }}
                 >
                   Create Free Account
                 </Button>
