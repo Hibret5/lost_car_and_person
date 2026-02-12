@@ -41,10 +41,10 @@
       "phone": "+251911111111",
       "password": "User@1111",
       "createdAt": "2026-02-05T06:52:23.735Z",
-      "updatedAt": "2026-02-08T07:10:04.561Z",
+      "updatedAt": "2026-02-09T09:51:22.024Z",
       "isActive": true,
       "role": "user",
-      "lastLogin": "2026-02-08T06:24:00.102Z",
+      "lastLogin": "2026-02-09T09:51:22.024Z",
       "registrations": 3,
       "hasPaidSubscription": true
     },

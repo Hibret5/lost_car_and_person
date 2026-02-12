@@ -23,6 +23,8 @@ import {
   Badge,
   Modal,
   PinInput,
+  Transition,
+  Paper,
 } from "@mantine/core";
 import {
   IconShieldCheck,
@@ -38,11 +40,15 @@ import {
   IconLock,
   IconAlertCircle,
   IconReceipt,
+  IconChevronRight,
+  IconStar,
+  IconBadge,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -54,7 +60,8 @@ export default function PaymentPage() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pin, setPin] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [showValidation, setShowValidation] = useState(false); // NEW: Track if validation should show
+  const [showValidation, setShowValidation] = useState(false);
+  const [activeStep, setActiveStep] = useState(1);
 
   // Get plan from URL
   const planType = searchParams.get("type") || "annual";
@@ -104,6 +111,7 @@ export default function PaymentPage() {
       borderColor: "#667eea",
       gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
       billing: "400.00",
+      iconColor: "#667eea",
     },
     annual: {
       name: "Annual",
@@ -111,12 +119,13 @@ export default function PaymentPage() {
       price: "360",
       period: "month",
       total: "4,380",
-      description: "$240 / month",
+      description: "360 birr / month",
       savings: "Save 13%",
       originalPrice: "4,800",
       borderColor: "#f093fb",
       gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
       billing: "4380.00",
+      iconColor: "#f5576c",
     },
   };
 
@@ -124,11 +133,9 @@ export default function PaymentPage() {
 
   // Validation function
   const isFormValid = () => {
-    // Check basic requirements
     if (!billedTo.trim()) return false;
     if (!acceptedTerms) return false;
 
-    // Check payment method specific requirements
     switch (paymentMethod) {
       case "bank":
         return selectedBank.trim() !== "" && accountNumber.trim() !== "";
@@ -152,610 +159,657 @@ export default function PaymentPage() {
 
   const handleContinue = () => {
     if (!isFormValid()) {
-      // Show validation errors when user tries to continue with incomplete form
       setShowValidation(true);
       return;
     }
-
-    // Switch to confirmation view
+    setActiveStep(2);
     setShowConfirmation(true);
   };
 
   const handleConfirmPayment = () => {
-    // Show PIN modal
     setShowPinModal(true);
   };
 
   const handlePinSubmit = async () => {
-  if (pin.length !== 4) {
-    alert("Please enter a 4-digit PIN");
-    return;
-  }
-
-  setShowPinModal(false);
-  setPaymentLoading(true);
-  
-  setTimeout(() => {
-    setPaymentLoading(false);
-    setPin("");
-    
-    if (pin === "1234") {
-      // Mark that user has paid for subscription
-      localStorage.setItem("hasPaidSubscription", "true");
-      
-      alert("Payment successful! You can now register additional people.");
-      
-      // Redirect back to registration page
-      router.push("/register-person");
-    } else {
-      alert("Incorrect PIN. Please try again.");
-      setShowPinModal(true);
+    if (pin.length !== 4) {
+      alert("Please enter a 4-digit PIN");
+      return;
     }
-  }, 1500);
-};
+
+    setShowPinModal(false);
+    setPaymentLoading(true);
+    
+    setTimeout(() => {
+      setPaymentLoading(false);
+      setPin("");
+      
+      if (pin === "1234") {
+        localStorage.setItem("hasPaidSubscription", "true");
+        alert("Payment successful! You can now register additional people.");
+        router.push("/register-person");
+      } else {
+        alert("Incorrect PIN. Please try again.");
+        setShowPinModal(true);
+      }
+    }, 1500);
+  };
 
   const handleEditForm = () => {
-    // Go back to form view
+    setActiveStep(1);
     setShowConfirmation(false);
   };
 
-  // Helper function to show error only when validation is triggered
   const showError = (fieldValue) => {
     return showValidation && !fieldValue.trim();
   };
 
+  // Stepper Component
+  const Stepper = () => (
+    <Box
+      style={{
+        background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+        borderRadius: "12px",
+        padding: "24px",
+        marginBottom: "32px",
+      }}
+    >
+      <Group justify="center" gap={0}>
+        {[1, 2, 3].map((step) => (
+          <Box key={step} style={{ position: "relative", flex: 1 }}>
+            <Group justify="center">
+              <Box
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "50%",
+                  background: step <= activeStep 
+                    ? "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
+                    : "#e9ecef",
+                  color: step <= activeStep ? "white" : "#adb5bd",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  boxShadow: step <= activeStep 
+                    ? "0 4px 12px rgba(79, 70, 229, 0.3)"
+                    : "none",
+                  transition: "all 0.3s ease",
+                  zIndex: 2,
+                  position: "relative",
+                }}
+              >
+                {step < activeStep ? <IconCheck size={20} /> : step}
+              </Box>
+            </Group>
+            <Text
+              ta="center"
+              mt={8}
+              fw={600}
+              c={step <= activeStep ? "dark" : "dimmed"}
+              size="sm"
+            >
+              {step === 1 ? "Payment Details" : step === 2 ? "Review" : "Confirm"}
+            </Text>
+            {step < 3 && (
+              <Box
+                style={{
+                  position: "absolute",
+                  top: "20px",
+                  left: "60%",
+                  right: "0",
+                  height: "2px",
+                  background: step < activeStep 
+                    ? "linear-gradient(90deg, #4f46e5, #7c3aed)"
+                    : "#e9ecef",
+                  zIndex: 1,
+                }}
+              />
+            )}
+          </Box>
+        ))}
+      </Group>
+    </Box>
+  );
+
   const renderLeftContent = () => {
     if (showConfirmation) {
-      // CONFIRMATION VIEW (Left content changes to this)
       return (
-        <Stack gap="lg">
-          {/* Header */}
-          <Box>
-            <Group>
-              <IconAlertCircle size={32} color={theme.colors.blue[6]} />
-              <Title order={2} fw={900}>
-                Dear, {billedTo || "User"}
-              </Title>
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Stack gap="lg">
+            <Box>
+              <Group>
+                <Box
+                  style={{
+                    padding: "12px",
+                    borderRadius: "12px",
+                    background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    color: "white",
+                  }}
+                >
+                  <IconAlertCircle size={32} />
+                </Box>
+                <Title order={2} fw={900} style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  Dear, {billedTo || "User"}
+                </Title>
+              </Group>
+              <Text c="dimmed" size="lg" mt={4}>
+                Please review your payment information before confirming
+              </Text>
+            </Box>
+
+            <Divider />
+
+            <Card
+              style={{
+                background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                border: "none",
+                borderRadius: "20px",
+                padding: "32px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
+              }}
+            >
+              <Stack gap="md">
+                <Text fw={700} size="xl" style={{ background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  Order Summary
+                </Text>
+
+                <Box>
+                  <Text size="sm" c="dimmed">Plan Type</Text>
+                  <Group mt={4}>
+                    <Badge
+                      size="xl"
+                      radius="sm"
+                      style={{
+                        background: currentPlan.gradient,
+                        color: "white",
+                        padding: "8px 16px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {currentPlan.name}
+                    </Badge>
+                  </Group>
+                </Box>
+
+                {paymentMethod === "bank" && selectedBank && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Text size="sm" c="dimmed">Chosen Bank</Text>
+                      <Group mt={4} gap="xs">
+                        <IconBuildingBank size={20} color="#3b82f6" />
+                        <Text fw={600} size="lg">{selectedBank}</Text>
+                      </Group>
+                    </Box>
+                    <Box>
+                      <Text size="sm" c="dimmed">Account Number</Text>
+                      <Text fw={600} size="lg" mt={4}>
+                        {accountNumber ? `${accountNumber.slice(0, 4)}xxxxxxxxxx` : "Not provided"}
+                      </Text>
+                    </Box>
+                  </>
+                )}
+
+                {paymentMethod === "creditCard" && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Text size="sm" c="dimmed">Card Type</Text>
+                      <Group mt={4} gap="xs">
+                        <IconCreditCard size={20} color="#8b5cf6" />
+                        <Text fw={600} size="lg">Credit Card</Text>
+                      </Group>
+                    </Box>
+                    <Box>
+                      <Text size="sm" c="dimmed">Card Number</Text>
+                      <Text fw={600} size="lg" mt={4}>
+                        {cardNumber ? `**** ${cardNumber.slice(-4)}` : "Not provided"}
+                      </Text>
+                    </Box>
+                  </>
+                )}
+
+                {paymentMethod === "wallet" && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Text size="sm" c="dimmed">Wallet Type</Text>
+                      <Group mt={4} gap="xs">
+                        <IconWallet size={20} color="#10b981" />
+                        <Text fw={600} size="lg">Digital Wallet</Text>
+                      </Group>
+                    </Box>
+                    <Box>
+                      <Text size="sm" c="dimmed">Wallet ID</Text>
+                      <Text fw={600} size="lg" mt={4}>
+                        {walletId ? `${walletId.slice(0, 4)}...${walletId.slice(-4)}` : "Not provided"}
+                      </Text>
+                    </Box>
+                  </>
+                )}
+
+                <Divider />
+
+                <Box>
+                  <Text size="sm" c="dimmed">Total Amount</Text>
+                  <Title order={1} fw={900} style={{ background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                    {currentPlan.billing} birr
+                  </Title>
+                </Box>
+              </Stack>
+            </Card>
+
+            <Group grow mt="lg">
+              <Button
+                variant="outline"
+                color="gray"
+                size="lg"
+                radius="md"
+                onClick={handleEditForm}
+                leftSection={<IconArrowLeft size={20} />}
+                style={{
+                  border: "2px solid #e5e7eb",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateX(-4px)",
+                  },
+                }}
+              >
+                Edit Details
+              </Button>
+              <Button
+                size="lg"
+                radius="md"
+                onClick={handleConfirmPayment}
+                leftSection={<IconCheck size={20} />}
+                style={{
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 8px 20px rgba(16, 185, 129, 0.3)",
+                  },
+                }}
+              >
+                Confirm & Pay
+              </Button>
             </Group>
-            <Text c="dimmed" size="lg" mt={4}>
-              Make sure you inserted the correct data
+
+            <Alert
+              style={{
+                background: "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)",
+                border: "none",
+                borderRadius: "12px",
+              }}
+              icon={<IconShieldCheck size={20} color="#3b82f6" />}
+            >
+              <Text size="sm">
+                Your payment is secured with 256-bit SSL encryption. All data is protected.
+              </Text>
+            </Alert>
+          </Stack>
+        </motion.div>
+      );
+    }
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <Stack gap="lg">
+          <Box>
+            <Title
+              order={2}
+              fw={800}
+              style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+            >
+              Complete Your Payment
+            </Title>
+            <Text c="dimmed" size="md" mt={4}>
+              Fill in your payment details to upgrade your plan
             </Text>
           </Box>
 
           <Divider />
 
-          {/* Confirmation Details */}
-          <Card withBorder p="lg" radius="lg" style={{ borderWidth: 2 }}>
+          <Box>
+            <Text fw={600} size="md" mb={4}>
+              Billed To
+            </Text>
+            <TextInput
+              placeholder="Your full name"
+              value={billedTo}
+              onChange={(e) => setBilledTo(e.target.value)}
+              leftSection={<IconUser size={18} />}
+              size="md"
+              radius="md"
+              error={showError(billedTo) && "Name is required"}
+              styles={{
+                input: {
+                  border: "2px solid #e5e7eb",
+                  transition: "all 0.3s ease",
+                  "&:focus": {
+                    borderColor: "#3b82f6",
+                    boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                  },
+                },
+              }}
+            />
+          </Box>
+
+          <Box>
+            <Text fw={600} size="md" mb={12}>
+              Payment Method
+            </Text>
+            <RadioGroup value={paymentMethod} onChange={setPaymentMethod}>
+              <Group gap="md" mb="md" wrap="nowrap">
+                {[
+                  { value: "bank", label: "Bank", icon: IconBuildingBank, color: "#3b82f6" },
+                  { value: "wallet", label: "Wallet", icon: IconWallet, color: "#10b981" },
+                  { value: "creditCard", label: "Card", icon: IconCreditCard, color: "#8b5cf6" },
+                ].map((method) => {
+                  const IconComponent = method.icon;
+                  return (
+                    <Card
+                      key={method.value}
+                      withBorder
+                      p="md"
+                      radius="md"
+                      style={{
+                        cursor: "pointer",
+                        borderColor: paymentMethod === method.value ? method.color : "#e5e7eb",
+                        backgroundColor: paymentMethod === method.value ? `${method.color}15` : "white",
+                        flex: 1,
+                        transition: "all 0.3s ease",
+                        transform: paymentMethod === method.value ? "translateY(-4px)" : "none",
+                        boxShadow: paymentMethod === method.value ? `0 8px 20px ${method.color}30` : "none",
+                        minWidth: "100px",
+                      }}
+                      onClick={() => setPaymentMethod(method.value)}
+                    >
+                      <Stack align="center" gap={8}>
+                        <IconComponent
+                          size={28}
+                          color={paymentMethod === method.value ? method.color : "#9ca3af"}
+                        />
+                        <Text fw={500}>{method.label}</Text>
+                      </Stack>
+                    </Card>
+                  );
+                })}
+              </Group>
+            </RadioGroup>
+          </Box>
+
+          {renderPaymentForm()}
+
+          <Card
+            withBorder
+            p="lg"
+            radius="lg"
+            style={{
+              background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+              border: "none",
+            }}
+          >
             <Stack gap="md">
-              <Text fw={700} size="xl" c="blue">
-                Chosen Plan
-              </Text>
-
-              <Box>
-                <Text size="sm" c="dimmed">
-                  Plan Type
-                </Text>
-                <Group mt={4}>
-                  <Badge color="blue" size="xl" radius="sm">
-                    {currentPlan.name}
-                  </Badge>
-                </Group>
-              </Box>
-
-              {paymentMethod === "bank" && selectedBank && (
-                <>
-                  <Divider />
-
+              <Text fw={600}>Payment Details</Text>
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
                   <Box>
-                    <Text size="sm" c="dimmed">
-                      Chosen Bank
-                    </Text>
-                    <Group mt={4} gap="xs">
-                      <IconBuildingBank size={20} />
-                      <Text fw={600} size="lg">
-                        {selectedBank}
-                      </Text>
+                    <Text size="sm" c="dimmed">Date & Time</Text>
+                    <Group gap="xs">
+                      <IconCalendar size={16} color="#3b82f6" />
+                      <Text fw={500}>{paymentDate}</Text>
                     </Group>
                   </Box>
-
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
                   <Box>
-                    <Text size="sm" c="dimmed">
-                      Account number
-                    </Text>
-                    <Text fw={600} size="lg" mt={4}>
-                      {accountNumber
-                        ? `${accountNumber.slice(0, 4)}xxxxxxxxxx`
-                        : "Not provided"}
-                    </Text>
-                  </Box>
-                </>
-              )}
-
-              {paymentMethod === "creditCard" && (
-                <>
-                  <Divider />
-
-                  <Box>
-                    <Text size="sm" c="dimmed">
-                      Card Type
-                    </Text>
-                    <Group mt={4} gap="xs">
-                      <IconCreditCard size={20} />
-                      <Text fw={600} size="lg">
-                        Credit Card
-                      </Text>
+                    <Text size="sm" c="dimmed">Location</Text>
+                    <Group gap="xs">
+                      <IconMapPin size={16} color="#ef4444" />
+                      <Text fw={500}>{location}</Text>
                     </Group>
                   </Box>
-
-                  <Box>
-                    <Text size="sm" c="dimmed">
-                      Card Number
-                    </Text>
-                    <Text fw={600} size="lg" mt={4}>
-                      {cardNumber
-                        ? `**** ${cardNumber.slice(-4)}`
-                        : "Not provided"}
-                    </Text>
-                  </Box>
-                </>
-              )}
-
-              {paymentMethod === "wallet" && (
-                <>
-                  <Divider />
-
-                  <Box>
-                    <Text size="sm" c="dimmed">
-                      Wallet Type
-                    </Text>
-                    <Group mt={4} gap="xs">
-                      <IconWallet size={20} />
-                      <Text fw={600} size="lg">
-                        Digital Wallet
-                      </Text>
-                    </Group>
-                  </Box>
-
-                  <Box>
-                    <Text size="sm" c="dimmed">
-                      Wallet ID
-                    </Text>
-                    <Text fw={600} size="lg" mt={4}>
-                      {walletId
-                        ? `${walletId.slice(0, 4)}...${walletId.slice(-4)}`
-                        : "Not provided"}
-                    </Text>
-                  </Box>
-                </>
-              )}
-
-              <Divider />
-
-              <Box>
-                <Text size="sm" c="dimmed">
-                  Billing
-                </Text>
-                <Title order={1} fw={900} c="blue" mt={4}>
-                  {currentPlan.billing} birr
-                </Title>
-              </Box>
+                </Grid.Col>
+              </Grid>
             </Stack>
           </Card>
 
-          {/* Action Buttons */}
           <Group grow mt="lg">
             <Button
               variant="outline"
-              color="red"
+              color="gray"
               size="lg"
               radius="md"
-              onClick={handleEditForm}
+              onClick={() => router.push("/subscribe")}
               leftSection={<IconArrowLeft size={20} />}
+              style={{
+                border: "2px solid #e5e7eb",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  transform: "translateX(-4px)",
+                },
+              }}
             >
-              Cancel
+              Back
             </Button>
             <Button
-              color="blue"
               size="lg"
               radius="md"
-              onClick={handleConfirmPayment}
-              leftSection={<IconCheck size={20} />}
+              onClick={handleContinue}
+              disabled={!isFormValid()}
+              leftSection={<IconReceipt size={20} />}
+              style={{
+                background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 8px 20px rgba(59, 130, 246, 0.3)",
+                },
+                "&:disabled": {
+                  background: "#e5e7eb",
+                  transform: "none",
+                  boxShadow: "none",
+                },
+              }}
             >
-              Continue
+              Review & Continue
             </Button>
           </Group>
 
-          {/* Security Note */}
           <Alert
-            color="blue"
+            color={showError(acceptedTerms.toString()) ? "red" : "gray"}
             variant="light"
-            icon={<IconShieldCheck size={20} />}
+            mt="md"
+            p="md"
+            radius="md"
+            style={{
+              background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+              border: "none",
+            }}
           >
-            <Text size="sm">
-              Review your information carefully. Click Continue to proceed with
-              payment.
-            </Text>
+            <Checkbox
+              label={
+                <Text size="sm">
+                  By providing your payment information, you allow us to charge for future payments in accordance with our terms.
+                </Text>
+              }
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
+            />
           </Alert>
+
+          {showValidation && !isFormValid() && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <Alert
+                color="yellow"
+                variant="light"
+                icon={<IconAlertCircle size={18} />}
+                style={{
+                  background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                  border: "none",
+                }}
+              >
+                <Text size="sm">
+                  Please fill in all required fields before continuing.
+                </Text>
+              </Alert>
+            </motion.div>
+          )}
         </Stack>
-      );
-    }
-
-    // ORIGINAL PAYMENT FORM VIEW
-    return (
-      <Stack gap="lg">
-        {/* Header */}
-        <Box>
-          <Title order={2} fw={800} c="blue">
-            Upgrade Your Plan
-          </Title>
-          <Text c="dimmed" size="md" mt={4}>
-            Do more with unlimited blocks, files, automations & integrations.
-          </Text>
-        </Box>
-
-        <Divider />
-
-        {/* Billed To */}
-        <Box>
-          <Text fw={600} size="md" mb={4}>
-            Billed To
-          </Text>
-          <TextInput
-            placeholder="Your full name"
-            value={billedTo}
-            onChange={(e) => setBilledTo(e.target.value)}
-            leftSection={<IconUser size={18} />}
-            size="md"
-            radius="md"
-            error={showError(billedTo) && "Name is required"}
-          />
-        </Box>
-
-        {/* Payment Method Selection */}
-        <Box>
-          <Text fw={600} size="md" mb={12}>
-            Payment Method
-          </Text>
-          <RadioGroup value={paymentMethod} onChange={setPaymentMethod}>
-            <Group gap="md" mb="md">
-              <Card
-                withBorder
-                p="md"
-                radius="md"
-                style={{
-                  cursor: "pointer",
-                  borderColor:
-                    paymentMethod === "bank" ? theme.colors.blue[6] : "#dee2e6",
-                  backgroundColor:
-                    paymentMethod === "bank" ? theme.colors.blue[0] : "white",
-                  flex: 1,
-                  transition: "all 0.2s",
-                }}
-                onClick={() => setPaymentMethod("bank")}
-              >
-                <Stack align="center" gap={8}>
-                  <IconBuildingBank
-                    size={28}
-                    color={
-                      paymentMethod === "bank" ? theme.colors.blue[6] : "gray"
-                    }
-                  />
-                  <Text fw={500}>Bank</Text>
-                </Stack>
-              </Card>
-
-              <Card
-                withBorder
-                p="md"
-                radius="md"
-                style={{
-                  cursor: "pointer",
-                  borderColor:
-                    paymentMethod === "wallet"
-                      ? theme.colors.green[6]
-                      : "#dee2e6",
-                  backgroundColor:
-                    paymentMethod === "wallet"
-                      ? theme.colors.green[0]
-                      : "white",
-                  flex: 1,
-                  transition: "all 0.2s",
-                }}
-                onClick={() => setPaymentMethod("wallet")}
-              >
-                <Stack align="center" gap={8}>
-                  <IconWallet
-                    size={28}
-                    color={
-                      paymentMethod === "wallet"
-                        ? theme.colors.green[6]
-                        : "gray"
-                    }
-                  />
-                  <Text fw={500}>Wallet</Text>
-                </Stack>
-              </Card>
-
-              <Card
-                withBorder
-                p="md"
-                radius="md"
-                style={{
-                  cursor: "pointer",
-                  borderColor:
-                    paymentMethod === "creditCard"
-                      ? theme.colors.violet[6]
-                      : "#dee2e6",
-                  backgroundColor:
-                    paymentMethod === "creditCard"
-                      ? theme.colors.violet[0]
-                      : "white",
-                  flex: 1,
-                  transition: "all 0.2s",
-                }}
-                onClick={() => setPaymentMethod("creditCard")}
-              >
-                <Stack align="center" gap={8}>
-                  <IconCreditCard
-                    size={28}
-                    color={
-                      paymentMethod === "creditCard"
-                        ? theme.colors.violet[6]
-                        : "gray"
-                    }
-                  />
-                  <Text fw={500}>Card</Text>
-                </Stack>
-              </Card>
-            </Group>
-          </RadioGroup>
-        </Box>
-
-        {/* Dynamic Payment Form */}
-        {renderPaymentForm()}
-
-        {/* Payment Details */}
-        <Card
-          withBorder
-          p="lg"
-          radius="lg"
-          style={{
-            borderColor: theme.colors.gray[4],
-            borderWidth: 1,
-          }}
-        >
-          <Stack gap="md">
-            <Text fw={600}>Payment Details</Text>
-            <Grid>
-              <Grid.Col span={6}>
-                <Box>
-                  <Text size="sm" c="dimmed">
-                    Date & Time
-                  </Text>
-                  <Group gap="xs">
-                    <IconCalendar size={16} />
-                    <Text fw={500}>{paymentDate}</Text>
-                  </Group>
-                </Box>
-              </Grid.Col>
-              <Grid.Col span={6}>
-                <Box>
-                  <Text size="sm" c="dimmed">
-                    Location
-                  </Text>
-                  <Group gap="xs">
-                    <IconMapPin size={16} />
-                    <Text fw={500}>{location}</Text>
-                  </Group>
-                </Box>
-              </Grid.Col>
-            </Grid>
-          </Stack>
-        </Card>
-
-        {/* Buttons */}
-        <Group grow mt="lg">
-          <Button
-            variant="outline"
-            color="gray"
-            size="lg"
-            radius="md"
-            onClick={() => router.push("/subscribe")}
-          >
-            Cancel
-          </Button>
-          <Button
-            color="blue"
-            size="lg"
-            radius="md"
-            onClick={handleContinue}
-            disabled={!isFormValid()}
-            leftSection={<IconReceipt size={20} />}
-          >
-            Review & Continue
-          </Button>
-        </Group>
-
-        {/* Terms */}
-        <Alert
-          color={showError(acceptedTerms.toString()) ? "red" : "gray"}
-          variant="light"
-          mt="md"
-          p="md"
-          radius="md"
-        >
-          <Checkbox
-            label={
-              <Text size="sm">
-                By providing your payment information, you allow us to charge
-                for future payments in accordance with our terms.
-              </Text>
-            }
-            checked={acceptedTerms}
-            onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
-          />
-        </Alert>
-
-        {/* Validation Warning (only shows when user tries to continue with incomplete form) */}
-        {showValidation && !isFormValid() && (
-          <Alert
-            color="yellow"
-            variant="light"
-            icon={<IconAlertCircle size={18} />}
-          >
-            <Text size="sm">
-              Please fill in all required fields before continuing.
-            </Text>
-          </Alert>
-        )}
-      </Stack>
+      </motion.div>
     );
   };
 
   const renderPaymentForm = () => {
+    const getPaymentMethodStyle = (color) => ({
+      background: `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`,
+      border: `2px solid ${color}30`,
+      borderRadius: "16px",
+      padding: "24px",
+      transition: "all 0.3s ease",
+    });
+
     switch (paymentMethod) {
       case "creditCard":
         return (
-          <Stack gap="md">
-            <Card
-              withBorder
-              p="lg"
-              radius="lg"
-              style={{
-                borderColor: theme.colors.violet[5],
-                borderWidth: 1,
-                backgroundColor: theme.colors.violet[0],
-              }}
-            >
-              <Stack gap="md">
-                <Text fw={600} mb={4}>
-                  Card Details
-                </Text>
-                <TextInput
-                  placeholder="1234 5678 9012 3456"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  leftSection={<IconCreditCard size={18} />}
-                  size="md"
-                  error={showError(cardNumber) && "Card number is required"}
-                />
-                <Grid>
-                  <Grid.Col span={6}>
-                    <TextInput
-                      placeholder="MM/YY"
-                      value={cardExpiry}
-                      onChange={(e) => setCardExpiry(e.currentTarget.value)}
-                      size="md"
-                      error={showError(cardExpiry) && "Expiry date is required"}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={6}>
-                    <TextInput
-                      placeholder="CVC"
-                      value={cardCVC}
-                      onChange={(e) => setCardCVC(e.currentTarget.value)}
-                      size="md"
-                      error={showError(cardCVC) && "CVC is required"}
-                    />
-                  </Grid.Col>
-                </Grid>
-                <TextInput
-                  placeholder="Cardholder Name"
-                  value={cardholder}
-                  onChange={(e) => setCardholder(e.currentTarget.value)}
-                  leftSection={<IconUser size={18} />}
-                  size="md"
-                  error={showError(cardholder) && "Cardholder name is required"}
-                />
-              </Stack>
-            </Card>
-          </Stack>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Stack gap="md">
+              <Card style={getPaymentMethodStyle("#8b5cf6")}>
+                <Stack gap="md">
+                  <Text fw={600} mb={4} style={{ color: "#8b5cf6" }}>
+                    Card Details
+                  </Text>
+                  <TextInput
+                    placeholder="1234 5678 9012 3456"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                    leftSection={<IconCreditCard size={18} color="#8b5cf6" />}
+                    size="md"
+                    error={showError(cardNumber) && "Card number is required"}
+                  />
+                  <Grid>
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <TextInput
+                        placeholder="MM/YY"
+                        value={cardExpiry}
+                        onChange={(e) => setCardExpiry(e.currentTarget.value)}
+                        size="md"
+                        error={showError(cardExpiry) && "Expiry date is required"}
+                      />
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6 }}>
+                      <TextInput
+                        placeholder="CVC"
+                        value={cardCVC}
+                        onChange={(e) => setCardCVC(e.currentTarget.value)}
+                        size="md"
+                        error={showError(cardCVC) && "CVC is required"}
+                      />
+                    </Grid.Col>
+                  </Grid>
+                  <TextInput
+                    placeholder="Cardholder Name"
+                    value={cardholder}
+                    onChange={(e) => setCardholder(e.currentTarget.value)}
+                    leftSection={<IconUser size={18} color="#8b5cf6" />}
+                    size="md"
+                    error={showError(cardholder) && "Cardholder name is required"}
+                  />
+                </Stack>
+              </Card>
+            </Stack>
+          </motion.div>
         );
 
       case "wallet":
         return (
-          <Stack gap="md">
-            <Card
-              withBorder
-              p="lg"
-              radius="lg"
-              style={{
-                borderColor: theme.colors.green[5],
-                borderWidth: 1,
-                backgroundColor: theme.colors.green[0],
-              }}
-            >
-              <Stack gap="md">
-                <Text fw={600} mb={4}>
-                  Wallet Details
-                </Text>
-                <TextInput
-                  placeholder="Wallet ID or Phone Number"
-                  value={walletId}
-                  onChange={(e) => setWalletId(e.currentTarget.value)}
-                  leftSection={<IconWallet size={18} />}
-                  size="md"
-                  error={showError(walletId) && "Wallet ID is required"}
-                />
-                <TextInput
-                  placeholder="Wallet PIN"
-                  type="password"
-                  value={walletPin}
-                  onChange={(e) => setWalletPin(e.currentTarget.value)}
-                  leftSection={<IconLock size={18} />}
-                  size="md"
-                  error={showError(walletPin) && "Wallet PIN is required"}
-                />
-                <Alert color="yellow" variant="light" size="sm">
-                  <Text size="xs">
-                    Use your mobile wallet app to complete this payment
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Stack gap="md">
+              <Card style={getPaymentMethodStyle("#10b981")}>
+                <Stack gap="md">
+                  <Text fw={600} mb={4} style={{ color: "#10b981" }}>
+                    Wallet Details
                   </Text>
-                </Alert>
-              </Stack>
-            </Card>
-          </Stack>
+                  <TextInput
+                    placeholder="Wallet ID or Phone Number"
+                    value={walletId}
+                    onChange={(e) => setWalletId(e.currentTarget.value)}
+                    leftSection={<IconWallet size={18} color="#10b981" />}
+                    size="md"
+                    error={showError(walletId) && "Wallet ID is required"}
+                  />
+                  <TextInput
+                    placeholder="Wallet PIN"
+                    type="password"
+                    value={walletPin}
+                    onChange={(e) => setWalletPin(e.currentTarget.value)}
+                    leftSection={<IconLock size={18} color="#10b981" />}
+                    size="md"
+                    error={showError(walletPin) && "Wallet PIN is required"}
+                  />
+                  <Alert color="yellow" variant="light" size="sm" style={{ background: "#fef3c7" }}>
+                    <Text size="xs">Use your mobile wallet app to complete this payment</Text>
+                  </Alert>
+                </Stack>
+              </Card>
+            </Stack>
+          </motion.div>
         );
 
       default: // bank
         return (
-          <Stack gap="md">
-            <Card
-              withBorder
-              p="lg"
-              radius="lg"
-              style={{
-                borderColor: theme.colors.blue[5],
-                borderWidth: 1,
-                backgroundColor: theme.colors.blue[0],
-              }}
-            >
-              <Stack gap="md">
-                <Select
-                  label="Select Bank"
-                  placeholder="Choose your bank"
-                  data={banks}
-                  value={selectedBank}
-                  onChange={setSelectedBank}
-                  leftSection={<IconBuildingBank size={18} />}
-                  size="md"
-                  error={
-                    showError(selectedBank) && "Bank selection is required"
-                  }
-                />
-                <TextInput
-                  label="Account Number"
-                  placeholder="Enter account number"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.currentTarget.value)}
-                  leftSection={<IconCreditCard size={18} />}
-                  size="md"
-                  error={
-                    showError(accountNumber) && "Account number is required"
-                  }
-                />
-              </Stack>
-            </Card>
-          </Stack>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Stack gap="md">
+              <Card style={getPaymentMethodStyle("#3b82f6")}>
+                <Stack gap="md">
+                  <Select
+                    label="Select Bank"
+                    placeholder="Choose your bank"
+                    data={banks}
+                    value={selectedBank}
+                    onChange={setSelectedBank}
+                    leftSection={<IconBuildingBank size={18} color="#3b82f6" />}
+                    size="md"
+                    error={showError(selectedBank) && "Bank selection is required"}
+                  />
+                  <TextInput
+                    label="Account Number"
+                    placeholder="Enter account number"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.currentTarget.value)}
+                    leftSection={<IconCreditCard size={18} color="#3b82f6" />}
+                    size="md"
+                    error={showError(accountNumber) && "Account number is required"}
+                  />
+                </Stack>
+              </Card>
+            </Stack>
+          </motion.div>
         );
     }
   };
@@ -769,18 +823,35 @@ export default function PaymentPage() {
       }}
       size="sm"
       centered
-      title={
-        <Group>
-          <IconLock size={24} />
-          <Title order={3}>Enter PIN to Confirm</Title>
-        </Group>
-      }
       radius="lg"
+      padding="xl"
+      styles={{
+        content: {
+          background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+          borderRadius: "24px",
+        },
+      }}
     >
-      <Stack gap="lg">
-        <Text c="dimmed" ta="center">
-          Enter your 4-digit PIN to confirm the payment
-        </Text>
+      <Stack gap="lg" align="center">
+        <Box
+          style={{
+            padding: "20px",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+            color: "white",
+          }}
+        >
+          <IconLock size={32} />
+        </Box>
+        
+        <Box ta="center">
+          <Title order={3} style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            Secure Payment
+          </Title>
+          <Text c="dimmed" mt={4}>
+            Enter your 4-digit PIN to confirm
+          </Text>
+        </Box>
 
         <Group justify="center">
           <PinInput
@@ -790,42 +861,63 @@ export default function PaymentPage() {
             onChange={setPin}
             size="lg"
             oneTimeCode
+            style={{ gap: "12px" }}
+            styles={{
+              input: {
+                width: "60px",
+                height: "60px",
+                fontSize: "24px",
+                fontWeight: "bold",
+                border: "2px solid #e5e7eb",
+                borderRadius: "12px",
+                transition: "all 0.3s ease",
+                "&:focus": {
+                  borderColor: "#3b82f6",
+                  boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                },
+              },
+            }}
           />
         </Group>
 
-        <Text size="sm" c="dimmed" ta="center">
-          Amount:{" "}
-          <Text span fw={700}>
+        <Box ta="center" p="md" style={{ background: "#f8fafc", borderRadius: "12px", width: "100%" }}>
+          <Text size="sm" c="dimmed">Amount to Pay</Text>
+          <Text fw={900} size="xl" style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             {currentPlan.billing} birr
           </Text>
-        </Text>
+        </Box>
 
-        <Group grow>
+        <Group grow w="100%">
           <Button
-            variant="light"
+            variant="outline"
             color="gray"
             onClick={() => {
               setShowPinModal(false);
               setPin("");
             }}
+            size="md"
           >
             Cancel
           </Button>
           <Button
-            color="green"
             onClick={handlePinSubmit}
             loading={paymentLoading}
             disabled={pin.length !== 4}
+            size="md"
+            style={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                boxShadow: "0 8px 20px rgba(16, 185, 129, 0.3)",
+              },
+            }}
           >
             Confirm Payment
           </Button>
         </Group>
 
-        <Alert color="red" variant="light" size="sm">
-          <Text size="xs">
-            This action cannot be undone. Your account will be charged
-            immediately.
-          </Text>
+        <Alert color="red" variant="light" size="sm" w="100%" style={{ background: "#fee2e2" }}>
+          <Text size="xs">This action cannot be undone. Your account will be charged immediately.</Text>
         </Alert>
       </Stack>
     </Modal>
@@ -839,24 +931,30 @@ export default function PaymentPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
         }}
       >
-        <Loader />
+        <Loader color="white" size="xl" />
       </Box>
     );
   }
 
   return (
-    <Box bg="white" style={{ minHeight: "100vh" }}>
+    <Box
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
+      }}
+    >
       {/* Header */}
       <Box
-        bg="white"
-        py="sm"
         style={{
-          borderBottom: "1px solid #E9ECEF",
+          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+          padding: "20px 0",
           position: "sticky",
           top: 0,
           zIndex: 100,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
         }}
       >
         <Container size="xl">
@@ -865,220 +963,282 @@ export default function PaymentPage() {
               <Image
                 src="/logo.jpg"
                 alt="Logo"
-                width={120}
-                height={40}
-                style={{ height: "40px", borderRadius: "8px" }}
+                width={140}
+                height={48}
+                style={{ 
+                  height: "48px", 
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 12px rgba(255,255,255,0.1)",
+                }}
               />
             </Link>
+            <Badge
+              size="lg"
+              radius="sm"
+              style={{
+                background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                color: "white",
+                padding: "8px 16px",
+              }}
+            >
+              Secure Payment Gateway
+            </Badge>
           </Group>
         </Container>
       </Box>
 
       {/* Main Content */}
       <Container size="xl" py={40}>
-        <Title
-          order={1}
-          fw={900}
-          ta="center"
-          mb="xl"
-          gradient={{ from: "blue", to: "violet" }}
-          variant="gradient"
-        >
-          {showConfirmation ? "Confirm Your Payment" : "Complete Your Payment"}
-        </Title>
+        <Box mb={40}>
+          <Title
+            order={1}
+            fw={900}
+            ta="center"
+            mb="md"
+            style={{ background: "linear-gradient(135deg, #1e293b 0%, #475569 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+          >
+            {showConfirmation ? "Review Your Order" : "Complete Payment"}
+          </Title>
+          <Text ta="center" c="dimmed" size="lg">
+            {showConfirmation ? "Review your details before confirming" : "Upgrade your plan with confidence"}
+          </Text>
+        </Box>
+
+        <Stepper />
 
         <Grid gutter="xl">
           {/* LEFT: Dynamic Content */}
           <Grid.Col span={{ base: 12, lg: 7 }}>
-            <Card
-              withBorder
-              radius="lg"
-              p="xl"
-              style={{
-                height: "100%",
-                borderColor: showConfirmation
-                  ? theme.colors.blue[4]
-                  : theme.colors.blue[4],
-                borderWidth: 1,
-                boxShadow: showConfirmation
-                  ? "0 4px 20px rgba(72, 187, 120, 0.15)"
-                  : "0 4px 20px rgba(102, 126, 234, 0.15)",
-              }}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
             >
-              {renderLeftContent()}
-            </Card>
+              <Card
+                radius="xl"
+                p={{ base: "md", lg: "xl" }}
+                style={{
+                  height: "100%",
+                  background: "white",
+                  border: "none",
+                  boxShadow: showConfirmation 
+                    ? "0 20px 40px rgba(72, 187, 120, 0.15)"
+                    : "0 20px 40px rgba(59, 130, 246, 0.15)",
+                }}
+              >
+                {renderLeftContent()}
+              </Card>
+            </motion.div>
           </Grid.Col>
 
           {/* RIGHT: Plan Selection */}
           <Grid.Col span={{ base: 12, lg: 5 }}>
-            <Card
-              withBorder
-              radius="lg"
-              p="xl"
-              style={{
-                height: "100%",
-                borderColor: theme.colors.violet[4],
-                borderWidth: 1,
-                boxShadow: "0 4px 20px rgba(157, 78, 221, 0.15)",
-              }}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
             >
-              <Stack gap="xl">
-                <Box>
-                  <Group justify="center" mb="lg">
-                    <IconSparkles size={32} color={theme.colors.violet[6]} />
-                    <Title order={2} fw={800} ta="center" c="violet">
-                      {showConfirmation ? "Selected Plan" : "Choose Your Plan"}
-                    </Title>
-                  </Group>
-
-                  <Stack gap="md">
-                    {Object.entries(plans).map(([key, plan]) => (
-                      <Card
-                        key={key}
-                        withBorder
-                        p="lg"
-                        radius="lg"
-                        style={{
-                          cursor: showConfirmation ? "default" : "pointer",
-                          borderColor:
-                            selectedPlan === key ? plan.borderColor : "#dee2e6",
-                          borderWidth: selectedPlan === key ? 2 : 1,
-                          backgroundColor:
-                            selectedPlan === key
-                              ? `${plan.borderColor}15`
-                              : "white",
-                          transition: "all 0.3s ease",
-                        }}
-                        onClick={
-                          showConfirmation
-                            ? undefined
-                            : () => setSelectedPlan(key)
-                        }
-                      >
-                        <Stack gap={12}>
-                          <Group justify="space-between" align="center">
-                            <Badge
-                              color={key === "annual" ? "pink" : "blue"}
-                              variant="filled"
-                              size="lg"
-                              radius="sm"
-                            >
-                              {plan.badge}
-                            </Badge>
-                            {plan.savings && (
-                              <Badge color="green" variant="filled" size="sm">
-                                {plan.savings}
-                              </Badge>
-                            )}
-                          </Group>
-
-                          <Box>
-                            <Text size="sm" c="dimmed">
-                              Total Amount
-                            </Text>
-                            <Group align="flex-end" gap={4}>
-                              <Title
-                                order={1}
-                                fw={900}
-                                style={{
-                                  color:
-                                    selectedPlan === key
-                                      ? plan.borderColor
-                                      : theme.colors.blue[7],
-                                }}
-                              >
-                                {plan.total}
-                              </Title>
-                              <Text size="lg" fw={600} c="dimmed">
-                                birr
-                              </Text>
-                            </Group>
-                          </Box>
-
-                          <Group gap={4}>
-                            <Text size="sm" c="dimmed">
-                              {plan.description}
-                            </Text>
-                          </Group>
-                        </Stack>
-                      </Card>
-                    ))}
-                  </Stack>
-                </Box>
-
-                {/* Order Summary */}
-                <Card
-                  withBorder
-                  p="lg"
-                  radius="lg"
-                  style={{
-                    borderColor: theme.colors.green[4],
-                    borderWidth: 1,
-                    backgroundColor: theme.colors.green[0],
-                  }}
-                >
-                  <Stack gap={12}>
-                    <Text fw={700} size="lg" c="green">
-                      Order Summary
-                    </Text>
-
-                    <Group justify="space-between">
-                      <Text c="dimmed">Plan</Text>
-                      <Text fw={600}>{currentPlan.name}</Text>
-                    </Group>
-
-                    <Group justify="space-between">
-                      <Text c="dimmed">Billing</Text>
-                      <Text fw={600}>
-                        {selectedPlan === "annual" ? "Annual" : "Monthly"}
-                      </Text>
-                    </Group>
-
-                    <Group justify="space-between">
-                      <Text c="dimmed">Amount</Text>
-                      <Text fw={600}>
-                        {currentPlan.price} birr/{currentPlan.period}
-                      </Text>
-                    </Group>
-
-                    <Divider />
-
-                    <Group justify="space-between">
-                      <Text fw={700} size="lg">
-                        Total
-                      </Text>
-                      <Title order={2} fw={900} c="green">
-                        {currentPlan.billing} birr
+              <Card
+                radius="xl"
+                p={{ base: "md", lg: "xl" }}
+                style={{
+                  height: "100%",
+                  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  border: "none",
+                  boxShadow: "0 20px 40px rgba(139, 92, 246, 0.15)",
+                }}
+              >
+                <Stack gap="xl">
+                  <Box>
+                    <Group justify="center" mb="lg">
+                      <IconSparkles size={36} color="#8b5cf6" />
+                      <Title order={2} fw={800} ta="center" style={{ background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                        {showConfirmation ? "Selected Plan" : "Choose Plan"}
                       </Title>
                     </Group>
-                  </Stack>
-                </Card>
 
-                {/* Security */}
-                <Card
-                  withBorder
-                  p="lg"
-                  radius="lg"
-                  style={{
-                    borderColor: theme.colors.blue[5],
-                    borderWidth: 1,
-                    backgroundColor: theme.colors.blue[0],
-                  }}
-                >
-                  <Group gap="md">
-                    <IconShieldCheck size={32} color={theme.colors.blue[7]} />
-                    <Box>
-                      <Text fw={700} size="md" c="blue">
-                        Secure Payment
-                      </Text>
-                      <Text size="sm" c="dimmed">
-                        Your payment is protected with bank-level security
-                      </Text>
-                    </Box>
-                  </Group>
-                </Card>
-              </Stack>
-            </Card>
+                    <Stack gap="md">
+                      {Object.entries(plans).map(([key, plan]) => (
+                        <motion.div
+                          key={key}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <Card
+                            withBorder
+                            p="lg"
+                            radius="lg"
+                            style={{
+                              cursor: showConfirmation ? "default" : "pointer",
+                              border: selectedPlan === key ? `3px solid ${plan.borderColor}` : "1px solid #e5e7eb",
+                              background: selectedPlan === key ? `${plan.borderColor}08` : "white",
+                              transition: "all 0.3s ease",
+                              position: "relative",
+                              overflow: "hidden",
+                            }}
+                            onClick={showConfirmation ? undefined : () => setSelectedPlan(key)}
+                          >
+                            {selectedPlan === key && (
+                              <Box
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  right: 0,
+                                  width: "60px",
+                                  height: "60px",
+                                  background: plan.gradient,
+                                  clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                                }}
+                              />
+                            )}
+                            
+                            <Stack gap={12}>
+                              <Group justify="space-between" align="center">
+                                <Badge
+                                  size="lg"
+                                  radius="sm"
+                                  style={{
+                                    background: plan.gradient,
+                                    color: "white",
+                                  }}
+                                >
+                                  {plan.badge}
+                                </Badge>
+                                {plan.savings && (
+                                  <Badge
+                                    color="green"
+                                    variant="filled"
+                                    size="sm"
+                                    style={{
+                                      background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                    }}
+                                  >
+                                    {plan.savings}
+                                  </Badge>
+                                )}
+                                {selectedPlan === key && (
+                                  <IconStar size={20} color="#fbbf24" fill="#fbbf24" />
+                                )}
+                              </Group>
+
+                              <Box>
+                                <Text size="sm" c="dimmed">Total Amount</Text>
+                                <Group align="flex-end" gap={4}>
+                                  <Title
+                                    order={1}
+                                    fw={900}
+                                    style={{
+                                      background: plan.gradient,
+                                      WebkitBackgroundClip: "text",
+                                      WebkitTextFillColor: "transparent",
+                                    }}
+                                  >
+                                    {plan.total}
+                                  </Title>
+                                  <Text size="lg" fw={600} c="dimmed">birr</Text>
+                                </Group>
+                              </Box>
+
+                              <Group gap={4}>
+                                <Text size="sm" c="dimmed">{plan.description}</Text>
+                              </Group>
+                            </Stack>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </Stack>
+                  </Box>
+
+                  {/* Order Summary */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <Card
+                      p="lg"
+                      radius="lg"
+                      style={{
+                        background: "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)",
+                        border: "none",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        style={{
+                          position: "absolute",
+                          top: "-50px",
+                          right: "-50px",
+                          width: "100px",
+                          height: "100px",
+                          borderRadius: "50%",
+                          background: "rgba(59, 130, 246, 0.1)",
+                        }}
+                      />
+                      <Stack gap={12}>
+                        <Text fw={700} size="lg" style={{ color: "#1d4ed8" }}>
+                          <IconBadge size={20} style={{ verticalAlign: "middle", marginRight: "8px" }} />
+                          Order Summary
+                        </Text>
+
+                        <Group justify="space-between">
+                          <Text c="dimmed">Plan</Text>
+                          <Text fw={600}>{currentPlan.name}</Text>
+                        </Group>
+
+                        <Group justify="space-between">
+                          <Text c="dimmed">Billing Cycle</Text>
+                          <Text fw={600}>{selectedPlan === "annual" ? "Annual" : "Monthly"}</Text>
+                        </Group>
+
+                        <Group justify="space-between">
+                          <Text c="dimmed">Amount</Text>
+                          <Text fw={600}>{currentPlan.price} birr/{currentPlan.period}</Text>
+                        </Group>
+
+                        <Divider />
+
+                        <Group justify="space-between">
+                          <Text fw={700} size="lg">Total</Text>
+                          <Title order={2} fw={900} style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                            {currentPlan.billing} birr
+                          </Title>
+                        </Group>
+                      </Stack>
+                    </Card>
+                  </motion.div>
+
+                  {/* Security */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Card
+                      p="lg"
+                      radius="lg"
+                      style={{
+                        background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                        border: "none",
+                      }}
+                    >
+                      <Group gap="md">
+                        <IconShieldCheck size={36} color="#d97706" />
+                        <Box>
+                          <Text fw={700} size="md" style={{ color: "#92400e" }}>
+                            Secure Payment
+                          </Text>
+                          <Text size="sm" style={{ color: "#92400e", opacity: 0.8 }}>
+                            Your payment is protected with bank-level security
+                          </Text>
+                        </Box>
+                      </Group>
+                    </Card>
+                  </motion.div>
+                </Stack>
+              </Card>
+            </motion.div>
           </Grid.Col>
         </Grid>
       </Container>
