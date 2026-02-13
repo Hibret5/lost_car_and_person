@@ -224,9 +224,14 @@ export default function LoginPage() {
           }),
         });
 
-        // Redirect to dashboard or home page
+        // Redirect based on user role
         setTimeout(() => {
-          router.push('/');
+          // Check if the user has an admin role (case-insensitive)
+          if (user.role && user.role.toLowerCase() === 'admin') {
+            router.push('/admin'); // redirect to admin dashboard
+          } else {
+            router.push('/'); // redirect to user dashboard (current home page)
+          }
         }, 1000);
         
       } else {
