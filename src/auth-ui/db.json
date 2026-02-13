@@ -41,10 +41,10 @@
       "phone": "+251911111111",
       "password": "User@1111",
       "createdAt": "2026-02-05T06:52:23.735Z",
-      "updatedAt": "2026-02-09T09:51:22.024Z",
+      "updatedAt": "2026-02-12T07:20:48.925Z",
       "isActive": true,
       "role": "user",
-      "lastLogin": "2026-02-09T09:51:22.024Z",
+      "lastLogin": "2026-02-12T07:20:48.925Z",
       "registrations": 3,
       "hasPaidSubscription": true
     },
@@ -52,14 +52,14 @@
       "id": "a94e831a-9536-4310-a772-f864e5bd975a",
       "firstName": "Hibrewerk",
       "lastName": "Mossie",
-      "email": "user1@gmail.com",
+      "email": "user2@gmail.com",
       "phone": "0962061126",
-      "password": "User@1111",
+      "password": "User@2222",
       "createdAt": "2026-02-05T14:38:14.973Z",
-      "updatedAt": "2026-02-08T06:04:00.308Z",
+      "updatedAt": "2026-02-12T14:29:05.448Z",
       "isActive": true,
-      "role": "user",
-      "lastLogin": "2026-02-08T06:04:00.308Z"
+      "role": "admin",
+      "lastLogin": "2026-02-12T14:29:05.448Z"
     }
   ]
 }
