@@ -29,9 +29,60 @@
       "verified": false,
       "matches": [],
       "notes": []
+    },
+    {
+      "id": "c18a",
+      "type": "Person",
+      "caseId": "CASE-MLR0GIY0-UK3O",
+      "reportedBy": {
+        "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
+        "firstName": "user",
+        "lastName": "user",
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "role": "user",
+        "telegramUsername": null
+      },
+      "reportDate": "2026-02-17T19:43:16.968Z",
+      "status": "Active",
+      "lastUpdated": "2026-02-17T19:43:16.968Z",
+      "verified": false,
+      "matches": [],
+      "notes": [],
+      "contactMethods": {
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "telegram": null
+      }
     }
   ],
-  "missingVehicles": [],
+  "missingVehicles": [
+    {
+      "id": "cd28",
+      "type": "Vehicle",
+      "caseId": "CASE-MLR0ADPE-Q6PY",
+      "reportedBy": {
+        "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
+        "firstName": "user",
+        "lastName": "user",
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "role": "user",
+        "telegramUsername": null
+      },
+      "reportDate": "2026-02-17T19:38:30.242Z",
+      "status": "Active",
+      "lastUpdated": "2026-02-17T19:38:30.242Z",
+      "verified": false,
+      "matches": [],
+      "notes": [],
+      "contactMethods": {
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "telegram": null
+      }
+    }
+  ],
   "users": [
     {
       "id": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
@@ -41,11 +92,11 @@
       "phone": "+251911111111",
       "password": "User@1111",
       "createdAt": "2026-02-05T06:52:23.735Z",
-      "updatedAt": "2026-02-12T07:20:48.925Z",
+      "updatedAt": "2026-02-17T19:43:17.154Z",
       "isActive": true,
       "role": "user",
-      "lastLogin": "2026-02-12T07:20:48.925Z",
-      "registrations": 3,
+      "lastLogin": "2026-02-17T19:35:28.320Z",
+      "registrations": 5,
       "hasPaidSubscription": true
     },
     {
@@ -56,10 +107,10 @@
       "phone": "0962061126",
       "password": "User@2222",
       "createdAt": "2026-02-05T14:38:14.973Z",
-      "updatedAt": "2026-02-12T14:29:05.448Z",
+      "updatedAt": "2026-02-17T19:45:55.918Z",
       "isActive": true,
       "role": "admin",
-      "lastLogin": "2026-02-12T14:29:05.448Z"
+      "lastLogin": "2026-02-17T19:45:55.918Z"
     }
   ]
 }
