@@ -3,16 +3,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Title, Text, Group, Box, Paper, SimpleGrid, TextInput,
-  Table, Badge, Avatar, ActionIcon, Checkbox, Button, Select, Pagination,
+  Table, Badge, Avatar, ActionIcon, Button, Select, Pagination,
   Modal, Stack, Grid, Divider, Tooltip, UnstyledButton
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconUsers, IconSearch, IconEdit, IconPlus, IconDownload, IconSettings, IconBell,
-  IconTrash, IconEye, IconCheck, IconFileSpreadsheet
+  IconTrash, IconEye, IconCheck, IconFileSpreadsheet, IconChevronRight
 } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
+import { useRouter } from 'next/navigation';
 
 // ---------- Initial Data ----------
 const initialUsers = [
@@ -35,13 +36,14 @@ const getActiveThreshold = (activeStr) => {
 };
 
 export default function UserManagementPage() {
+  const router = useRouter();
+
   // ---------- State ----------
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
   const [dateSort, setDateSort] = useState('Newest');
-  const [selectedRows, setSelectedRows] = useState([]);
   const [activePage, setActivePage] = useState(1);
   const [pageSize, setPageSize] = useState('10');
   const [editingUser, setEditingUser] = useState(null);
@@ -108,24 +110,6 @@ export default function UserManagementPage() {
     return { total, activeUsers, paidUsers, thisMonth };
   }, [users]);
 
-  // ---------- Selection ----------
-  const toggleAllRows = (checked) => {
-    if (checked) {
-      setSelectedRows(paginatedUsers.map(u => u.id));
-    } else {
-      setSelectedRows([]);
-    }
-  };
-
-  const toggleRow = (id) => {
-    setSelectedRows(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  const areAllSelected = paginatedUsers.length > 0 && paginatedUsers.every(u => selectedRows.includes(u.id));
-  const isIndeterminate = selectedRows.length > 0 && !areAllSelected;
-
   // ---------- CRUD Operations ----------
   const addUser = (values) => {
     const newId = Math.max(...users.map(u => u.id), 0) + 1;
@@ -161,7 +145,6 @@ export default function UserManagementPage() {
 
   const deleteUser = (id) => {
     setUsers(prev => prev.filter(u => u.id !== id));
-    setSelectedRows(prev => prev.filter(x => x !== id));
     notifications.show({
       title: 'Deleted',
       message: 'User removed',
@@ -314,11 +297,6 @@ export default function UserManagementPage() {
                 value={dateSort}
                 onChange={setDateSort}
               />
-              {selectedRows.length > 0 && (
-                <Badge color="blue" size="lg" radius="sm">
-                  {selectedRows.length} selected
-                </Badge>
-              )}
             </Group>
 
             <Group gap="sm">
@@ -347,14 +325,6 @@ export default function UserManagementPage() {
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead bg="#4318FF">
                 <Table.Tr>
-                  <Table.Th style={{ width: 40 }}>
-                    <Checkbox
-                      color="white"
-                      checked={areAllSelected}
-                      indeterminate={isIndeterminate}
-                      onChange={(e) => toggleAllRows(e.currentTarget.checked)}
-                    />
-                  </Table.Th>
                   <Table.Th c="white">Full Name</Table.Th>
                   <Table.Th c="white">Email</Table.Th>
                   <Table.Th c="white">Username</Table.Th>
@@ -362,26 +332,19 @@ export default function UserManagementPage() {
                   <Table.Th c="white">Role</Table.Th>
                   <Table.Th c="white">Joined Date</Table.Th>
                   <Table.Th c="white">Last Active</Table.Th>
-                  <Table.Th c="white" style={{ width: 100 }}>Actions</Table.Th>
+                  <Table.Th c="white" style={{ width: 140 }}>Actions</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {paginatedUsers.length === 0 ? (
                   <Table.Tr>
-                    <Table.Td colSpan={9}>
+                    <Table.Td colSpan={8}>
                       <Text ta="center" py="xl" c="dimmed">No users found</Text>
                     </Table.Td>
                   </Table.Tr>
                 ) : (
                   paginatedUsers.map((user) => (
-                    <Table.Tr key={user.id} bg={selectedRows.includes(user.id) ? 'rgba(67, 24, 255, 0.03)' : undefined}>
-                      <Table.Td>
-                        <Checkbox
-                          checked={selectedRows.includes(user.id)}
-                          onChange={() => toggleRow(user.id)}
-                          radius="sm"
-                        />
-                      </Table.Td>
+                    <Table.Tr key={user.id}>
                       <Table.Td>
                         <Group gap="sm">
                           <Avatar size="sm" radius="xl" color="blue">
@@ -434,6 +397,15 @@ export default function UserManagementPage() {
                               }}
                             >
                               <IconEye size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="User details page">
+                            <ActionIcon
+                              variant="subtle"
+                              color="teal"
+                              onClick={() => router.push(`/admin/accounts/${user.id}`)}
+                            >
+                              <IconChevronRight size={16} />
                             </ActionIcon>
                           </Tooltip>
                         </Group>
