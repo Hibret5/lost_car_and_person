@@ -102,7 +102,15 @@ export default function Dashboard() {
       const userData = localStorage.getItem("currentUser");
 
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+
+        // ✅ Redirect admin users to admin page
+        if (parsedUser.role && parsedUser.role.toLowerCase() === "admin") {
+          router.push("/admin");
+          return; // Stop further execution
+        }
+
+        setUser(parsedUser);
       }
       setLoading(false);
     };
@@ -117,7 +125,7 @@ export default function Dashboard() {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem("isAuthenticated");
