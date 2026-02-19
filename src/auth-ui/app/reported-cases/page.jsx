@@ -35,7 +35,8 @@ import {
   useMantineTheme,
   Tooltip,
   Image as MantineImage,
-  CopyButton
+  CopyButton,
+  Textarea 
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications'; // Import notifications
 import {
