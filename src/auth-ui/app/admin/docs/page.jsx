@@ -7,7 +7,8 @@ import {
   Modal, Stack, Grid, Divider, Avatar, Pagination,
   Menu, UnstyledButton, Textarea, Alert, Chip,
   ThemeIcon, Loader, Checkbox, Timeline, Progress,
-  Image, Card, Flex, Stepper, Radio, Tabs, ScrollArea
+  Image, Card, Flex, Stepper, Radio, Tabs, ScrollArea,
+  useMantineTheme, useMantineColorScheme
 } from '@mantine/core';
 import { DatePicker } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
@@ -32,6 +33,10 @@ import {
 import Link from 'next/link';
 
 dayjs.extend(relativeTime);
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // ---------- DOCUMENT TYPES ----------
 const DOCUMENT_TYPES = [
@@ -182,6 +187,15 @@ const getDocumentTypeDetails = (type) => {
 
 // ---------- MAIN COMPONENT ----------
 export default function CarOwnershipValidationPage() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const footerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const primaryText = getTextColor(colorScheme, '#2B3674', theme.colors.gray[3]);
+
   const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(null);
@@ -390,14 +404,16 @@ export default function CarOwnershipValidationPage() {
   const prevStep = () => setValidationStep((s) => Math.max(0, s - 1));
 
   return (
-    <Box p="xl" bg="#F4F7FE" style={{ minHeight: '100vh' }}>
+    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
       {/* HEADER */}
       <Group justify="space-between" mb="xl">
         <Box>
-          <Title order={2} fw={700} c="#2B3674">Car Ownership Validation</Title>
+          <Title order={2} fw={700} c={primaryText}>
+            Car Ownership Validation
+          </Title>
           <Text size="sm" c="dimmed">Verify vehicle ownership documents from users</Text>
         </Box>
-        <Group bg="white" p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <Tooltip label="Settings">
             <ActionIcon variant="subtle" color="gray"><IconSettings size={20} /></ActionIcon>
           </Tooltip>
@@ -714,7 +730,7 @@ export default function CarOwnershipValidationPage() {
         </Table.ScrollContainer>
 
         {/* PAGINATION */}
-        <Group justify="space-between" p="md" bg="white">
+        <Group justify="space-between" p="md" bg={footerBg}>
           <Group gap="xs">
             <Text size="sm" c="dimmed">Rows per page</Text>
             <Select
@@ -783,7 +799,7 @@ export default function CarOwnershipValidationPage() {
               </Tabs.List>
 
               <Tabs.Panel value="vehicle" mt="md">
-                <Paper p="md" withBorder radius="md" bg="gray.0">
+                <Paper p="md" withBorder radius="md" bg={getBg(colorScheme, 'gray.0', theme.colors.dark[6])}>
                   <Grid>
                     <Grid.Col span={6}>
                       <Text size="sm" c="dimmed">Make</Text>
@@ -806,7 +822,7 @@ export default function CarOwnershipValidationPage() {
               </Tabs.Panel>
 
               <Tabs.Panel value="document" mt="md">
-                <Paper p="md" withBorder radius="md" bg="gray.0">
+                <Paper p="md" withBorder radius="md" bg={getBg(colorScheme, 'gray.0', theme.colors.dark[6])}>
                   <Text size="sm" c="dimmed">Document Preview</Text>
                   {viewingDocument.fileUrl ? (
                     <Image
@@ -902,7 +918,7 @@ export default function CarOwnershipValidationPage() {
                     </Box>
                   </Group>
 
-                  <Paper p="md" withBorder radius="md">
+                  <Paper p="md" withBorder radius="md" bg={getBg(colorScheme, 'gray.0', theme.colors.dark[6])}>
                     <Grid gutter="md">
                       <Grid.Col span={6}>
                         <Text size="sm" c="dimmed">Vehicle</Text>
@@ -928,7 +944,7 @@ export default function CarOwnershipValidationPage() {
                   </Paper>
 
                   {selectedDocument.fileUrl && (
-                    <Paper p="sm" withBorder radius="md">
+                    <Paper p="sm" withBorder radius="md" bg={getBg(colorScheme, 'gray.0', theme.colors.dark[6])}>
                       <Text size="sm" c="dimmed" mb="sm">Document Preview</Text>
                       <Image
                         src={selectedDocument.fileUrl}

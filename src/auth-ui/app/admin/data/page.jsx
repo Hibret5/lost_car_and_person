@@ -6,7 +6,8 @@ import {
   Box, Title, Text, Table, Badge, Group, TextInput,
   Button, Select, ActionIcon, Paper, SimpleGrid,
   Pagination, Avatar, Menu, UnstyledButton,
-  Modal, Stack, Grid, Divider, Tooltip
+  Modal, Stack, Grid, Divider, Tooltip,
+  useMantineTheme, useMantineColorScheme
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useForm } from '@mantine/form';
@@ -21,6 +22,10 @@ import {
 } from '@tabler/icons-react';
 import { INITIAL_DATA } from './data';
 
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+
 // --- HELPER: format date for input field ---
 const formatDateForInput = (date) => date.toISOString().split('T')[0];
 
@@ -28,6 +33,14 @@ const formatDateForInput = (date) => date.toISOString().split('T')[0];
 const getTypeFromModel = (model) => (model === 'Person' ? 'Person' : 'Car');
 
 export default function DataManagementPage() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const footerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+
   // ---------- STATE ----------
   const [data, setData] = useState(INITIAL_DATA);
   const [searchQuery, setSearchQuery] = useState('');
@@ -228,14 +241,16 @@ export default function DataManagementPage() {
 
   // ---------- RENDER ----------
   return (
-    <Box p="xl" bg="#F4F7FE" style={{ minHeight: '100vh' }}>
+    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
       {/* HEADER */}
       <Group justify="space-between" mb="xl">
         <Box>
-          <Title order={2} fw={700} c="#2B3674">Data Management</Title>
+          <Title order={2} fw={700} c={getTextColor(colorScheme, '#2B3674', theme.colors.gray[3])}>
+            Data Management
+          </Title>
           <Text size="sm" c="dimmed">Frontend Demo – fully interactive</Text>
         </Box>
-        <Group bg="white" p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <TextInput
             variant="unstyled"
             placeholder="Search records..."
@@ -472,7 +487,7 @@ export default function DataManagementPage() {
         </Table.ScrollContainer>
 
         {/* PAGINATION FOOTER */}
-        <Group justify="space-between" p="md" bg="white">
+        <Group justify="space-between" p="md" bg={footerBg}>
           <Group gap="xs">
             <Text size="sm" c="dimmed">Rows per page</Text>
             <Select
@@ -497,9 +512,133 @@ export default function DataManagementPage() {
         </Group>
       </Paper>
 
-      {/* ---------- MODALS (unchanged) ---------- */}
-      {/* Add Modal, Edit Modal, View Modal - keep exactly as before */}
-      {/* ... */}
+      {/* ---------- MODALS ---------- */}
+      {/* Add Modal */}
+      <Modal opened={addModalOpened} onClose={addModalHandlers.close} title={<Text fw={700} size="lg">Add New Record</Text>} centered size="lg" radius="md">
+        <form onSubmit={addForm.onSubmit(addRecord)}>
+          <Stack gap="sm">
+            <Grid>
+              <Grid.Col span={6}>
+                <TextInput label="Brand / Name" placeholder="e.g. Toyota" {...addForm.getInputProps('brand')} required />
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Select
+                  label="Model"
+                  placeholder="Select model"
+                  data={['Person', 'Car']}
+                  {...addForm.getInputProps('model')}
+                  required
+                />
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <TextInput label="Registered By" placeholder="Username" {...addForm.getInputProps('user')} required />
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <TextInput label="Plate Number" placeholder="ABC-123" {...addForm.getInputProps('plate')} required />
+              </Grid.Col>
+              <Grid.Col span={12}>
+                <TextInput label="Date" type="date" {...addForm.getInputProps('date')} required />
+              </Grid.Col>
+            </Grid>
+            <Group justify="flex-end" mt="md">
+              <Button variant="subtle" onClick={addModalHandlers.close}>Cancel</Button>
+              <Button type="submit" bg="#2B3674">Add Record</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal opened={editModalOpened} onClose={editModalHandlers.close} title={<Text fw={700} size="lg">Edit Record</Text>} centered size="lg" radius="md">
+        {editingRecord && (
+          <form onSubmit={editForm.onSubmit(updateRecord)}>
+            <Stack gap="sm">
+              <Grid>
+                <Grid.Col span={6}>
+                  <TextInput label="Brand / Name" {...editForm.getInputProps('brand')} required />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <Select
+                    label="Model"
+                    data={['Person', 'Car']}
+                    {...editForm.getInputProps('model')}
+                    required
+                  />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <TextInput label="Registered By" {...editForm.getInputProps('user')} required />
+                </Grid.Col>
+                <Grid.Col span={6}>
+                  <TextInput label="Plate Number" {...editForm.getInputProps('plate')} required />
+                </Grid.Col>
+                <Grid.Col span={12}>
+                  <TextInput label="Date" type="date" {...editForm.getInputProps('date')} required />
+                </Grid.Col>
+              </Grid>
+              <Group justify="space-between" mt="md">
+                <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={() => { deleteRecord(editingRecord.id); editModalHandlers.close(); }}>
+                  Delete
+                </Button>
+                <Group>
+                  <Button variant="subtle" onClick={editModalHandlers.close}>Cancel</Button>
+                  <Button type="submit" bg="#2B3674">Update</Button>
+                </Group>
+              </Group>
+            </Stack>
+          </form>
+        )}
+      </Modal>
+
+      {/* View Modal */}
+      <Modal opened={viewModalOpened} onClose={viewModalHandlers.close} title={<Text fw={700} size="lg">Record Details</Text>} centered size="lg" radius="md">
+        {viewingRecord && (
+          <Stack gap="md">
+            <Group gap="xl">
+              <Avatar size={80} radius="xl" color="blue">{viewingRecord.brand[0]}</Avatar>
+              <Box>
+                <Text fw={700} size="xl">{viewingRecord.brand}</Text>
+                <Text size="sm" c="dimmed">{viewingRecord.model}</Text>
+              </Box>
+            </Group>
+            <Divider />
+            <Grid>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">Registered By</Text>
+                <Text>{viewingRecord.user}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">Status</Text>
+                <Badge color={viewingRecord.status === 'Verified' ? 'green' : 'gray'}>{viewingRecord.status}</Badge>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">Plate Number</Text>
+                <Text>{viewingRecord.plate}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">Date</Text>
+                <Text>{viewingRecord.date}</Text>
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">Alerts</Text>
+                <Badge color={viewingRecord.alerts > 0 ? 'red' : 'gray'}>{viewingRecord.alerts}</Badge>
+              </Grid.Col>
+            </Grid>
+            <Group justify="flex-end">
+              <Button
+                variant="light"
+                leftSection={<IconEdit size={16} />}
+                onClick={() => {
+                  viewModalHandlers.close();
+                  setEditingRecord(viewingRecord);
+                  editModalHandlers.open();
+                }}
+              >
+                Edit Record
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
     </Box>
   );
 }

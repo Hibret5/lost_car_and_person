@@ -25,6 +25,8 @@ import {
   TextInput,
   Menu,
   UnstyledButton,
+  useMantineTheme,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -58,15 +60,39 @@ import Image from "next/image";
 import { getAlertById } from "../../../data/alertsData";
 import MainFooter from "../../../components/MainFooter.jsx";
 
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+
 export default function AlertDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [alertData, setAlertData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
   const [activePage, setActivePage] = useState(1);
   const [selectedDetection, setSelectedDetection] = useState(null);
   const itemsPerPage = 10;
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, 'white', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const borderColor = getBg(colorScheme, '#E9ECEF', theme.colors.dark[5]);
+  const paperBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const lightBlueBg = getBg(colorScheme, '#f0f9ff', theme.colors.blue[9] + '40');
+  const mapGradient = colorScheme === 'dark'
+    ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
+    : 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)';
+  const mapBorder = getBg(colorScheme, '#bfdbfe', theme.colors.blue[8]);
+  const tableHeaderBg = getBg(colorScheme, '#dbeafe', theme.colors.blue[9]);
+  const tableHeaderText = getBg(colorScheme, '#1e40af', theme.colors.blue[2]);
+  const paginationBg = getBg(colorScheme, '#dbeafe', theme.colors.blue[9]);
+  const paginationText = getBg(colorScheme, '#1e40af', theme.colors.blue[2]);
+  const backButtonBg = '#399afc'; // keep accent
+  const selectedRowBg = getBg(colorScheme, '#f0f9ff', theme.colors.blue[9] + '30');
+  const selectedRowBorder = '#3b82f6'; // accent
 
   useEffect(() => {
     setIsClient(true);
@@ -110,6 +136,7 @@ export default function AlertDetailPage() {
           justifyContent: "center",
           alignItems: "center",
           height: "100vh",
+          backgroundColor: mainBg,
         }}
       >
         <Loader size="lg" />
@@ -119,7 +146,7 @@ export default function AlertDetailPage() {
 
   if (!alertData) {
     return (
-      <Box style={{ padding: "40px", textAlign: "center" }}>
+      <Box style={{ padding: "40px", textAlign: "center", backgroundColor: mainBg }}>
         <Title order={2}>Alert Not Found</Title>
         <Button onClick={() => router.push("/alert")} mt="md">
           Back to Alerts
@@ -172,17 +199,17 @@ export default function AlertDetailPage() {
     <Box
       style={{
         minHeight: "100vh",
-        backgroundColor: "white",
+        backgroundColor: mainBg,
         display: "flex",
         flexDirection: "column",
       }}
     >
       {/* Header - EXACTLY LIKE AlertPage */}
       <Box
-        bg="white"
+        bg={headerBg}
         py="sm"
         style={{
-          borderBottom: "1px solid #E9ECEF",
+          borderBottom: `1px solid ${borderColor}`,
           position: "sticky",
           top: 0,
           zIndex: 100,
@@ -296,7 +323,7 @@ export default function AlertDetailPage() {
         </Container>
       </Box>
 
-      {/* Back to Alerts Section - BELOW the navigation bar - MATCHING BODY BACKGROUND */}
+      {/* Back to Alerts Section - BELOW the navigation bar */}
       <Box style={{ 
         padding: "24px 0 16px 0", 
       }}>
@@ -309,14 +336,14 @@ export default function AlertDetailPage() {
               onClick={() => router.push("/alert")}
               size="md"
               style={{
-                backgroundColor: "#399afc",
+                backgroundColor: backButtonBg,
                 padding: "10px"
               }}
             >
               
             </Button>
             <Box style={{ marginLeft: "16px" }}>
-              <Text fw={800} size="xl" style={{ color: "#212529" }}>
+              <Text fw={800} size="xl" style={{ color: getTextColor(colorScheme, '#212529', theme.colors.gray[3]) }}>
                 Alert Detail
               </Text>
               <Text size="sm" c="dimmed">
@@ -330,7 +357,7 @@ export default function AlertDetailPage() {
       {/* Main Content */}
       <Container size="xl" py={40} style={{ flex: 1 }}>
         {/* Alert Header */}
-        <Paper p="xl" mb="xl" withBorder radius="md">
+        <Paper p="xl" mb="xl" withBorder radius="md" bg={paperBg}>
           <Group justify="space-between" mb="md">
             <Box>
               <Title order={2} mb="xs">
@@ -423,8 +450,8 @@ export default function AlertDetailPage() {
               <Box
                 p="md"
                 style={{
-                  borderBottom: "1px solid #eee",
-                  backgroundColor: "#1e40af",
+                  borderBottom: `1px solid ${borderColor}`,
+                  backgroundColor: "#1e40af", // keep accent
                   color: "white",
                   borderTopLeftRadius: "8px",
                   borderTopRightRadius: "8px",
@@ -451,7 +478,7 @@ export default function AlertDetailPage() {
               <Box
                 style={{
                   height: "calc(400px - 72px)",
-                  background: "#f0f9ff",
+                  background: lightBlueBg,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -472,12 +499,11 @@ export default function AlertDetailPage() {
                     style={{
                       width: "100%",
                       height: "250px",
-                      background:
-                        "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)",
+                      background: mapGradient,
                       borderRadius: "8px",
                       position: "relative",
                       marginBottom: "15px",
-                      border: "1px solid #bfdbfe",
+                      border: `1px solid ${mapBorder}`,
                     }}
                   >
                     {/* Display markers */}
@@ -535,13 +561,13 @@ export default function AlertDetailPage() {
                           bottom: "10px",
                           left: "50%",
                           transform: "translateX(-50%)",
-                          backgroundColor: "rgba(255, 255, 255, 0.9)",
+                          backgroundColor: getBg(colorScheme, 'rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)'),
                           padding: "8px 16px",
                           borderRadius: "20px",
                           boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                         }}
                       >
-                        <Text size="sm" fw={600} color="#1e40af">
+                        <Text size="sm" fw={600} color={getBg(colorScheme, '#1e40af', theme.colors.blue[2])}>
                           {selectedDetection.location}
                         </Text>
                         <Text size="xs" c="dimmed">
@@ -581,8 +607,8 @@ export default function AlertDetailPage() {
               <Box
                 p="md"
                 style={{
-                  borderBottom: "1px solid #dbeafe",
-                  backgroundColor: "#3b82f6",
+                  borderBottom: `1px solid ${borderColor}`,
+                  backgroundColor: "#3b82f6", // keep accent
                   color: "white",
                   borderTopLeftRadius: "8px",
                   borderTopRightRadius: "8px",
@@ -613,13 +639,13 @@ export default function AlertDetailPage() {
               <Box style={{ flex: 1, overflow: "hidden" }}>
                 <ScrollArea style={{ height: "100%" }}>
                   <Table striped highlightOnHover>
-                    <Table.Thead style={{ backgroundColor: "#dbeafe" }}>
+                    <Table.Thead style={{ backgroundColor: tableHeaderBg }}>
                       <Table.Tr>
                         <Table.Th
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Alert
@@ -628,7 +654,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Location
@@ -637,7 +663,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Date
@@ -646,7 +672,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Time
@@ -655,7 +681,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Accuracy
@@ -664,7 +690,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Type
@@ -673,7 +699,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Status
@@ -682,7 +708,7 @@ export default function AlertDetailPage() {
                           style={{
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
+                            color: tableHeaderText,
                           }}
                         >
                           Actions
@@ -704,10 +730,10 @@ export default function AlertDetailPage() {
                           <Table.Tr
                             key={detection.id}
                             style={{
-                              backgroundColor: isSelected ? "#f0f9ff" : "white",
+                              backgroundColor: isSelected ? selectedRowBg : undefined,
                               cursor: "pointer",
                               borderLeft: isSelected
-                                ? "4px solid #3b82f6"
+                                ? `4px solid ${selectedRowBorder}`
                                 : "none",
                             }}
                             onClick={(e) => handleRowClick(detection, e)}
@@ -805,7 +831,7 @@ export default function AlertDetailPage() {
                                 onClick={(e) => handleArrowClick(detection, e)}
                                 style={{
                                   backgroundColor: isSelected
-                                    ? "#dbeafe"
+                                    ? getBg(colorScheme, '#dbeafe', theme.colors.blue[9])
                                     : "transparent",
                                   borderRadius: "50%",
                                 }}
@@ -825,14 +851,14 @@ export default function AlertDetailPage() {
               <Box
                 p="md"
                 style={{
-                  borderTop: "1px solid #dbeafe",
-                  backgroundColor: "#dbeafe",
+                  borderTop: `1px solid ${borderColor}`,
+                  backgroundColor: paginationBg,
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                 }}
               >
-                <Text size="sm" c="#1e40af" fw={500}>
+                <Text size="sm" c={paginationText} fw={500}>
                   Page {activePage} of {totalPages} •{" "}
                   {detectionHistoryData.length} total alerts
                   {selectedDetection &&

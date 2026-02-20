@@ -25,6 +25,7 @@ import {
   PinInput,
   Transition,
   Paper,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconShieldCheck,
@@ -50,10 +51,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === "dark" ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === "dark" ? dark : light);
+
 export default function PaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
 
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -98,7 +104,7 @@ export default function PaymentPage() {
     "Wegagen Bank",
   ];
 
-  // Plan data
+  // Plan data (gradients stay the same, they look good in both modes)
   const plans = {
     monthly: {
       name: "Monthly",
@@ -178,11 +184,11 @@ export default function PaymentPage() {
 
     setShowPinModal(false);
     setPaymentLoading(true);
-    
+
     setTimeout(() => {
       setPaymentLoading(false);
       setPin("");
-      
+
       if (pin === "1234") {
         localStorage.setItem("hasPaidSubscription", "true");
         alert("Payment successful! You can now register additional people.");
@@ -203,11 +209,15 @@ export default function PaymentPage() {
     return showValidation && !fieldValue.trim();
   };
 
-  // Stepper Component
+  // Stepper Component with dynamic colors
   const Stepper = () => (
     <Box
       style={{
-        background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+        background: getBg(
+          colorScheme,
+          "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+          `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`
+        ),
         borderRadius: "12px",
         padding: "24px",
         marginBottom: "32px",
@@ -222,18 +232,21 @@ export default function PaymentPage() {
                   width: "40px",
                   height: "40px",
                   borderRadius: "50%",
-                  background: step <= activeStep 
-                    ? "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
-                    : "#e9ecef",
-                  color: step <= activeStep ? "white" : "#adb5bd",
+                  background:
+                    step <= activeStep
+                      ? "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
+                      : getBg(colorScheme, "#e9ecef", theme.colors.dark[5]),
+                  color:
+                    step <= activeStep
+                      ? "white"
+                      : getBg(colorScheme, "#adb5bd", theme.colors.dark[3]),
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontWeight: "bold",
                   fontSize: "16px",
-                  boxShadow: step <= activeStep 
-                    ? "0 4px 12px rgba(79, 70, 229, 0.3)"
-                    : "none",
+                  boxShadow:
+                    step <= activeStep ? "0 4px 12px rgba(79, 70, 229, 0.3)" : "none",
                   transition: "all 0.3s ease",
                   zIndex: 2,
                   position: "relative",
@@ -246,7 +259,11 @@ export default function PaymentPage() {
               ta="center"
               mt={8}
               fw={600}
-              c={step <= activeStep ? "dark" : "dimmed"}
+              c={
+                step <= activeStep
+                  ? getBg(colorScheme, "dark", theme.colors.gray[3])
+                  : "dimmed"
+              }
               size="sm"
             >
               {step === 1 ? "Payment Details" : step === 2 ? "Review" : "Confirm"}
@@ -259,9 +276,10 @@ export default function PaymentPage() {
                   left: "60%",
                   right: "0",
                   height: "2px",
-                  background: step < activeStep 
-                    ? "linear-gradient(90deg, #4f46e5, #7c3aed)"
-                    : "#e9ecef",
+                  background:
+                    step < activeStep
+                      ? "linear-gradient(90deg, #4f46e5, #7c3aed)"
+                      : getBg(colorScheme, "#e9ecef", theme.colors.dark[5]),
                   zIndex: 1,
                 }}
               />
@@ -293,7 +311,15 @@ export default function PaymentPage() {
                 >
                   <IconAlertCircle size={32} />
                 </Box>
-                <Title order={2} fw={900} style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                <Title
+                  order={2}
+                  fw={900}
+                  style={{
+                    background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
                   Dear, {billedTo || "User"}
                 </Title>
               </Group>
@@ -302,11 +328,15 @@ export default function PaymentPage() {
               </Text>
             </Box>
 
-            <Divider />
+            <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
             <Card
               style={{
-                background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                background: getBg(
+                  colorScheme,
+                  "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  `linear-gradient(135deg, ${theme.colors.dark[7]} 0%, ${theme.colors.dark[6]} 100%)`
+                ),
                 border: "none",
                 borderRadius: "20px",
                 padding: "32px",
@@ -314,12 +344,22 @@ export default function PaymentPage() {
               }}
             >
               <Stack gap="md">
-                <Text fw={700} size="xl" style={{ background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                <Text
+                  fw={700}
+                  size="xl"
+                  style={{
+                    background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
                   Order Summary
                 </Text>
 
                 <Box>
-                  <Text size="sm" c="dimmed">Plan Type</Text>
+                  <Text size="sm" c="dimmed">
+                    Plan Type
+                  </Text>
                   <Group mt={4}>
                     <Badge
                       size="xl"
@@ -338,16 +378,22 @@ export default function PaymentPage() {
 
                 {paymentMethod === "bank" && selectedBank && (
                   <>
-                    <Divider />
+                    <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
                     <Box>
-                      <Text size="sm" c="dimmed">Chosen Bank</Text>
+                      <Text size="sm" c="dimmed">
+                        Chosen Bank
+                      </Text>
                       <Group mt={4} gap="xs">
                         <IconBuildingBank size={20} color="#3b82f6" />
-                        <Text fw={600} size="lg">{selectedBank}</Text>
+                        <Text fw={600} size="lg">
+                          {selectedBank}
+                        </Text>
                       </Group>
                     </Box>
                     <Box>
-                      <Text size="sm" c="dimmed">Account Number</Text>
+                      <Text size="sm" c="dimmed">
+                        Account Number
+                      </Text>
                       <Text fw={600} size="lg" mt={4}>
                         {accountNumber ? `${accountNumber.slice(0, 4)}xxxxxxxxxx` : "Not provided"}
                       </Text>
@@ -357,16 +403,22 @@ export default function PaymentPage() {
 
                 {paymentMethod === "creditCard" && (
                   <>
-                    <Divider />
+                    <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
                     <Box>
-                      <Text size="sm" c="dimmed">Card Type</Text>
+                      <Text size="sm" c="dimmed">
+                        Card Type
+                      </Text>
                       <Group mt={4} gap="xs">
                         <IconCreditCard size={20} color="#8b5cf6" />
-                        <Text fw={600} size="lg">Credit Card</Text>
+                        <Text fw={600} size="lg">
+                          Credit Card
+                        </Text>
                       </Group>
                     </Box>
                     <Box>
-                      <Text size="sm" c="dimmed">Card Number</Text>
+                      <Text size="sm" c="dimmed">
+                        Card Number
+                      </Text>
                       <Text fw={600} size="lg" mt={4}>
                         {cardNumber ? `**** ${cardNumber.slice(-4)}` : "Not provided"}
                       </Text>
@@ -376,16 +428,22 @@ export default function PaymentPage() {
 
                 {paymentMethod === "wallet" && (
                   <>
-                    <Divider />
+                    <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
                     <Box>
-                      <Text size="sm" c="dimmed">Wallet Type</Text>
+                      <Text size="sm" c="dimmed">
+                        Wallet Type
+                      </Text>
                       <Group mt={4} gap="xs">
                         <IconWallet size={20} color="#10b981" />
-                        <Text fw={600} size="lg">Digital Wallet</Text>
+                        <Text fw={600} size="lg">
+                          Digital Wallet
+                        </Text>
                       </Group>
                     </Box>
                     <Box>
-                      <Text size="sm" c="dimmed">Wallet ID</Text>
+                      <Text size="sm" c="dimmed">
+                        Wallet ID
+                      </Text>
                       <Text fw={600} size="lg" mt={4}>
                         {walletId ? `${walletId.slice(0, 4)}...${walletId.slice(-4)}` : "Not provided"}
                       </Text>
@@ -393,11 +451,21 @@ export default function PaymentPage() {
                   </>
                 )}
 
-                <Divider />
+                <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
                 <Box>
-                  <Text size="sm" c="dimmed">Total Amount</Text>
-                  <Title order={1} fw={900} style={{ background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                  <Text size="sm" c="dimmed">
+                    Total Amount
+                  </Text>
+                  <Title
+                    order={1}
+                    fw={900}
+                    style={{
+                      background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                    }}
+                  >
                     {currentPlan.billing} birr
                   </Title>
                 </Box>
@@ -413,7 +481,7 @@ export default function PaymentPage() {
                 onClick={handleEditForm}
                 leftSection={<IconArrowLeft size={20} />}
                 style={{
-                  border: "2px solid #e5e7eb",
+                  border: `2px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])}`,
                   transition: "all 0.3s ease",
                   "&:hover": {
                     transform: "translateX(-4px)",
@@ -442,7 +510,11 @@ export default function PaymentPage() {
 
             <Alert
               style={{
-                background: "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)",
+                background: getBg(
+                  colorScheme,
+                  "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)",
+                  `linear-gradient(135deg, ${theme.colors.blue[9]} 0%, ${theme.colors.blue[8]} 100%)`
+                ),
                 border: "none",
                 borderRadius: "12px",
               }}
@@ -468,7 +540,11 @@ export default function PaymentPage() {
             <Title
               order={2}
               fw={800}
-              style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+              style={{
+                background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
             >
               Complete Your Payment
             </Title>
@@ -477,7 +553,7 @@ export default function PaymentPage() {
             </Text>
           </Box>
 
-          <Divider />
+          <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
           <Box>
             <Text fw={600} size="md" mb={4}>
@@ -493,7 +569,9 @@ export default function PaymentPage() {
               error={showError(billedTo) && "Name is required"}
               styles={{
                 input: {
-                  border: "2px solid #e5e7eb",
+                  border: `2px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])}`,
+                  backgroundColor: getBg(colorScheme, "white", theme.colors.dark[6]),
+                  color: getBg(colorScheme, "black", theme.colors.gray[3]),
                   transition: "all 0.3s ease",
                   "&:focus": {
                     borderColor: "#3b82f6",
@@ -522,14 +600,29 @@ export default function PaymentPage() {
                       withBorder
                       p="md"
                       radius="md"
+                      bg={getBg(colorScheme, "white", theme.colors.dark[7])}
                       style={{
                         cursor: "pointer",
-                        borderColor: paymentMethod === method.value ? method.color : "#e5e7eb",
-                        backgroundColor: paymentMethod === method.value ? `${method.color}15` : "white",
+                        borderColor:
+                          paymentMethod === method.value
+                            ? method.color
+                            : getBg(colorScheme, "#e5e7eb", theme.colors.dark[5]),
+                        backgroundColor:
+                          paymentMethod === method.value
+                            ? getBg(
+                                colorScheme,
+                                `${method.color}15`,
+                                theme.colors.dark[6]
+                              )
+                            : getBg(colorScheme, "white", theme.colors.dark[7]),
                         flex: 1,
                         transition: "all 0.3s ease",
-                        transform: paymentMethod === method.value ? "translateY(-4px)" : "none",
-                        boxShadow: paymentMethod === method.value ? `0 8px 20px ${method.color}30` : "none",
+                        transform:
+                          paymentMethod === method.value ? "translateY(-4px)" : "none",
+                        boxShadow:
+                          paymentMethod === method.value
+                            ? `0 8px 20px ${method.color}30`
+                            : "none",
                         minWidth: "100px",
                       }}
                       onClick={() => setPaymentMethod(method.value)}
@@ -537,7 +630,11 @@ export default function PaymentPage() {
                       <Stack align="center" gap={8}>
                         <IconComponent
                           size={28}
-                          color={paymentMethod === method.value ? method.color : "#9ca3af"}
+                          color={
+                            paymentMethod === method.value
+                              ? method.color
+                              : getBg(colorScheme, "#9ca3af", theme.colors.dark[3])
+                          }
                         />
                         <Text fw={500}>{method.label}</Text>
                       </Stack>
@@ -554,9 +651,9 @@ export default function PaymentPage() {
             withBorder
             p="lg"
             radius="lg"
+            bg={getBg(colorScheme, "#f8fafc", theme.colors.dark[6])}
             style={{
-              background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-              border: "none",
+              border: `1px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])}`,
             }}
           >
             <Stack gap="md">
@@ -564,7 +661,9 @@ export default function PaymentPage() {
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   <Box>
-                    <Text size="sm" c="dimmed">Date & Time</Text>
+                    <Text size="sm" c="dimmed">
+                      Date & Time
+                    </Text>
                     <Group gap="xs">
                       <IconCalendar size={16} color="#3b82f6" />
                       <Text fw={500}>{paymentDate}</Text>
@@ -573,7 +672,9 @@ export default function PaymentPage() {
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   <Box>
-                    <Text size="sm" c="dimmed">Location</Text>
+                    <Text size="sm" c="dimmed">
+                      Location
+                    </Text>
                     <Group gap="xs">
                       <IconMapPin size={16} color="#ef4444" />
                       <Text fw={500}>{location}</Text>
@@ -593,7 +694,7 @@ export default function PaymentPage() {
               onClick={() => router.push("/subscribe")}
               leftSection={<IconArrowLeft size={20} />}
               style={{
-                border: "2px solid #e5e7eb",
+                border: `2px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])}`,
                 transition: "all 0.3s ease",
                 "&:hover": {
                   transform: "translateX(-4px)",
@@ -616,7 +717,7 @@ export default function PaymentPage() {
                   boxShadow: "0 8px 20px rgba(59, 130, 246, 0.3)",
                 },
                 "&:disabled": {
-                  background: "#e5e7eb",
+                  background: getBg(colorScheme, "#e5e7eb", theme.colors.dark[5]),
                   transform: "none",
                   boxShadow: "none",
                 },
@@ -633,14 +734,19 @@ export default function PaymentPage() {
             p="md"
             radius="md"
             style={{
-              background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+              background: getBg(
+                colorScheme,
+                "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                `linear-gradient(135deg, ${theme.colors.yellow[9]} 0%, ${theme.colors.yellow[8]} 100%)`
+              ),
               border: "none",
             }}
           >
             <Checkbox
               label={
                 <Text size="sm">
-                  By providing your payment information, you allow us to charge for future payments in accordance with our terms.
+                  By providing your payment information, you allow us to charge for future payments
+                  in accordance with our terms.
                 </Text>
               }
               checked={acceptedTerms}
@@ -658,13 +764,15 @@ export default function PaymentPage() {
                 variant="light"
                 icon={<IconAlertCircle size={18} />}
                 style={{
-                  background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                  background: getBg(
+                    colorScheme,
+                    "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                    `linear-gradient(135deg, ${theme.colors.yellow[9]} 0%, ${theme.colors.yellow[8]} 100%)`
+                  ),
                   border: "none",
                 }}
               >
-                <Text size="sm">
-                  Please fill in all required fields before continuing.
-                </Text>
+                <Text size="sm">Please fill in all required fields before continuing.</Text>
               </Alert>
             </motion.div>
           )}
@@ -675,12 +783,29 @@ export default function PaymentPage() {
 
   const renderPaymentForm = () => {
     const getPaymentMethodStyle = (color) => ({
-      background: `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`,
-      border: `2px solid ${color}30`,
+      background: getBg(
+        colorScheme,
+        `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`,
+        `linear-gradient(135deg, ${theme.colors.dark[6]} 0%, ${theme.colors.dark[7]} 100%)`
+      ),
+      border: `2px solid ${getBg(colorScheme, `${color}30`, theme.colors.dark[5])}`,
       borderRadius: "16px",
       padding: "24px",
       transition: "all 0.3s ease",
     });
+
+    const inputStyles = {
+      input: {
+        backgroundColor: getBg(colorScheme, "white", theme.colors.dark[6]),
+        color: getBg(colorScheme, "black", theme.colors.gray[3]),
+        borderColor: getBg(colorScheme, "#e5e7eb", theme.colors.dark[5]),
+        "&:focus": {
+          borderColor: "#3b82f6",
+          boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+        },
+      },
+      label: { color: getBg(colorScheme, "black", theme.colors.gray[3]) },
+    };
 
     switch (paymentMethod) {
       case "creditCard":
@@ -703,6 +828,7 @@ export default function PaymentPage() {
                     leftSection={<IconCreditCard size={18} color="#8b5cf6" />}
                     size="md"
                     error={showError(cardNumber) && "Card number is required"}
+                    styles={inputStyles}
                   />
                   <Grid>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -712,6 +838,7 @@ export default function PaymentPage() {
                         onChange={(e) => setCardExpiry(e.currentTarget.value)}
                         size="md"
                         error={showError(cardExpiry) && "Expiry date is required"}
+                        styles={inputStyles}
                       />
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -721,6 +848,7 @@ export default function PaymentPage() {
                         onChange={(e) => setCardCVC(e.currentTarget.value)}
                         size="md"
                         error={showError(cardCVC) && "CVC is required"}
+                        styles={inputStyles}
                       />
                     </Grid.Col>
                   </Grid>
@@ -731,6 +859,7 @@ export default function PaymentPage() {
                     leftSection={<IconUser size={18} color="#8b5cf6" />}
                     size="md"
                     error={showError(cardholder) && "Cardholder name is required"}
+                    styles={inputStyles}
                   />
                 </Stack>
               </Card>
@@ -758,6 +887,7 @@ export default function PaymentPage() {
                     leftSection={<IconWallet size={18} color="#10b981" />}
                     size="md"
                     error={showError(walletId) && "Wallet ID is required"}
+                    styles={inputStyles}
                   />
                   <TextInput
                     placeholder="Wallet PIN"
@@ -767,9 +897,23 @@ export default function PaymentPage() {
                     leftSection={<IconLock size={18} color="#10b981" />}
                     size="md"
                     error={showError(walletPin) && "Wallet PIN is required"}
+                    styles={inputStyles}
                   />
-                  <Alert color="yellow" variant="light" size="sm" style={{ background: "#fef3c7" }}>
-                    <Text size="xs">Use your mobile wallet app to complete this payment</Text>
+                  <Alert
+                    color="yellow"
+                    variant="light"
+                    size="sm"
+                    style={{
+                      background: getBg(
+                        colorScheme,
+                        "#fef3c7",
+                        theme.colors.yellow[9]
+                      ),
+                    }}
+                  >
+                    <Text size="xs">
+                      Use your mobile wallet app to complete this payment
+                    </Text>
                   </Alert>
                 </Stack>
               </Card>
@@ -796,6 +940,23 @@ export default function PaymentPage() {
                     leftSection={<IconBuildingBank size={18} color="#3b82f6" />}
                     size="md"
                     error={showError(selectedBank) && "Bank selection is required"}
+                    styles={{
+                      ...inputStyles,
+                      input: {
+                        ...inputStyles.input,
+                        backgroundColor: getBg(colorScheme, "white", theme.colors.dark[6]),
+                      },
+                      dropdown: {
+                        backgroundColor: getBg(colorScheme, "white", theme.colors.dark[7]),
+                        borderColor: getBg(colorScheme, "#e5e7eb", theme.colors.dark[5]),
+                      },
+                      item: {
+                        color: getBg(colorScheme, "black", theme.colors.gray[3]),
+                        "&[data-hovered]": {
+                          backgroundColor: getBg(colorScheme, "#f1f5f9", theme.colors.dark[5]),
+                        },
+                      },
+                    }}
                   />
                   <TextInput
                     label="Account Number"
@@ -805,6 +966,7 @@ export default function PaymentPage() {
                     leftSection={<IconCreditCard size={18} color="#3b82f6" />}
                     size="md"
                     error={showError(accountNumber) && "Account number is required"}
+                    styles={inputStyles}
                   />
                 </Stack>
               </Card>
@@ -827,8 +989,18 @@ export default function PaymentPage() {
       padding="xl"
       styles={{
         content: {
-          background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+          background: getBg(
+            colorScheme,
+            "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+            `linear-gradient(135deg, ${theme.colors.dark[7]} 0%, ${theme.colors.dark[6]} 100%)`
+          ),
           borderRadius: "24px",
+        },
+        header: {
+          backgroundColor: getBg(colorScheme, "white", theme.colors.dark[7]),
+        },
+        title: {
+          color: getBg(colorScheme, "black", theme.colors.gray[3]),
         },
       }}
     >
@@ -843,9 +1015,16 @@ export default function PaymentPage() {
         >
           <IconLock size={32} />
         </Box>
-        
+
         <Box ta="center">
-          <Title order={3} style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          <Title
+            order={3}
+            style={{
+              background: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
             Secure Payment
           </Title>
           <Text c="dimmed" mt={4}>
@@ -868,8 +1047,10 @@ export default function PaymentPage() {
                 height: "60px",
                 fontSize: "24px",
                 fontWeight: "bold",
-                border: "2px solid #e5e7eb",
+                border: `2px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])}`,
                 borderRadius: "12px",
+                backgroundColor: getBg(colorScheme, "white", theme.colors.dark[6]),
+                color: getBg(colorScheme, "black", theme.colors.gray[3]),
                 transition: "all 0.3s ease",
                 "&:focus": {
                   borderColor: "#3b82f6",
@@ -880,9 +1061,27 @@ export default function PaymentPage() {
           />
         </Group>
 
-        <Box ta="center" p="md" style={{ background: "#f8fafc", borderRadius: "12px", width: "100%" }}>
-          <Text size="sm" c="dimmed">Amount to Pay</Text>
-          <Text fw={900} size="xl" style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+        <Box
+          ta="center"
+          p="md"
+          style={{
+            background: getBg(colorScheme, "#f8fafc", theme.colors.dark[6]),
+            borderRadius: "12px",
+            width: "100%",
+          }}
+        >
+          <Text size="sm" c="dimmed">
+            Amount to Pay
+          </Text>
+          <Text
+            fw={900}
+            size="xl"
+            style={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
             {currentPlan.billing} birr
           </Text>
         </Box>
@@ -896,6 +1095,10 @@ export default function PaymentPage() {
               setPin("");
             }}
             size="md"
+            style={{
+              borderColor: getBg(colorScheme, "#e5e7eb", theme.colors.dark[5]),
+              color: getBg(colorScheme, "black", theme.colors.gray[3]),
+            }}
           >
             Cancel
           </Button>
@@ -916,8 +1119,18 @@ export default function PaymentPage() {
           </Button>
         </Group>
 
-        <Alert color="red" variant="light" size="sm" w="100%" style={{ background: "#fee2e2" }}>
-          <Text size="xs">This action cannot be undone. Your account will be charged immediately.</Text>
+        <Alert
+          color="red"
+          variant="light"
+          size="sm"
+          w="100%"
+          style={{
+            background: getBg(colorScheme, "#fee2e2", theme.colors.red[9]),
+          }}
+        >
+          <Text size="xs">
+            This action cannot be undone. Your account will be charged immediately.
+          </Text>
         </Alert>
       </Stack>
     </Modal>
@@ -943,13 +1156,21 @@ export default function PaymentPage() {
     <Box
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
+        background: getBg(
+          colorScheme,
+          "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
+          `linear-gradient(135deg, ${theme.colors.dark[8]} 0%, ${theme.colors.dark[9]} 100%)`
+        ),
       }}
     >
       {/* Header */}
       <Box
         style={{
-          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+          background: getBg(
+            colorScheme,
+            "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+            `linear-gradient(135deg, ${theme.colors.dark[9]} 0%, ${theme.colors.dark[8]} 100%)`
+          ),
           padding: "20px 0",
           position: "sticky",
           top: 0,
@@ -965,8 +1186,8 @@ export default function PaymentPage() {
                 alt="Logo"
                 width={140}
                 height={48}
-                style={{ 
-                  height: "48px", 
+                style={{
+                  height: "48px",
                   borderRadius: "12px",
                   boxShadow: "0 4px 12px rgba(255,255,255,0.1)",
                 }}
@@ -995,7 +1216,15 @@ export default function PaymentPage() {
             fw={900}
             ta="center"
             mb="md"
-            style={{ background: "linear-gradient(135deg, #1e293b 0%, #475569 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+            style={{
+              background: getBg(
+                colorScheme,
+                "linear-gradient(135deg, #1e293b 0%, #475569 100%)",
+                `linear-gradient(135deg, ${theme.colors.gray[3]} 0%, ${theme.colors.gray[1]} 100%)`
+              ),
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
           >
             {showConfirmation ? "Review Your Order" : "Complete Payment"}
           </Title>
@@ -1019,9 +1248,9 @@ export default function PaymentPage() {
                 p={{ base: "md", lg: "xl" }}
                 style={{
                   height: "100%",
-                  background: "white",
+                  background: getBg(colorScheme, "white", theme.colors.dark[7]),
                   border: "none",
-                  boxShadow: showConfirmation 
+                  boxShadow: showConfirmation
                     ? "0 20px 40px rgba(72, 187, 120, 0.15)"
                     : "0 20px 40px rgba(59, 130, 246, 0.15)",
                 }}
@@ -1043,7 +1272,11 @@ export default function PaymentPage() {
                 p={{ base: "md", lg: "xl" }}
                 style={{
                   height: "100%",
-                  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  background: getBg(
+                    colorScheme,
+                    "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                    `linear-gradient(135deg, ${theme.colors.dark[6]} 0%, ${theme.colors.dark[7]} 100%)`
+                  ),
                   border: "none",
                   boxShadow: "0 20px 40px rgba(139, 92, 246, 0.15)",
                 }}
@@ -1052,7 +1285,16 @@ export default function PaymentPage() {
                   <Box>
                     <Group justify="center" mb="lg">
                       <IconSparkles size={36} color="#8b5cf6" />
-                      <Title order={2} fw={800} ta="center" style={{ background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                      <Title
+                        order={2}
+                        fw={800}
+                        ta="center"
+                        style={{
+                          background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                        }}
+                      >
                         {showConfirmation ? "Selected Plan" : "Choose Plan"}
                       </Title>
                     </Group>
@@ -1068,10 +1310,21 @@ export default function PaymentPage() {
                             withBorder
                             p="lg"
                             radius="lg"
+                            bg={getBg(colorScheme, "white", theme.colors.dark[7])}
                             style={{
                               cursor: showConfirmation ? "default" : "pointer",
-                              border: selectedPlan === key ? `3px solid ${plan.borderColor}` : "1px solid #e5e7eb",
-                              background: selectedPlan === key ? `${plan.borderColor}08` : "white",
+                              border:
+                                selectedPlan === key
+                                  ? `3px solid ${plan.borderColor}`
+                                  : `1px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])}`,
+                              background:
+                                selectedPlan === key
+                                  ? getBg(
+                                      colorScheme,
+                                      `${plan.borderColor}08`,
+                                      theme.colors.dark[6]
+                                    )
+                                  : getBg(colorScheme, "white", theme.colors.dark[7]),
                               transition: "all 0.3s ease",
                               position: "relative",
                               overflow: "hidden",
@@ -1091,7 +1344,7 @@ export default function PaymentPage() {
                                 }}
                               />
                             )}
-                            
+
                             <Stack gap={12}>
                               <Group justify="space-between" align="center">
                                 <Badge
@@ -1110,7 +1363,8 @@ export default function PaymentPage() {
                                     variant="filled"
                                     size="sm"
                                     style={{
-                                      background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                      background:
+                                        "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                                     }}
                                   >
                                     {plan.savings}
@@ -1122,7 +1376,9 @@ export default function PaymentPage() {
                               </Group>
 
                               <Box>
-                                <Text size="sm" c="dimmed">Total Amount</Text>
+                                <Text size="sm" c="dimmed">
+                                  Total Amount
+                                </Text>
                                 <Group align="flex-end" gap={4}>
                                   <Title
                                     order={1}
@@ -1135,12 +1391,16 @@ export default function PaymentPage() {
                                   >
                                     {plan.total}
                                   </Title>
-                                  <Text size="lg" fw={600} c="dimmed">birr</Text>
+                                  <Text size="lg" fw={600} c="dimmed">
+                                    birr
+                                  </Text>
                                 </Group>
                               </Box>
 
                               <Group gap={4}>
-                                <Text size="sm" c="dimmed">{plan.description}</Text>
+                                <Text size="sm" c="dimmed">
+                                  {plan.description}
+                                </Text>
                               </Group>
                             </Stack>
                           </Card>
@@ -1159,7 +1419,11 @@ export default function PaymentPage() {
                       p="lg"
                       radius="lg"
                       style={{
-                        background: "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)",
+                        background: getBg(
+                          colorScheme,
+                          "linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)",
+                          `linear-gradient(135deg, ${theme.colors.blue[9]} 0%, ${theme.colors.blue[8]} 100%)`
+                        ),
                         border: "none",
                         position: "relative",
                         overflow: "hidden",
@@ -1178,7 +1442,10 @@ export default function PaymentPage() {
                       />
                       <Stack gap={12}>
                         <Text fw={700} size="lg" style={{ color: "#1d4ed8" }}>
-                          <IconBadge size={20} style={{ verticalAlign: "middle", marginRight: "8px" }} />
+                          <IconBadge
+                            size={20}
+                            style={{ verticalAlign: "middle", marginRight: "8px" }}
+                          />
                           Order Summary
                         </Text>
 
@@ -1194,14 +1461,26 @@ export default function PaymentPage() {
 
                         <Group justify="space-between">
                           <Text c="dimmed">Amount</Text>
-                          <Text fw={600}>{currentPlan.price} birr/{currentPlan.period}</Text>
+                          <Text fw={600}>
+                            {currentPlan.price} birr/{currentPlan.period}
+                          </Text>
                         </Group>
 
-                        <Divider />
+                        <Divider color={getBg(colorScheme, "#e5e7eb", theme.colors.dark[5])} />
 
                         <Group justify="space-between">
-                          <Text fw={700} size="lg">Total</Text>
-                          <Title order={2} fw={900} style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                          <Text fw={700} size="lg">
+                            Total
+                          </Text>
+                          <Title
+                            order={2}
+                            fw={900}
+                            style={{
+                              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                            }}
+                          >
                             {currentPlan.billing} birr
                           </Title>
                         </Group>
@@ -1219,7 +1498,11 @@ export default function PaymentPage() {
                       p="lg"
                       radius="lg"
                       style={{
-                        background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                        background: getBg(
+                          colorScheme,
+                          "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",
+                          `linear-gradient(135deg, ${theme.colors.yellow[9]} 0%, ${theme.colors.yellow[8]} 100%)`
+                        ),
                         border: "none",
                       }}
                     >

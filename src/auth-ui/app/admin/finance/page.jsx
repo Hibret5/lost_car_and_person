@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';  // ← useEffect added
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Title, Text, Paper, SimpleGrid, Group, Button,
   Table, Badge, ActionIcon, Tooltip, Select, TextInput,
   Modal, Stack, Grid, Divider, Avatar, Pagination,
-  Menu, UnstyledButton, Card
+  Menu, UnstyledButton, Card,
+  useMantineTheme, useMantineColorScheme
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useForm } from '@mantine/form';
@@ -19,6 +20,10 @@ import {
   IconArrowUpRight, IconArrowDownRight
 } from '@tabler/icons-react';
 import Link from 'next/link';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // --- MOCK DATA ---
 const INITIAL_PLANS = [
@@ -58,6 +63,15 @@ const formatCurrency = (value) => {
 };
 
 export default function FinanceManagementPage() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const paperBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const primaryText = getTextColor(colorScheme, '#2B3674', theme.colors.gray[3]);
+
   // ---------- STATE ----------
   const [plans, setPlans] = useState(INITIAL_PLANS);
   const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
@@ -226,14 +240,14 @@ export default function FinanceManagementPage() {
   const chartHeight = 180;
 
   return (
-    <Box p="xl" bg="#F4F7FE" style={{ minHeight: '100vh' }}>
+    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
       {/* HEADER */}
       <Group justify="space-between" mb="xl">
         <Box>
-          <Title order={2} fw={700} c="#2B3674">Finance & Subscription Management</Title>
+          <Title order={2} fw={700} c={primaryText}>Finance & Subscription Management</Title>
           <Text size="sm" c="dimmed">Track revenue, manage plans, and view transactions</Text>
         </Box>
-        <Group bg="white" p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <Tooltip label="Settings">
             <ActionIcon variant="subtle" color="gray"><IconSettings size={20} /></ActionIcon>
           </Tooltip>
@@ -323,9 +337,9 @@ export default function FinanceManagementPage() {
       </SimpleGrid>
 
       {/* REVENUE CHART */}
-      <Paper p="md" radius="lg" mb="xl" shadow="sm" withBorder>
+      <Paper p="md" radius="lg" mb="xl" shadow="sm" withBorder bg={paperBg}>
         <Group justify="space-between" mb="md">
-          <Title order={4} fw={600} c="#2B3674">Revenue Overview (Last 6 months)</Title>
+          <Title order={4} fw={600} c={primaryText}>Revenue Overview (Last 6 months)</Title>
           <Select
             placeholder="Period"
             data={['Last 6 months', 'Last 12 months', 'Year to date']}
@@ -355,9 +369,9 @@ export default function FinanceManagementPage() {
       </Paper>
 
       {/* SUBSCRIPTION PLANS */}
-      <Paper p="md" radius="lg" mb="xl" shadow="sm" withBorder>
+      <Paper p="md" radius="lg" mb="xl" shadow="sm" withBorder bg={paperBg}>
         <Group justify="space-between" mb="lg">
-          <Title order={4} fw={600} c="#2B3674">Subscription Plans</Title>
+          <Title order={4} fw={600} c={primaryText}>Subscription Plans</Title>
           <Button
             leftSection={<IconPlus size={16} />}
             bg="#2B3674"
@@ -375,7 +389,7 @@ export default function FinanceManagementPage() {
                 <Text fw={700} size="lg">{plan.name}</Text>
                 <Badge color={plan.status === 'Active' ? 'green' : 'gray'}>{plan.status}</Badge>
               </Group>
-              <Text fw={800} size="xl" c="#2B3674">
+              <Text fw={800} size="xl" c={primaryText}>
                 {plan.price === 0 ? 'Free' : formatCurrency(plan.price)}
                 {plan.price > 0 && <Text span size="sm" fw={400} c="dimmed">/{plan.interval}</Text>}
               </Text>
@@ -437,10 +451,10 @@ export default function FinanceManagementPage() {
       </Paper>
 
       {/* TRANSACTIONS TABLE */}
-      <Paper p="md" radius="lg" shadow="sm" withBorder>
+      <Paper p="md" radius="lg" shadow="sm" withBorder bg={paperBg}>
         <Stack gap="md">
           <Group justify="space-between">
-            <Title order={4} fw={600} c="#2B3674">Recent Transactions</Title>
+            <Title order={4} fw={600} c={primaryText}>Recent Transactions</Title>
             <Group>
               <TextInput
                 placeholder="Search by customer or invoice"

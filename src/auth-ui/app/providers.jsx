@@ -1,33 +1,23 @@
 'use client';
 
 import { MantineProvider } from '@mantine/core';
-import { useState } from 'react';
 import { Notifications } from '@mantine/notifications';
 import '@mantine/notifications/styles.css';
 import '@mantine/dates/styles.css';
 
-
 export default function Providers({ children }) {
-  const [colorScheme, setColorScheme] = useState('light');
-
-  const toggleColorScheme = () =>
-    setColorScheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-
   return (
     <MantineProvider
-      theme={{ colorScheme }}
+      theme={{ primaryColor: 'blue' }}
       defaultColorScheme="light"
     >
-      <Notifications 
-            position="top-right" 
-            zIndex={9999}
-            containerWidth={300}
-            limit={3}
-          />
-      {children &&
-        typeof children === 'function'
-          ? children({ colorScheme, toggleColorScheme })
-          : children}
+      <Notifications
+        position="top-right"
+        zIndex={9999}
+        containerWidth={300}
+        limit={3}
+      />
+      {children}
     </MantineProvider>
   );
 }

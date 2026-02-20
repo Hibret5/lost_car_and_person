@@ -5,7 +5,8 @@ import {
   Box, Title, Text, Paper, SimpleGrid, Group, Button,
   Table, Badge, ActionIcon, Tooltip, Select, TextInput,
   Modal, Stack, Grid, Divider, Avatar, Pagination,
-  Menu, UnstyledButton, Textarea, Rating, Alert
+  Menu, UnstyledButton, Textarea, Rating, Alert,
+  useMantineTheme, useMantineColorScheme
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useForm } from '@mantine/form';
@@ -20,6 +21,10 @@ import {
   IconMailForward
 } from '@tabler/icons-react';
 import Link from 'next/link';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // ---------- MOCK DATA ----------
 const INITIAL_FEEDBACK = [
@@ -129,6 +134,15 @@ const getRatingIcon = (rating) => {
 };
 
 export default function FeedbackManagementPage() {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const footerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const primaryText = getTextColor(colorScheme, '#2B3674', theme.colors.gray[3]);
+
   // ---------- STATE ----------
   const [feedback, setFeedback] = useState(INITIAL_FEEDBACK);
   const [searchQuery, setSearchQuery] = useState('');
@@ -296,14 +310,14 @@ export default function FeedbackManagementPage() {
   }, [replyingFeedback]);
 
   return (
-    <Box p="xl" bg="#F4F7FE" style={{ minHeight: '100vh' }}>
+    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
       {/* HEADER */}
       <Group justify="space-between" mb="xl">
         <Box>
-          <Title order={2} fw={700} c="#2B3674">Feedback Management</Title>
+          <Title order={2} fw={700} c={primaryText}>Feedback Management</Title>
           <Text size="sm" c="dimmed">Monitor user feedback, ratings, and respond to customers</Text>
         </Box>
-        <Group bg="white" p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <Tooltip label="Settings">
             <ActionIcon variant="subtle" color="gray"><IconSettings size={20} /></ActionIcon>
           </Tooltip>
@@ -594,7 +608,7 @@ export default function FeedbackManagementPage() {
         </Table.ScrollContainer>
 
         {/* PAGINATION */}
-        <Group justify="space-between" p="md" bg="white">
+        <Group justify="space-between" p="md" bg={footerBg}>
           <Group gap="xs">
             <Text size="sm" c="dimmed">Rows per page</Text>
             <Select
@@ -659,14 +673,22 @@ export default function FeedbackManagementPage() {
               </Grid.Col>
               <Grid.Col span={12}>
                 <Text size="sm" c="dimmed">Comment</Text>
-                <Paper p="md" bg="gray.0" radius="md">
+                <Paper
+                  p="md"
+                  bg={getBg(colorScheme, 'gray.0', theme.colors.dark[6])}
+                  radius="md"
+                >
                   <Text>{viewingFeedback.comment}</Text>
                 </Paper>
               </Grid.Col>
               {viewingFeedback.response && (
                 <Grid.Col span={12}>
                   <Text size="sm" c="dimmed">Your Response</Text>
-                  <Paper p="md" bg="blue.0" radius="md">
+                  <Paper
+                    p="md"
+                    bg={getBg(colorScheme, 'blue.0', theme.colors.blue[9])}
+                    radius="md"
+                  >
                     <Text>{viewingFeedback.response}</Text>
                   </Paper>
                 </Grid.Col>
@@ -711,7 +733,12 @@ export default function FeedbackManagementPage() {
                     <Rating value={replyingFeedback.rating} fractions={1} readOnly size="xs" />
                   </Box>
                 </Group>
-                <Paper p="sm" bg="gray.0" radius="md" mb="md">
+                <Paper
+                  p="sm"
+                  bg={getBg(colorScheme, 'gray.0', theme.colors.dark[6])}
+                  radius="md"
+                  mb="md"
+                >
                   <Text size="sm" fs="italic">"{replyingFeedback.comment}"</Text>
                 </Paper>
               </Box>

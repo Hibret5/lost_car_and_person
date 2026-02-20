@@ -4,7 +4,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Title, Text, Group, Box, Paper, SimpleGrid, TextInput,
   Table, Badge, Avatar, ActionIcon, Button, Select, Pagination,
-  Modal, Stack, Grid, Divider, Tooltip, UnstyledButton
+  Modal, Stack, Grid, Divider, Tooltip, UnstyledButton,
+  useMantineTheme, useMantineColorScheme
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -14,6 +15,10 @@ import {
 } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import { useRouter } from 'next/navigation';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // ---------- Initial Data ----------
 const initialUsers = [
@@ -37,6 +42,16 @@ const getActiveThreshold = (activeStr) => {
 
 export default function UserManagementPage() {
   const router = useRouter();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
+  const primaryText = getTextColor(colorScheme, '#2B3674', theme.colors.gray[3]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const cardBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const tableHeaderBg = '#4318FF'; // brand color stays
+  const buttonPrimaryBg = '#2B3674'; // brand color stays
 
   // ---------- State ----------
   const [users, setUsers] = useState(initialUsers);
@@ -210,11 +225,11 @@ export default function UserManagementPage() {
 
   // ---------- Render ----------
   return (
-    <Box p="xl" bg="#F4F7FE" style={{ minHeight: '100vh' }}>
+    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
       {/* Header */}
       <Group justify="space-between" mb="xl">
-        <Title order={2} fw={700} c="#2B3674">User Management</Title>
-        <Group bg="white" p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Title order={2} fw={700} c={primaryText}>User Management</Title>
+        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <Tooltip label="Settings">
             <ActionIcon variant="subtle" color="gray" size="lg">
               <IconSettings size={22} />
@@ -258,7 +273,7 @@ export default function UserManagementPage() {
       </SimpleGrid>
 
       {/* Main Table Card */}
-      <Paper p="md" radius="lg" shadow="sm" withBorder>
+      <Paper p="md" radius="lg" shadow="sm" withBorder bg={cardBg}>
         <Stack gap="md">
           {/* Filters & Actions */}
           <Group justify="space-between">
@@ -311,7 +326,7 @@ export default function UserManagementPage() {
               </Button>
               <Button
                 leftSection={<IconPlus size={16} />}
-                bg="#2B3674"
+                bg={buttonPrimaryBg}
                 radius="md"
                 onClick={addModalHandlers.open}
               >
@@ -323,7 +338,7 @@ export default function UserManagementPage() {
           {/* Table */}
           <Table.ScrollContainer minWidth={900}>
             <Table verticalSpacing="sm" highlightOnHover>
-              <Table.Thead bg="#4318FF">
+              <Table.Thead bg={tableHeaderBg}>
                 <Table.Tr>
                   <Table.Th c="white">Full Name</Table.Th>
                   <Table.Th c="white">Email</Table.Th>
@@ -470,7 +485,7 @@ export default function UserManagementPage() {
             </Grid>
             <Group justify="flex-end" mt="md">
               <Button variant="subtle" onClick={addModalHandlers.close}>Cancel</Button>
-              <Button type="submit" bg="#2B3674">Add User</Button>
+              <Button type="submit" bg={buttonPrimaryBg}>Add User</Button>
             </Group>
           </Stack>
         </form>
@@ -519,7 +534,7 @@ export default function UserManagementPage() {
                 </Button>
                 <Group>
                   <Button variant="subtle" onClick={editModalHandlers.close}>Cancel</Button>
-                  <Button type="submit" bg="#2B3674">Update</Button>
+                  <Button type="submit" bg={buttonPrimaryBg}>Update</Button>
                 </Group>
               </Group>
             </Stack>

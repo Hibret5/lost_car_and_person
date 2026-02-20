@@ -20,6 +20,8 @@ import {
   TextInput,
   ScrollArea,
   Divider,
+  useMantineTheme,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -56,12 +58,18 @@ import Image from "next/image";
 import { useRef, useState, useEffect } from "react";
 import { getAllAlerts, getStats } from "../../data/alertsData";
 
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getBorderColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+
 export default function AlertPage() {
   const router = useRouter();
   const scrollRef = useRef(null);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredAlerts, setFilteredAlerts] = useState([]);
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
 
   // Get all alerts from our data file
   const allAlerts = getAllAlerts();
@@ -167,14 +175,24 @@ export default function AlertPage() {
     }
   };
 
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, 'white', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const borderColor = getBorderColor(colorScheme, '#E9ECEF', theme.colors.dark[5]);
+  const paperBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const blueLightBg = getBg(colorScheme, 'blue.0', theme.colors.blue[9]);
+  const grayLightBg = getBg(colorScheme, 'gray.0', theme.colors.dark[5]);
+  const overlayBg = colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.85)' : 'rgba(0, 0, 0, 0.75)';
+  const cardBorder = colorScheme === 'dark' ? theme.colors.dark[4] : '#e0e0e0';
+
   return (
-    <Box bg="white" style={{ minHeight: "100vh", position: "relative" }}>
+    <Box bg={mainBg} style={{ minHeight: "100vh", position: "relative" }}>
       {/* Header */}
       <Box
-        bg="white"
+        bg={headerBg}
         py="sm"
         style={{
-          borderBottom: "1px solid #E9ECEF",
+          borderBottom: `1px solid ${borderColor}`,
           position: "sticky",
           top: 0,
           zIndex: 100,
@@ -288,9 +306,9 @@ export default function AlertPage() {
 
       {/* Main Content */}
       <Container size="xl" py={40}>
-        <Paper p="md" mb="xl" bg="blue.0" radius="md">
+        <Paper p="md" mb="xl" bg={blueLightBg} radius="md">
           <Group>
-            <IconAlertCircle size={24} color="#2f80ed" />
+            <IconAlertCircle size={24} color={theme.colors.blue[6]} />
             <div>
               <Text fw={600}>Alert Notifications</Text>
               <Text size="sm" c="dimmed">
@@ -345,7 +363,7 @@ export default function AlertPage() {
                     overflow: "hidden",
                     minWidth: 320,
                     flexShrink: 0,
-                    border: "1px solid #e0e0e0",
+                    border: `1px solid ${cardBorder}`,
                     position: "relative",
                   }}
                 >
@@ -535,7 +553,7 @@ export default function AlertPage() {
           )}
         </Box>
 
-        <Paper withBorder p="lg" mt="xl" radius="md">
+        <Paper withBorder p="lg" mt="xl" radius="md" bg={paperBg}>
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <Stack align="center" gap={0}>
               <Text size="xl" fw={800} c="blue.6">
@@ -576,7 +594,7 @@ export default function AlertPage() {
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.75)",
+              backgroundColor: overlayBg,
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
               zIndex: 1000,
@@ -594,7 +612,7 @@ export default function AlertPage() {
               width: "95%",
               maxWidth: "900px",
               height: "90vh",
-              backgroundColor: "white",
+              backgroundColor: paperBg,
               borderRadius: "20px",
               overflow: "hidden",
               boxShadow: "0 25px 50px rgba(0, 0, 0, 0.5)",
@@ -669,7 +687,7 @@ export default function AlertPage() {
                   </Text>
                 </Box>
 
-                <Divider mb="xl" />
+                <Divider mb="xl" color={borderColor} />
 
                 {/* Description Section */}
                 <Box mb="xl">
@@ -679,7 +697,7 @@ export default function AlertPage() {
                       Full Description
                     </Text>
                   </Group>
-                  <Paper p="xl" withBorder radius="md" bg="gray.0">
+                  <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
                     <Text
                       size="lg"
                       style={{ lineHeight: 1.6, whiteSpace: "pre-line" }}
@@ -712,7 +730,7 @@ export default function AlertPage() {
                     <Text fw={700} size="xl" mb="lg">
                       Technical Specifications
                     </Text>
-                    <Paper p="xl" withBorder radius="md">
+                    <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
                       <SimpleGrid cols={2} spacing="lg">
                         {Object.entries(selectedAlert.technicalSpecs).map(([key, value]) => (
                           <Box key={key}>
@@ -729,7 +747,7 @@ export default function AlertPage() {
 
                 {/* Location & Time */}
                 <SimpleGrid cols={2} mb="xl">
-                  <Paper p="xl" withBorder radius="md">
+                  <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
                     <Group mb="md">
                       <IconMapPinFilled size={24} color="blue" />
                       <Text fw={700} size="lg">
@@ -741,7 +759,7 @@ export default function AlertPage() {
                       {selectedAlert.mapLocation}
                     </Text>
                   </Paper>
-                  <Paper p="xl" withBorder radius="md">
+                  <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
                     <Group mb="md">
                       <IconCalendar size={24} color="blue" />
                       <Text fw={700} size="lg">
@@ -760,7 +778,7 @@ export default function AlertPage() {
 
                 {/* Contact Information */}
                 {selectedAlert.contactInfo && (
-                  <Paper p="xl" withBorder radius="md" bg="blue.0" mb="xl">
+                  <Paper p="xl" withBorder radius="md" bg={blueLightBg} mb="xl">
                     <Text fw={700} size="xl" mb="lg">
                       Contact Information
                     </Text>
@@ -821,7 +839,7 @@ export default function AlertPage() {
                             borderRadius: "12px",
                             overflow: "hidden",
                             cursor: "pointer",
-                            border: "3px solid #e9ecef",
+                            border: `3px solid ${borderColor}`,
                           }}
                         >
                           <Image
@@ -838,7 +856,7 @@ export default function AlertPage() {
 
                 {/* Detection Statistics */}
                 {selectedAlert.stats && (
-                  <Paper p="xl" withBorder radius="md" mb="xl">
+                  <Paper p="xl" withBorder radius="md" mb="xl" bg={grayLightBg}>
                     <Text fw={700} size="xl" mb="lg">
                       Detection Statistics
                     </Text>
@@ -871,8 +889,8 @@ export default function AlertPage() {
             <Box
               p="xl"
               style={{
-                borderTop: "2px solid #e0e0e0",
-                background: "white",
+                borderTop: `2px solid ${borderColor}`,
+                background: paperBg,
                 flexShrink: 0,
               }}
             >

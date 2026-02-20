@@ -36,9 +36,10 @@ import {
   Tooltip,
   Image as MantineImage,
   CopyButton,
-  Textarea 
+  Textarea,
+  useMantineColorScheme
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications'; // Import notifications
+import { notifications } from '@mantine/notifications';
 import {
   IconSearch,
   IconFilter,
@@ -91,14 +92,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3
 const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
 const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
 
-// Primary Colors (matching your register page)
+// Primary Colors (remain the same in both modes)
 const PRIMARY_COLOR = '#0034D1';
 const PRIMARY_LIGHT = '#4d79ff';
 const PRIMARY_DARK = '#0029a8';
 const PRIMARY_GRADIENT = `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #0066ff 100%)`;
 const PRIMARY_GRADIENT_HOVER = `linear-gradient(135deg, ${PRIMARY_DARK} 0%, #0052d4 100%)`;
-const LIGHT_BG = '#f0f5ff';
-const CARD_BG = '#f8fbff';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // Status options with colors
 const STATUS_OPTIONS = [
@@ -117,7 +120,7 @@ const TYPE_OPTIONS = [
   { value: 'Vehicle', label: 'Missing Vehicle' }
 ];
 
-// Priority options (based on your register form)
+// Priority options
 const PRIORITY_OPTIONS = [
   { value: 'all', label: 'All Priorities' },
   { value: 'high', label: 'High Priority', color: 'red' },
@@ -164,6 +167,7 @@ const showNotification = (title, message, type = 'info', icon = null) => {
 export default function ReportedCasesPage() {
   const router = useRouter();
   const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
   const isTablet = useMediaQuery(`(max-width: ${theme.breakpoints.md})`);
   
@@ -695,14 +699,18 @@ export default function ReportedCasesPage() {
   return (
     <Box style={{ 
       minHeight: '100vh',
-      background: isMobile ? LIGHT_BG : `radial-gradient(circle at 10% 20%, rgba(0, 52, 209, 0.05) 0%, rgba(255, 255, 255, 1) 100%)`,
+      background: isMobile 
+        ? getBg(colorScheme, '#f0f5ff', theme.colors.dark[7])
+        : colorScheme === 'dark'
+          ? `radial-gradient(circle at 10% 20%, rgba(0, 52, 209, 0.3) 0%, ${theme.colors.dark[7]} 100%)`
+          : `radial-gradient(circle at 10% 20%, rgba(0, 52, 209, 0.05) 0%, #ffffff 100%)`,
       position: 'relative'
     }}>
       {/* Header */}
       <Box
         style={{
-          backgroundColor: 'white',
-          borderBottom: `2px solid ${LIGHT_BG}`,
+          backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+          borderBottom: `2px solid ${getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])}`,
           boxShadow: `0 2px 15px rgba(0, 52, 209, 0.1)`,
           position: 'sticky',
           top: 0,
@@ -720,28 +728,9 @@ export default function ReportedCasesPage() {
             {/* Logo Section */}
             <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
               <Flex align="center" gap="md">
-                <Box
-                  style={{
-                    position: 'relative',
-                    width: isMobile ? 50 : 60,
-                    height: isMobile ? 50 : 60,
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    border: `2px solid ${PRIMARY_COLOR}`,
-                    boxShadow: `0 4px 12px ${PRIMARY_COLOR}30`,
-                  }}
-                >
-                  <Image
-                    src="/logo.png"
-                    alt="FindR Logo"
-                    fill
-                    style={{ 
-                      objectFit: 'cover',
-                      padding: 4,
-                    }}
-                    priority
-                  />
-                </Box>
+                <Box style={{ display: 'inline-block', height: '40px', width: 'auto', overflow: 'hidden' }}>
+                                  <Image src="/logo.jpg" alt="Logo" width={2040} height={952} style={{ height: '100%', width: 'auto' }} />
+                                </Box>
                 <Box>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
@@ -785,7 +774,7 @@ export default function ReportedCasesPage() {
                   gap="sm" 
                   style={{ 
                     padding: '8px 16px',
-                    background: LIGHT_BG,
+                    background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]),
                     borderRadius: '30px',
                   }}
                 >
@@ -795,7 +784,7 @@ export default function ReportedCasesPage() {
                     src={currentUser?.avatar}
                     style={{ 
                       background: PRIMARY_GRADIENT,
-                      border: `2px solid white`,
+                      border: `2px solid ${getBg(colorScheme, 'white', theme.colors.dark[7])}`,
                     }}
                   >
                     {currentUser?.firstName?.[0]}{currentUser?.lastName?.[0]}
@@ -849,7 +838,13 @@ export default function ReportedCasesPage() {
 
           {/* Stats Cards */}
           <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="md" mb={40}>
-            <Card padding="md" radius="lg" withBorder style={{ borderTop: `4px solid ${PRIMARY_COLOR}` }}>
+            <Card
+              padding="md"
+              radius="lg"
+              withBorder
+              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+              style={{ borderTop: `4px solid ${PRIMARY_COLOR}` }}
+            >
               <Flex align="center" gap="md">
                 <Box style={{ background: PRIMARY_GRADIENT, padding: 8, borderRadius: 8 }}>
                   <IconList size={20} color="white" />
@@ -861,7 +856,13 @@ export default function ReportedCasesPage() {
               </Flex>
             </Card>
             
-            <Card padding="md" radius="lg" withBorder style={{ borderTop: '4px solid #2f9e44' }}>
+            <Card
+              padding="md"
+              radius="lg"
+              withBorder
+              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+              style={{ borderTop: '4px solid #2f9e44' }}
+            >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #2f9e44 0%, #37b24d 100%)', padding: 8, borderRadius: 8 }}>
                   <IconCheck size={20} color="white" />
@@ -873,7 +874,13 @@ export default function ReportedCasesPage() {
               </Flex>
             </Card>
             
-            <Card padding="md" radius="lg" withBorder style={{ borderTop: '4px solid #1971c2' }}>
+            <Card
+              padding="md"
+              radius="lg"
+              withBorder
+              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+              style={{ borderTop: '4px solid #1971c2' }}
+            >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #1971c2 0%, #1c7ed6 100%)', padding: 8, borderRadius: 8 }}>
                   <IconAlertCircle size={20} color="white" />
@@ -885,7 +892,13 @@ export default function ReportedCasesPage() {
               </Flex>
             </Card>
             
-            <Card padding="md" radius="lg" withBorder style={{ borderTop: '4px solid #e67700' }}>
+            <Card
+              padding="md"
+              radius="lg"
+              withBorder
+              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+              style={{ borderTop: '4px solid #e67700' }}
+            >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #e67700 0%, #f08c00 100%)', padding: 8, borderRadius: 8 }}>
                   <IconClock size={20} color="white" />
@@ -897,7 +910,13 @@ export default function ReportedCasesPage() {
               </Flex>
             </Card>
             
-            <Card padding="md" radius="lg" withBorder style={{ borderTop: '4px solid #ae3ec9' }}>
+            <Card
+              padding="md"
+              radius="lg"
+              withBorder
+              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+              style={{ borderTop: '4px solid #ae3ec9' }}
+            >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #ae3ec9 0%, #be4bdb 100%)', padding: 8, borderRadius: 8 }}>
                   <IconUser size={20} color="white" />
@@ -909,7 +928,13 @@ export default function ReportedCasesPage() {
               </Flex>
             </Card>
             
-            <Card padding="md" radius="lg" withBorder style={{ borderTop: '4px solid #f59f00' }}>
+            <Card
+              padding="md"
+              radius="lg"
+              withBorder
+              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+              style={{ borderTop: '4px solid #f59f00' }}
+            >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #f59f00 0%, #fab005 100%)', padding: 8, borderRadius: 8 }}>
                   <IconCar size={20} color="white" />
@@ -924,7 +949,13 @@ export default function ReportedCasesPage() {
         </Box>
 
         {/* Filters Section */}
-        <Card padding="lg" radius="lg" withBorder mb={40} style={{ background: CARD_BG }}>
+        <Card
+          padding="lg"
+          radius="lg"
+          withBorder
+          mb={40}
+          bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+        >
           <Flex justify="space-between" align="center" mb="md" wrap="wrap" gap="md">
             <Title order={3} size="h4" style={{ color: PRIMARY_DARK }}>
               Filter & Search Cases
@@ -967,6 +998,13 @@ export default function ReportedCasesPage() {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 radius="md"
+                styles={{
+                  input: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  }
+                }}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3, md: 2 }}>
@@ -976,6 +1014,23 @@ export default function ReportedCasesPage() {
                 value={filters.type}
                 onChange={(value) => setFilters(prev => ({ ...prev, type: value }))}
                 radius="md"
+                styles={{
+                  input: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  },
+                  dropdown: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  },
+                  item: {
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    '&[data-hovered]': {
+                      backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                    },
+                  },
+                }}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3, md: 2 }}>
@@ -985,6 +1040,23 @@ export default function ReportedCasesPage() {
                 value={filters.status}
                 onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
                 radius="md"
+                styles={{
+                  input: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  },
+                  dropdown: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  },
+                  item: {
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    '&[data-hovered]': {
+                      backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                    },
+                  },
+                }}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3, md: 2 }}>
@@ -994,6 +1066,23 @@ export default function ReportedCasesPage() {
                 value={filters.priority}
                 onChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}
                 radius="md"
+                styles={{
+                  input: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  },
+                  dropdown: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  },
+                  item: {
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    '&[data-hovered]': {
+                      backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                    },
+                  },
+                }}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3, md: 3 }}>
@@ -1004,6 +1093,13 @@ export default function ReportedCasesPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
                 radius="md"
                 leftSection={<IconCalendar size={16} />}
+                styles={{
+                  input: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  }
+                }}
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3, md: 2 }}>
@@ -1014,6 +1110,13 @@ export default function ReportedCasesPage() {
                 onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
                 radius="md"
                 leftSection={<IconCalendar size={16} />}
+                styles={{
+                  input: {
+                    backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                    color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                    borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                  }
+                }}
               />
             </Grid.Col>
           </Grid>
@@ -1067,9 +1170,14 @@ export default function ReportedCasesPage() {
         {/* Cases Display */}
         {viewMode === 'list' ? (
           /* List View */
-          <Paper radius="lg" withBorder overflow="hidden">
+          <Paper
+            radius="lg"
+            withBorder
+            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+            overflow="hidden"
+          >
             <Table highlightOnHover verticalSpacing="md" horizontalSpacing="md">
-              <Table.Thead style={{ background: LIGHT_BG }}>
+              <Table.Thead style={{ background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]) }}>
                 <Table.Tr>
                   <Table.Th>Case ID</Table.Th>
                   <Table.Th>Type</Table.Th>
@@ -1253,6 +1361,7 @@ export default function ReportedCasesPage() {
                 padding="lg"
                 radius="lg"
                 withBorder
+                bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
                 style={{
                   borderTop: `4px solid ${
                     caseItem.type === 'Person' ? '#ae3ec9' : '#f59f00'
@@ -1287,7 +1396,7 @@ export default function ReportedCasesPage() {
                         <IconSettings size={16} />
                       </ActionIcon>
                     </Menu.Target>
-                    <Menu.Dropdown>
+                    <Menu.Dropdown bg={getBg(colorScheme, 'white', theme.colors.dark[7])}>
                       <Menu.Item 
                         leftSection={<IconEye size={14} />}
                         onClick={() => handleViewClick(caseItem)}
@@ -1347,7 +1456,7 @@ export default function ReportedCasesPage() {
                   </Flex>
                 </Stack>
 
-                <Divider my="md" />
+                <Divider my="md" color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
                 <Group justify="space-between">
                   <Button
@@ -1414,7 +1523,13 @@ export default function ReportedCasesPage() {
         )}
 
         {/* Quick Actions */}
-        <Card padding="lg" radius="lg" withBorder mt={40} style={{ background: CARD_BG }}>
+        <Card
+          padding="lg"
+          radius="lg"
+          withBorder
+          mt={40}
+          bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+        >
           <Flex justify="space-between" align="center" wrap="wrap" gap="md">
             <Box>
               <Title order={4} style={{ color: PRIMARY_DARK }} mb={4}>
@@ -1475,6 +1590,11 @@ export default function ReportedCasesPage() {
         }
         radius="lg"
         centered
+        styles={{
+          header: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          body: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          title: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+        }}
       >
         <Stack>
           <Text>
@@ -1524,6 +1644,11 @@ export default function ReportedCasesPage() {
         size="xl"
         centered
         padding="lg"
+        styles={{
+          header: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          body: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          title: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+        }}
       >
         {caseToView && (
           <Box>
@@ -1588,7 +1713,7 @@ export default function ReportedCasesPage() {
                     </Grid.Col>
                   </Grid>
 
-                  <Divider />
+                  <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
                   <Box>
                     <Text size="sm" c="dimmed" mb={4}>Description</Text>
@@ -1725,7 +1850,7 @@ export default function ReportedCasesPage() {
                     <Text size="sm" fw={500}>{caseToView.lastSeenTime || 'Not specified'}</Text>
                   </Box>
 
-                  <Divider />
+                  <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
                   <Box>
                     <Text size="sm" c="dimmed" mb={4}>Contact Name</Text>
@@ -1775,7 +1900,13 @@ export default function ReportedCasesPage() {
             </Flex>
 
             {/* Read-only information */}
-            <Paper withBorder p="md" mt="md" radius="md" style={{ background: LIGHT_BG }}>
+            <Paper
+              withBorder
+              p="md"
+              mt="md"
+              radius="md"
+              style={{ background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]) }}
+            >
               <Flex gap="xs" align="center" mb="xs">
                 <IconInfoCircle size={16} color={PRIMARY_COLOR} />
                 <Text size="sm" fw={600}>Case Information</Text>
@@ -1822,6 +1953,11 @@ export default function ReportedCasesPage() {
         size="xl"
         centered
         padding="lg"
+        styles={{
+          header: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          body: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          title: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+        }}
       >
         {caseToEdit && (
           <Box>
@@ -1874,6 +2010,23 @@ export default function ReportedCasesPage() {
                         ]}
                         required
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          dropdown: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          item: {
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            '&[data-hovered]': {
+                              backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                            },
+                          },
+                        }}
                       />
                     </Grid.Col>
                     <Grid.Col span={6}>
@@ -1888,6 +2041,23 @@ export default function ReportedCasesPage() {
                         ]}
                         required
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          dropdown: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          item: {
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            '&[data-hovered]': {
+                              backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                            },
+                          },
+                        }}
                       />
                     </Grid.Col>
                   </Grid>
@@ -1900,6 +2070,14 @@ export default function ReportedCasesPage() {
                     radius="md"
                     multiline
                     minRows={2}
+                    styles={{
+                      input: {
+                        backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                        color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                        borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                      },
+                      label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                    }}
                   />
                 </Stack>
               </Tabs.Panel>
@@ -1916,6 +2094,14 @@ export default function ReportedCasesPage() {
                           onChange={(e) => handleEditFormChange('firstName', e.target.value)}
                           radius="md"
                           required
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={6}>
@@ -1925,6 +2111,14 @@ export default function ReportedCasesPage() {
                           onChange={(e) => handleEditFormChange('lastName', e.target.value)}
                           radius="md"
                           required
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                     </Grid>
@@ -1938,6 +2132,14 @@ export default function ReportedCasesPage() {
                           radius="md"
                           min={0}
                           max={120}
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={4}>
@@ -1951,6 +2153,24 @@ export default function ReportedCasesPage() {
                             { value: 'Other', label: 'Other' }
                           ]}
                           radius="md"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            dropdown: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            item: {
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              '&[data-hovered]': {
+                                backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                              },
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={4}>
@@ -1960,6 +2180,14 @@ export default function ReportedCasesPage() {
                           onChange={(value) => handleEditFormChange('height', value)}
                           radius="md"
                           min={0}
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                     </Grid>
@@ -1970,6 +2198,14 @@ export default function ReportedCasesPage() {
                       onChange={(value) => handleEditFormChange('weight', value)}
                       radius="md"
                       min={0}
+                      styles={{
+                        input: {
+                          backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                          color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                          borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                        },
+                        label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                      }}
                     />
                   </Stack>
                 ) : (
@@ -1982,6 +2218,14 @@ export default function ReportedCasesPage() {
                           onChange={(e) => handleEditFormChange('brand', e.target.value)}
                           radius="md"
                           required
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={6}>
@@ -1991,6 +2235,14 @@ export default function ReportedCasesPage() {
                           onChange={(e) => handleEditFormChange('model', e.target.value)}
                           radius="md"
                           required
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                     </Grid>
@@ -2002,6 +2254,14 @@ export default function ReportedCasesPage() {
                           value={editForm.color}
                           onChange={(e) => handleEditFormChange('color', e.target.value)}
                           radius="md"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={4}>
@@ -2010,6 +2270,14 @@ export default function ReportedCasesPage() {
                           value={editForm.submodel}
                           onChange={(e) => handleEditFormChange('submodel', e.target.value)}
                           radius="md"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={4}>
@@ -2019,6 +2287,24 @@ export default function ReportedCasesPage() {
                           onChange={(value) => handleEditFormChange('plateType', value)}
                           data={['National', 'Diplomatic', 'Government', 'Police', 'Military', 'Temporary']}
                           radius="md"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            dropdown: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            item: {
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              '&[data-hovered]': {
+                                backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                              },
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                     </Grid>
@@ -2037,6 +2323,24 @@ export default function ReportedCasesPage() {
                           ]}
                           searchable
                           radius="md"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            dropdown: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            item: {
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              '&[data-hovered]': {
+                                backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                              },
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={3}>
@@ -2046,6 +2350,24 @@ export default function ReportedCasesPage() {
                           onChange={(value) => handleEditFormChange('code', value)}
                           data={Array.from({ length: 10 }, (_, i) => (i + 1).toString())}
                           radius="md"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            dropdown: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            item: {
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              '&[data-hovered]': {
+                                backgroundColor: getBg(colorScheme, '#f1f5f9', theme.colors.dark[5]),
+                              },
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                       <Grid.Col span={3}>
@@ -2055,6 +2377,14 @@ export default function ReportedCasesPage() {
                           onChange={(e) => handleEditFormChange('plateNumber', e.target.value)}
                           radius="md"
                           placeholder="12345"
+                          styles={{
+                            input: {
+                              backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                              color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                              borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                            },
+                            label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                          }}
                         />
                       </Grid.Col>
                     </Grid>
@@ -2073,6 +2403,14 @@ export default function ReportedCasesPage() {
                     radius="md"
                     required
                     leftSection={<IconMapPin size={16} />}
+                    styles={{
+                      input: {
+                        backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                        color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                        borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                      },
+                      label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                    }}
                   />
 
                   <Grid gutter="md">
@@ -2083,6 +2421,14 @@ export default function ReportedCasesPage() {
                         value={editForm.lastSeenDate}
                         onChange={(e) => handleEditFormChange('lastSeenDate', e.target.value)}
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                        }}
                       />
                     </Grid.Col>
                     <Grid.Col span={6}>
@@ -2092,11 +2438,19 @@ export default function ReportedCasesPage() {
                         value={editForm.lastSeenTime}
                         onChange={(e) => handleEditFormChange('lastSeenTime', e.target.value)}
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                        }}
                       />
                     </Grid.Col>
                   </Grid>
 
-                  <Divider />
+                  <Divider color={getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])} />
 
                   <Grid gutter="md">
                     <Grid.Col span={6}>
@@ -2105,6 +2459,14 @@ export default function ReportedCasesPage() {
                         value={editForm.contactName}
                         onChange={(e) => handleEditFormChange('contactName', e.target.value)}
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                        }}
                       />
                     </Grid.Col>
                     <Grid.Col span={6}>
@@ -2113,6 +2475,14 @@ export default function ReportedCasesPage() {
                         value={editForm.contactPhone}
                         onChange={(e) => handleEditFormChange('contactPhone', e.target.value)}
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                        }}
                       />
                     </Grid.Col>
                     <Grid.Col span={12}>
@@ -2122,6 +2492,14 @@ export default function ReportedCasesPage() {
                         value={editForm.contactEmail}
                         onChange={(e) => handleEditFormChange('contactEmail', e.target.value)}
                         radius="md"
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                        }}
                       />
                     </Grid.Col>
                     <Grid.Col span={12}>
@@ -2132,6 +2510,14 @@ export default function ReportedCasesPage() {
                         onChange={(e) => handleEditFormChange('telegramUsername', e.target.value)}
                         radius="md"
                         leftSection={<Text c="#0088cc" fw={700}>@</Text>}
+                        styles={{
+                          input: {
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[6]),
+                            color: getBg(colorScheme, 'black', theme.colors.gray[3]),
+                            borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[5]),
+                          },
+                          label: { color: getBg(colorScheme, 'black', theme.colors.gray[3]) },
+                        }}
                       />
                     </Grid.Col>
                   </Grid>
@@ -2164,7 +2550,13 @@ export default function ReportedCasesPage() {
             </Flex>
 
             {/* Read-only information */}
-            <Paper withBorder p="md" mt="md" radius="md" style={{ background: LIGHT_BG }}>
+            <Paper
+              withBorder
+              p="md"
+              mt="md"
+              radius="md"
+              style={{ background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]) }}
+            >
               <Flex gap="xs" align="center" mb="xs">
                 <IconInfoCircle size={16} color={PRIMARY_COLOR} />
                 <Text size="sm" fw={600}>Case Information</Text>

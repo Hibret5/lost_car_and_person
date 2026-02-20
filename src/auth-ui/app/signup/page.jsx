@@ -12,6 +12,8 @@ import {
   Box,
   Alert,
   rem,
+  useMantineTheme,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { IconAlertCircle, IconCheck, IconX } from '@tabler/icons-react';
 import Image from 'next/image';
@@ -23,6 +25,10 @@ import { z } from 'zod';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { v4 as uuidv4 } from 'uuid';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 /* ---------------- Zod schema ---------------- */
 const signupSchema = z.object({
@@ -54,6 +60,13 @@ export default function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useMediaQuery('(max-width: 576px)');
   const isTablet = useMediaQuery('(max-width: 768px)');
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#EAF2FF', theme.colors.dark[7]);
+  const paperBg = getBg(colorScheme, '#dbeafe', theme.colors.blue[9]);
+  const textColor = getBg(colorScheme, undefined, theme.colors.gray[3]);
 
   const {
     register,
@@ -169,7 +182,7 @@ export default function SignupPage() {
     <Box
       style={{
         minHeight: '100vh',
-        backgroundColor: '#EAF2FF',
+        backgroundColor: mainBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -177,7 +190,7 @@ export default function SignupPage() {
       }}
     >
       <Container size={isMobile ? 'sm' : 500}>
-        <Paper radius="lg" p={isMobile ? 'md' : 'xl'} shadow="md" bg="#dbeafe">
+        <Paper radius="lg" p={isMobile ? 'md' : 'xl'} shadow="md" bg={paperBg}>
           <Box ta="center" mb="md">
             <Image
               src="/logo.jpg"
@@ -189,7 +202,7 @@ export default function SignupPage() {
             />
           </Box>
 
-          <Title ta="center" mb="md" order={2}>
+          <Title ta="center" mb="md" order={2} c={textColor}>
             Create Account
           </Title>
 
@@ -300,7 +313,7 @@ export default function SignupPage() {
             </Button>
           </form>
 
-          <Text ta="center" mt="md" size="sm">
+          <Text ta="center" mt="md" size="sm" c="dimmed">
             Already have an account?{' '}
             <Link href="/login" style={{ color: '#228be6', textDecoration: 'none' }}>
               Sign in

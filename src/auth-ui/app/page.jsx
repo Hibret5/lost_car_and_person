@@ -23,6 +23,7 @@ import {
   useMantineTheme,
   Flex,
   Table,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -67,6 +68,8 @@ import {
   IconSortAscending,
   IconDownload,
   IconRefresh,
+  IconSun,
+  IconMoon,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -84,8 +87,13 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const theme = useMantineTheme();
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const isTablet = useMediaQuery("(max-width: 1024px)");
+
+  // Helper to get dynamic background colors
+  const getBg = (light, dark) => (colorScheme === 'dark' ? dark : light);
+  const getTextColor = (light, dark) => (colorScheme === 'dark' ? dark : light);
 
   // Mock reported cases data
   const reportedCases = [
@@ -168,7 +176,7 @@ export default function Dashboard() {
       >
         <Box
           style={{
-            background: "rgba(255, 255, 255, 0.95)",
+            background: getBg("rgba(255,255,255,0.95)", theme.colors.dark[7]),
             padding: "40px",
             borderRadius: "20px",
             boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
@@ -199,18 +207,21 @@ export default function Dashboard() {
   }
 
   return (
-    <Box bg="white" style={{ minHeight: "100vh" }}>
+    <Box
+      bg={getBg("white", theme.colors.dark[7])}
+      style={{ minHeight: "100vh" }}
+    >
       {/* --- HEADER --- */}
       <Box
-        bg="white"
+        bg={getBg("white", theme.colors.dark[7])}
         py={{ base: "xs", md: "sm" }}
         style={{
-          borderBottom: "1px solid #E9ECEF",
+          borderBottom: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}`,
           position: "sticky",
           top: 0,
           zIndex: 100,
           backdropFilter: "blur(10px)",
-          background: "rgba(255, 255, 255, 0.95)",
+          background: getBg("rgba(255,255,255,0.95)", `rgba(${theme.colors.dark[7]},0.95)`),
         }}
       >
         <Container size="xl">
@@ -245,6 +256,7 @@ export default function Dashboard() {
             />
 
             <Group gap={isMobile ? "xs" : "md"} wrap="nowrap">
+              {/* Notification Bell */}
               <ActionIcon
                 variant="subtle"
                 color="gray"
@@ -271,6 +283,21 @@ export default function Dashboard() {
                 }}
               >
                 <IconBell size={isMobile ? 20 : 24} />
+              </ActionIcon>
+
+              {/* Dark Mode Toggle */}
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size={isMobile ? "md" : "lg"}
+                onClick={() => toggleColorScheme()}
+                title="Toggle color scheme"
+              >
+                {colorScheme === 'dark' ? (
+                  <IconSun size={isMobile ? 20 : 24} />
+                ) : (
+                  <IconMoon size={isMobile ? 20 : 24} />
+                )}
               </ActionIcon>
 
               {user ? (
@@ -317,11 +344,14 @@ export default function Dashboard() {
                       </Group>
                     </UnstyledButton>
                   </Menu.Target>
-                  <Menu.Dropdown p="md">
+                  <Menu.Dropdown
+                    bg={getBg("white", theme.colors.dark[7])}
+                    style={{ borderColor: getBg(theme.colors.gray[2], theme.colors.dark[5]) }}
+                  >
                     <Box
                       mb="md"
                       pb="md"
-                      style={{ borderBottom: "1px solid #e9ecef" }}
+                      style={{ borderBottom: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}` }}
                     >
                       <Group mb="xs">
                         <Avatar
@@ -684,11 +714,11 @@ export default function Dashboard() {
           <Paper
             p={{ base: "lg", md: "xl" }}
             radius="lg"
-            bg="blue.0"
+            bg={getBg("blue.0", "blue.9")}
             mb="xl"
             style={{
               boxShadow: "0 10px 30px rgba(47, 128, 237, 0.1)",
-              border: "1px solid rgba(47, 128, 237, 0.2)",
+              border: `1px solid ${getBg("rgba(47,128,237,0.2)", "rgba(47,128,237,0.5)")}`,
             }}
           >
             <Group justify="space-between" mb="md">
@@ -714,7 +744,7 @@ export default function Dashboard() {
                 <Paper
                   key={index}
                   p="md"
-                  bg="white"
+                  bg={getBg("white", theme.colors.dark[6])}
                   radius="md"
                   withBorder
                   h="100%"
@@ -758,7 +788,10 @@ export default function Dashboard() {
             withBorder
             shadow="sm"
             style={{
-              background: "linear-gradient(to bottom, white, #f8f9fa)",
+              background: getBg(
+                "linear-gradient(to bottom, white, #f8f9fa)",
+                `linear-gradient(to bottom, ${theme.colors.dark[6]}, ${theme.colors.dark[7]})`
+              ),
             }}
           >
             <Group justify="space-between" mb="lg">
@@ -811,6 +844,8 @@ export default function Dashboard() {
                 highlightOnHover
                 withTableBorder
                 withColumnBorders
+                striped
+                stripedColor={getBg(theme.colors.gray[0], theme.colors.dark[5])}
               >
                 <Table.Thead>
                   <Table.Tr>
@@ -903,7 +938,7 @@ export default function Dashboard() {
               </Table>
             </ScrollArea>
 
-            <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: "1px solid #e9ecef" }}>
+            <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}` }}>
               <Text size="sm" c="dimmed">
                 Showing {reportedCases.length} of 45 cases
               </Text>
@@ -932,7 +967,10 @@ export default function Dashboard() {
           radius="lg"
           style={{
             boxShadow: "0 5px 15px rgba(0,0,0,0.05)",
-            background: "linear-gradient(to bottom, white, #f8f9fa)",
+            background: getBg(
+              "linear-gradient(to bottom, white, #f8f9fa)",
+              `linear-gradient(to bottom, ${theme.colors.dark[6]}, ${theme.colors.dark[7]})`
+            ),
           }}
         >
           <Group justify="space-between" mb="lg">
@@ -962,6 +1000,7 @@ export default function Dashboard() {
                   w={{ base: 180, sm: 220 }}
                   p={0}
                   withBorder
+                  bg={getBg("white", theme.colors.dark[6])}
                   style={{
                     flexShrink: 0,
                     transition: "transform 0.3s",
@@ -1000,7 +1039,10 @@ export default function Dashboard() {
           radius="lg"
           style={{
             boxShadow: "0 5px 15px rgba(0,0,0,0.05)",
-            background: "linear-gradient(to bottom, white, #f8f9fa)",
+            background: getBg(
+              "linear-gradient(to bottom, white, #f8f9fa)",
+              `linear-gradient(to bottom, ${theme.colors.dark[6]}, ${theme.colors.dark[7]})`
+            ),
           }}
         >
           <Group justify="space-between" mb="lg">
@@ -1030,6 +1072,7 @@ export default function Dashboard() {
                   w={{ base: 160, sm: 200 }}
                   p={0}
                   withBorder
+                  bg={getBg("white", theme.colors.dark[6])}
                   style={{
                     flexShrink: 0,
                     transition: "transform 0.3s",
@@ -1063,19 +1106,21 @@ export default function Dashboard() {
         {/* Call to Action for Non-logged Users */}
         {!user && (
           <Paper
-            bg="blue.0"
             p={{ base: "lg", md: 40 }}
             radius="lg"
             mb={{ base: 40, md: 60 }}
             style={{
-              background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-              border: "1px solid rgba(47, 128, 237, 0.2)",
+              background: getBg(
+                "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`
+              ),
+              border: `1px solid ${getBg("rgba(47,128,237,0.2)", "rgba(47,128,237,0.5)")}`,
             }}
           >
             <Title order={2} mb="md" style={{ color: "#2f80ed" }}>
               Join our community today
             </Title>
-            <Text mb="xl" c="dark" size={{ base: "sm", md: "md" }}>
+            <Text mb="xl" c={getBg("dark", "gray.3")} size={{ base: "sm", md: "md" }}>
               Sign up now to report lost items, help others, and access advanced
               search features.
             </Text>
@@ -1084,19 +1129,19 @@ export default function Dashboard() {
                 <Stack gap="xs">
                   <Flex align="center" gap="xs">
                     <IconCheck size={16} color="green" />
-                    <Text size="sm">Report lost cars and people</Text>
+                    <Text size="sm" c={getBg("dark", "gray.3")}>Report lost cars and people</Text>
                   </Flex>
                   <Flex align="center" gap="xs">
                     <IconCheck size={16} color="green" />
-                    <Text size="sm">Get real-time notifications</Text>
+                    <Text size="sm" c={getBg("dark", "gray.3")}>Get real-time notifications</Text>
                   </Flex>
                   <Flex align="center" gap="xs">
                     <IconCheck size={16} color="green" />
-                    <Text size="sm">Help others in your community</Text>
+                    <Text size="sm" c={getBg("dark", "gray.3")}>Help others in your community</Text>
                   </Flex>
                   <Flex align="center" gap="xs">
                     <IconCheck size={16} color="green" />
-                    <Text size="sm">Access advanced search tools</Text>
+                    <Text size="sm" c={getBg("dark", "gray.3")}>Access advanced search tools</Text>
                   </Flex>
                 </Stack>
               </Grid.Col>
@@ -1150,6 +1195,7 @@ export default function Dashboard() {
                 radius="lg"
                 withBorder
                 h="100%"
+                bg={getBg("white", theme.colors.dark[6])}
                 style={{
                   transition: "transform 0.3s",
                   "&:hover": {
@@ -1161,7 +1207,7 @@ export default function Dashboard() {
                   py="md"
                   px="lg"
                   style={{
-                    borderBottom: "1px solid #eee",
+                    borderBottom: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}`,
                     background: "linear-gradient(to right, #2f80ed, #1e56a0)",
                   }}
                 >
@@ -1174,7 +1220,7 @@ export default function Dashboard() {
                 </Box>
                 <Box
                   p="xl"
-                  bg="blue.0"
+                  bg={getBg("blue.0", "blue.9")}
                   style={{
                     height: 200,
                     display: "flex",
@@ -1195,6 +1241,7 @@ export default function Dashboard() {
                 radius="lg"
                 withBorder
                 h="100%"
+                bg={getBg("white", theme.colors.dark[6])}
                 style={{
                   transition: "transform 0.3s",
                   "&:hover": {
@@ -1206,7 +1253,7 @@ export default function Dashboard() {
                   py="md"
                   px="lg"
                   style={{
-                    borderBottom: "1px solid #eee",
+                    borderBottom: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}`,
                     background: "linear-gradient(to right, #2f80ed, #1e56a0)",
                   }}
                 >
@@ -1219,7 +1266,7 @@ export default function Dashboard() {
                 </Box>
                 <Box
                   p="xl"
-                  bg="blue.0"
+                  bg={getBg("blue.0", "blue.9")}
                   style={{
                     height: 200,
                     display: "flex",
@@ -1241,6 +1288,7 @@ export default function Dashboard() {
                 withBorder
                 maw={800}
                 mx="auto"
+                bg={getBg("white", theme.colors.dark[6])}
                 style={{
                   transition: "transform 0.3s",
                   "&:hover": {
@@ -1252,7 +1300,7 @@ export default function Dashboard() {
                   py="md"
                   px="lg"
                   style={{
-                    borderBottom: "1px solid #eee",
+                    borderBottom: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}`,
                     background: "linear-gradient(to right, #2f80ed, #1e56a0)",
                   }}
                 >
@@ -1265,7 +1313,7 @@ export default function Dashboard() {
                 </Box>
                 <Box
                   p="xl"
-                  bg="blue.0"
+                  bg={getBg("blue.0", "blue.9")}
                   style={{
                     height: 200,
                     display: "flex",
@@ -1287,13 +1335,15 @@ export default function Dashboard() {
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, md: 8 }}>
               <Paper
-                bg="blue.0"
                 p={{ base: "lg", md: 40 }}
                 radius="lg"
                 h="100%"
                 style={{
-                  background: "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
-                  border: "1px solid rgba(47, 128, 237, 0.2)",
+                  background: getBg(
+                    "linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)",
+                    `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`
+                  ),
+                  border: `1px solid ${getBg("rgba(47,128,237,0.2)", "rgba(47,128,237,0.5)")}`,
                 }}
               >
                 <Title order={2} mb="xl" style={{ color: "#2f80ed" }}>
@@ -1325,7 +1375,6 @@ export default function Dashboard() {
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
               <Paper
-                bg="blue.0"
                 p={30}
                 radius="lg"
                 h="100%"
@@ -1461,6 +1510,7 @@ export default function Dashboard() {
                     withBorder
                     shadow="sm"
                     h="100%"
+                    bg={getBg("white", theme.colors.dark[6])}
                     style={{
                       transition: "transform 0.3s ease",
                       "&:hover": {
