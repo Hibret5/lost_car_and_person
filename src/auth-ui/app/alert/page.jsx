@@ -22,6 +22,7 @@ import {
   Divider,
   useMantineTheme,
   useMantineColorScheme,
+  Loader,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -56,7 +57,11 @@ import MainFooter from "../../components/MainFooter.jsx";
 import Link from "next/link";
 import Image from "next/image";
 import { useRef, useState, useEffect } from "react";
-import { getAllAlerts, getStats } from "../../data/alertsData";
+
+// API Endpoints
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
+const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
 
 // Helper to get dynamic background/color values
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
@@ -68,45 +73,193 @@ export default function AlertPage() {
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredAlerts, setFilteredAlerts] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [persons, setPersons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, resolved: 0, active: 0 });
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
 
-  // Get all alerts from our data file
-  const allAlerts = getAllAlerts();
-  const stats = getStats();
-
-  // Initialize filtered alerts
+  // Fetch real data from JSON Server
   useEffect(() => {
-    setFilteredAlerts(allAlerts);
+    const fetchAlerts = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch vehicles from database
+        const vehiclesResponse = await fetch(MISSING_VEHICLES_API);
+        const vehiclesData = await vehiclesResponse.json();
+        
+        // Fetch persons from database (if you want to show person alerts too)
+        const personsResponse = await fetch(MISSING_PERSONS_API);
+        const personsData = await personsResponse.json();
+        
+        // Transform vehicle data to match your alert format
+        const transformedVehicles = vehiclesData.map(vehicle => ({
+          id: vehicle.id,
+          code: vehicle.caseId || `CASE-${vehicle.id}`,
+          brand: `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.submodel || ''}`.trim(),
+          type: determineVehicleType(vehicle),
+          status: vehicle.status?.toLowerCase() || 'active',
+          location: vehicle.lastSeenLocation || vehicle.location || 'Unknown',
+          time: vehicle.lastSeenDate ? new Date(vehicle.lastSeenDate).toLocaleDateString() : 
+                 vehicle.reportDate ? new Date(vehicle.reportDate).toLocaleDateString() : 'Unknown',
+          imageUrl: '/default-car.jpg', // You'll need to handle images
+          details: vehicle.vehicleDescription || `${vehicle.color || ''} ${vehicle.brand || ''}`.trim(),
+          fullDescription: vehicle.vehicleDescription || 'No description provided',
+          lastSeen: vehicle.lastSeenLocation || 'Unknown',
+          mapLocation: vehicle.lastSeenLocation || 'Unknown',
+          reportDate: vehicle.reportDate,
+          duration: calculateDuration(vehicle.reportDate),
+          
+          // Detection history (if you track this)
+          detectionHistory: vehicle.detections || [],
+          
+          // Contact info from reporter
+          contactInfo: vehicle.reportedBy ? {
+            name: `${vehicle.reportedBy.firstName || ''} ${vehicle.reportedBy.lastName || ''}`.trim() || 'Unknown',
+            phone: vehicle.reportedBy.phone || 'Not provided',
+            email: vehicle.reportedBy.email || 'Not provided',
+            role: vehicle.reportedBy.role || 'Reporter'
+          } : {
+            name: 'Unknown',
+            phone: 'Not provided',
+            email: 'Not provided'
+          },
+          
+          // Technical specs
+          technicalSpecs: {
+            color: vehicle.color || 'Unknown',
+            plateNumber: vehicle.plateNumber || 'Unknown',
+            plateType: vehicle.plateType || 'Unknown',
+            region: vehicle.region || 'Unknown',
+            ...vehicle.technicalSpecs
+          },
+          
+          // Features if any
+          features: vehicle.features || [],
+          
+          // Additional images
+          additionalImages: vehicle.images || [],
+          
+          // CCTV info if any
+          cctvInfo: vehicle.cctvInfo || { confidence: 'N/A' },
+          
+          stats: {
+            totalDetections: vehicle.detections?.length || 0
+          }
+        }));
+        
+        // Transform person data (if you want to show person alerts)
+        const transformedPersons = personsData.map(person => ({
+          id: person.id,
+          code: person.caseId || `CASE-${person.id}`,
+          brand: `${person.firstName || ''} ${person.middleName || ''} ${person.lastName || ''}`.trim(),
+          type: 'person',
+          status: person.status?.toLowerCase() || 'active',
+          location: person.lastSeenLocation || person.location || 'Unknown',
+          time: person.lastSeenDate ? new Date(person.lastSeenDate).toLocaleDateString() : 
+                 person.reportDate ? new Date(person.reportDate).toLocaleDateString() : 'Unknown',
+          imageUrl: '/default-person.jpg', // You'll need to handle images
+          details: `Age: ${person.age || 'Unknown'}, Gender: ${person.gender || 'Unknown'}`,
+          fullDescription: person.description || 'No description provided',
+          lastSeen: person.lastSeenLocation || 'Unknown',
+          mapLocation: person.lastSeenLocation || 'Unknown',
+          reportDate: person.reportDate,
+          duration: calculateDuration(person.reportDate),
+          
+          contactInfo: person.reportedBy ? {
+            name: `${person.reportedBy.firstName || ''} ${person.reportedBy.lastName || ''}`.trim() || 'Unknown',
+            phone: person.reportedBy.phone || 'Not provided',
+            email: person.reportedBy.email || 'Not provided',
+            role: person.reportedBy.role || 'Reporter'
+          } : {
+            name: 'Unknown',
+            phone: 'Not provided',
+            email: 'Not provided'
+          },
+          
+          technicalSpecs: {
+            age: person.age || 'Unknown',
+            gender: person.gender || 'Unknown',
+            height: person.height ? `${person.height} cm` : 'Unknown',
+            weight: person.weight ? `${person.weight} kg` : 'Unknown'
+          },
+          
+          features: person.features || [],
+          additionalImages: person.images || [],
+          
+          stats: {
+            totalDetections: person.detections?.length || 0
+          }
+        }));
+        
+        const allAlerts = [...transformedVehicles, ...transformedPersons];
+        
+        setVehicles(transformedVehicles);
+        setPersons(transformedPersons);
+        setFilteredAlerts(allAlerts);
+        
+        // Calculate stats
+        const activeCount = allAlerts.filter(v => v.status === 'active').length;
+        const resolvedCount = allAlerts.filter(v => v.status === 'resolved' || v.status === 'inactive').length;
+        
+        setStats({
+          total: allAlerts.length,
+          active: activeCount,
+          resolved: resolvedCount
+        });
+        
+      } catch (error) {
+        console.error('Error fetching alerts:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load alerts from database',
+          color: 'red',
+          icon: <IconAlertCircle size={16} />
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAlerts();
   }, []);
+
+  // Helper function to determine vehicle type
+  const determineVehicleType = (vehicle) => {
+    if (vehicle.type) return vehicle.type;
+    if (vehicle.brand?.toLowerCase().includes('motor') || vehicle.model?.toLowerCase().includes('motor')) return 'motorcycle';
+    if (vehicle.brand?.toLowerCase().includes('truck') || vehicle.model?.toLowerCase().includes('truck')) return 'truck';
+    if (vehicle.technicalSpecs?.electric) return 'electric';
+    return 'car';
+  };
+
+  // Helper function to calculate duration
+  const calculateDuration = (reportDate) => {
+    if (!reportDate) return 'Unknown';
+    const days = Math.floor((new Date() - new Date(reportDate)) / (1000 * 60 * 60 * 24));
+    return `${days} day${days !== 1 ? 's' : ''}`;
+  };
 
   // Search functionality
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredAlerts(allAlerts);
+      setFilteredAlerts([...vehicles, ...persons]);
       return;
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = allAlerts.filter(alert =>
+    const filtered = [...vehicles, ...persons].filter(alert =>
       alert.brand.toLowerCase().includes(query) ||
       alert.code.toLowerCase().includes(query) ||
       alert.location.toLowerCase().includes(query) ||
       alert.details.toLowerCase().includes(query) ||
-      alert.status.toLowerCase().includes(query)
+      alert.status.toLowerCase().includes(query) ||
+      (alert.technicalSpecs?.plateNumber || '').toLowerCase().includes(query)
     );
     setFilteredAlerts(filtered);
-  }, [searchQuery, allAlerts]);
-
-  // Get icon based on vehicle type
-  const getVehicleIcon = (type) => {
-    switch (type) {
-      case 'motorcycle': return <IconBike size={16} color="blue" />;
-      case 'truck': return <IconTruck size={16} color="blue" />;
-      case 'electric': return <IconBattery size={16} color="blue" />;
-      default: return <IconCar size={16} color="blue" />;
-    }
-  };
+  }, [searchQuery, vehicles, persons]);
 
   // Freeze background scrolling when popup is open
   useEffect(() => {
@@ -146,7 +299,7 @@ export default function AlertPage() {
     handleCloseDetail();
   };
 
-  const handleDeleteAlert = (alertId, alertCode) => {
+  const handleDeleteAlert = async (alertId, alertCode) => {
     const alertToDelete = filteredAlerts.find((alert) => alert.id === alertId);
 
     const confirmed = window.confirm(
@@ -157,21 +310,68 @@ export default function AlertPage() {
     );
 
     if (confirmed) {
-      // In a real app, this would be an API call
-      setFilteredAlerts((prevAlerts) =>
-        prevAlerts.filter((alert) => alert.id !== alertId),
-      );
+      try {
+        // Determine which API to use
+        const isVehicle = alertToDelete.type !== 'person';
+        const apiUrl = isVehicle ? MISSING_VEHICLES_API : MISSING_PERSONS_API;
+        
+        // Delete from JSON Server
+        await fetch(`${apiUrl}/${alertId}`, {
+          method: 'DELETE',
+        });
+        
+        // Update local state
+        if (isVehicle) {
+          setVehicles((prev) => prev.filter((alert) => alert.id !== alertId));
+        } else {
+          setPersons((prev) => prev.filter((alert) => alert.id !== alertId));
+        }
+        
+        setFilteredAlerts((prevAlerts) =>
+          prevAlerts.filter((alert) => alert.id !== alertId),
+        );
 
-      if (selectedAlert && selectedAlert.id === alertId) {
-        setSelectedAlert(null);
+        if (selectedAlert && selectedAlert.id === alertId) {
+          setSelectedAlert(null);
+        }
+
+        // Update stats
+        const newTotal = stats.total - 1;
+        const newActive = alertToDelete.status === 'active' ? stats.active - 1 : stats.active;
+        const newResolved = alertToDelete.status === 'resolved' ? stats.resolved - 1 : stats.resolved;
+        
+        setStats({
+          total: newTotal,
+          active: newActive,
+          resolved: newResolved
+        });
+
+        notifications.show({
+          title: "Alert Deleted",
+          message: `Alert "${alertCode}" has been successfully deleted from database.`,
+          color: "red",
+          icon: <IconTrash size={16} />,
+        });
+      } catch (error) {
+        console.error('Error deleting alert:', error);
+        notifications.show({
+          title: "Error",
+          message: "Failed to delete alert from database",
+          color: "red",
+          icon: <IconAlertCircle size={16} />,
+        });
       }
+    }
+  };
 
-      notifications.show({
-        title: "Alert Deleted",
-        message: `Alert "${alertCode}" has been successfully deleted.`,
-        color: "red",
-        icon: <IconTrash size={16} />,
-      });
+  // Get icon based on vehicle type
+  const getVehicleIcon = (type) => {
+    switch (type) {
+      case 'motorcycle': return <IconBike size={16} color="blue" />;
+      case 'truck': return <IconTruck size={16} color="blue" />;
+      case 'electric': return <IconBattery size={16} color="blue" />;
+      case 'person': return <IconUser size={16} color="blue" />;
+      default: return <IconCar size={16} color="blue" />;
     }
   };
 
@@ -312,110 +512,93 @@ export default function AlertPage() {
             <div>
               <Text fw={600}>Alert Notifications</Text>
               <Text size="sm" c="dimmed">
-                You have {filteredAlerts.filter((a) => a.status === "active").length}{" "}
-                active alerts {searchQuery && `matching "${searchQuery}"`}
+                {loading ? 'Loading...' : `You have ${filteredAlerts.filter((a) => a.status === "active").length} active alerts ${searchQuery && `matching "${searchQuery}"`}`}
               </Text>
             </div>
           </Group>
         </Paper>
 
-        <Title order={2} style={{ textAlign: "center", marginBottom: 20 }}>
-          Reported Vehicles ({filteredAlerts.length} found)
-        </Title>
+        {loading ? (
+          <Box style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Stack align="center" gap="md">
+              <Loader size="xl" color="blue" />
+              <Text>Loading alerts from database...</Text>
+            </Stack>
+          </Box>
+        ) : (
+          <>
+            <Title order={2} style={{ textAlign: "center", marginBottom: 20 }}>
+              Reported Cases ({filteredAlerts.length} found)
+            </Title>
 
-        <Box style={{ position: "relative", marginBottom: 40 }}>
-          {filteredAlerts.length > 3 && (
-            <ActionIcon
-              variant="filled"
-              color="gray"
-              radius="xl"
-              size="xl"
-              style={{
-                position: "absolute",
-                left: -25,
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 10,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              }}
-              onClick={scrollLeft}
-            >
-              <IconChevronLeft size={20} />
-            </ActionIcon>
-          )}
-
-          <ScrollArea
-            w="100%"
-            type="hover"
-            viewportRef={scrollRef}
-            scrollbarSize={0}
-            styles={{ scrollbar: { display: "none" } }}
-          >
-            <Group wrap="nowrap" gap="lg" p="md">
-              {filteredAlerts.map((alert) => (
-                <Card
-                  key={alert.id}
-                  withBorder
-                  shadow="sm"
-                  radius="md"
-                  p={0}
+            <Box style={{ position: "relative", marginBottom: 40 }}>
+              {filteredAlerts.length > 3 && (
+                <ActionIcon
+                  variant="filled"
+                  color="gray"
+                  radius="xl"
+                  size="xl"
                   style={{
-                    overflow: "hidden",
-                    minWidth: 320,
-                    flexShrink: 0,
-                    border: `1px solid ${cardBorder}`,
-                    position: "relative",
+                    position: "absolute",
+                    left: -25,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 10,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
+                  onClick={scrollLeft}
                 >
-                  {/* Vehicle Image with Overlay Icons */}
-                  <Box style={{ height: 180, position: "relative" }}>
-                    <Image
-                      src={alert.imageUrl}
-                      alt={alert.brand}
-                      fill
-                      style={{ objectFit: "cover" }}
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
+                  <IconChevronLeft size={20} />
+                </ActionIcon>
+              )}
 
-                    {/* Overlay Icons Container */}
-                    <Box
+              <ScrollArea
+                w="100%"
+                type="hover"
+                viewportRef={scrollRef}
+                scrollbarSize={0}
+                styles={{ scrollbar: { display: "none" } }}
+              >
+                <Group wrap="nowrap" gap="lg" p="md">
+                  {filteredAlerts.map((alert) => (
+                    <Card
+                      key={alert.id}
+                      withBorder
+                      shadow="sm"
+                      radius="md"
+                      p={0}
                       style={{
-                        position: "absolute",
-                        top: 12,
-                        left: 12,
-                        right: 12,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        zIndex: 2,
+                        overflow: "hidden",
+                        minWidth: 320,
+                        flexShrink: 0,
+                        border: `1px solid ${cardBorder}`,
+                        position: "relative",
                       }}
                     >
-                      {/* Bell Icon - Left side */}
-                      <ActionIcon
-                        variant="filled"
-                        color="white"
-                        size="md"
-                        radius="xl"
-                        style={{
-                          backgroundColor: "rgba(0, 0, 0, 0.4)",
-                          backdropFilter: "blur(4px)",
-                          border: "1px solid rgba(255, 255, 255, 0.2)",
-                        }}
-                        onClick={() => router.push(`/alert-detail/${alert.code}`)}
-                      >
-                        <IconBell size={18} />
-                      </ActionIcon>
+                      {/* Vehicle/Person Image with Overlay Icons */}
+                      <Box style={{ height: 180, position: "relative" }}>
+                        <Image
+                          src={alert.imageUrl}
+                          alt={alert.brand}
+                          fill
+                          style={{ objectFit: "cover" }}
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
 
-                      {/* Menu Icon - Right side */}
-                      <Menu
-                        shadow="md"
-                        width={120}
-                        position="bottom-end"
-                        withArrow
-                        arrowPosition="center"
-                        transitionProps={{ transition: "pop-top-right" }}
-                      >
-                        <Menu.Target>
+                        {/* Overlay Icons Container */}
+                        <Box
+                          style={{
+                            position: "absolute",
+                            top: 12,
+                            left: 12,
+                            right: 12,
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            zIndex: 2,
+                          }}
+                        >
+                          {/* Bell Icon - Left side */}
                           <ActionIcon
                             variant="filled"
                             color="white"
@@ -426,161 +609,188 @@ export default function AlertPage() {
                               backdropFilter: "blur(4px)",
                               border: "1px solid rgba(255, 255, 255, 0.2)",
                             }}
+                            onClick={() => router.push(`/alert-detail/${alert.code}`)}
                           >
-                            <IconDots size={18} />
+                            <IconBell size={18} />
                           </ActionIcon>
-                        </Menu.Target>
 
-                        <Menu.Dropdown>
-                          <Menu.Item
-                            leftSection={<IconEdit size={16} />}
-                            onClick={() => {
-                              notifications.show({
-                                title: "Edit Alert",
-                                message: `Edit functionality for ${alert.code} would open here`,
-                                color: "blue",
-                              });
-                            }}
+                          {/* Menu Icon - Right side */}
+                          <Menu
+                            shadow="md"
+                            width={120}
+                            position="bottom-end"
+                            withArrow
+                            arrowPosition="center"
+                            transitionProps={{ transition: "pop-top-right" }}
                           >
-                            Edit
-                          </Menu.Item>
-                          <Menu.Divider />
-                          <Menu.Item
-                            color="red"
-                            leftSection={<IconTrash size={16} />}
-                            onClick={() =>
-                              handleDeleteAlert(alert.id, alert.code)
-                            }
+                            <Menu.Target>
+                              <ActionIcon
+                                variant="filled"
+                                color="white"
+                                size="md"
+                                radius="xl"
+                                style={{
+                                  backgroundColor: "rgba(0, 0, 0, 0.4)",
+                                  backdropFilter: "blur(4px)",
+                                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                                }}
+                              >
+                                <IconDots size={18} />
+                              </ActionIcon>
+                            </Menu.Target>
+
+                            <Menu.Dropdown>
+                              <Menu.Item
+                                leftSection={<IconEdit size={16} />}
+                                onClick={() => {
+                                  notifications.show({
+                                    title: "Edit Alert",
+                                    message: `Edit functionality for ${alert.code} would open here`,
+                                    color: "blue",
+                                  });
+                                }}
+                              >
+                                Edit
+                              </Menu.Item>
+                              <Menu.Divider />
+                              <Menu.Item
+                                color="red"
+                                leftSection={<IconTrash size={16} />}
+                                onClick={() =>
+                                  handleDeleteAlert(alert.id, alert.code)
+                                }
+                              >
+                                Delete
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                        </Box>
+
+                        {/* Dark gradient overlay at top for better icon visibility */}
+                        <Box
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: "50px",
+                            background:
+                              "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 100%)",
+                            zIndex: 1,
+                          }}
+                        />
+                      </Box>
+
+                      <Box p="lg">
+                        <Group justify="space-between" mb="md">
+                          <Badge
+                            color={alert.status === "active" ? "red" : "green"}
+                            variant="light"
                           >
-                            Delete
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Box>
+                            {alert.status === "active" ? "ACTIVE" : "RESOLVED"}
+                          </Badge>
+                          <Text fw={700} size="lg" c="blue.6">
+                            {alert.code}
+                          </Text>
+                        </Group>
 
-                    {/* Dark gradient overlay at top for better icon visibility */}
-                    <Box
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: "50px",
-                        background:
-                          "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 100%)",
-                        zIndex: 1,
-                      }}
-                    />
-                  </Box>
+                        <Stack gap="xs">
+                          <Group gap="xs">
+                            {getVehicleIcon(alert.type)}
+                            <Text fw={700} size="lg">
+                              {alert.brand}
+                            </Text>
+                          </Group>
 
-                  <Box p="lg">
-                    <Group justify="space-between" mb="md">
-                      <Badge
-                        color={alert.status === "active" ? "red" : "green"}
-                        variant="light"
-                      >
-                        {alert.status === "active" ? "ACTIVE" : "RESOLVED"}
-                      </Badge>
-                      <Text fw={700} size="lg" c="blue.6">
-                        {alert.code}
-                      </Text>
-                    </Group>
+                          <Text size="md" fw={500}>
+                            {alert.details}
+                          </Text>
 
-                    <Stack gap="xs">
-                      <Group gap="xs">
-                        {getVehicleIcon(alert.type)}
-                        <Text fw={700} size="lg">
-                          {alert.brand}
-                        </Text>
-                      </Group>
+                          <Group gap="xs">
+                            <IconMapPin size={16} color="gray" />
+                            <Text size="sm">{alert.location}</Text>
+                          </Group>
 
-                      <Text size="md" fw={500}>
-                        {alert.details}
-                      </Text>
+                          <Group gap="xs">
+                            <IconCalendar size={16} color="gray" />
+                            <Text size="sm">{alert.time}</Text>
+                          </Group>
 
-                      <Group gap="xs">
-                        <IconMapPin size={16} color="gray" />
-                        <Text size="sm">{alert.location}</Text>
-                      </Group>
+                          <Group gap="xs">
+                            <IconAlertCircle size={16} color={alert.status === "active" ? "red" : "green"} />
+                            <Text size="sm" c={alert.status === "active" ? "red" : "green"}>
+                              {alert.status === "active" ? `${alert.stats?.totalDetections || 0} detections` : "Case resolved"}
+                            </Text>
+                          </Group>
+                        </Stack>
 
-                      <Group gap="xs">
-                        <IconCalendar size={16} color="gray" />
-                        <Text size="sm">{alert.time}</Text>
-                      </Group>
+                        <Button
+                          fullWidth
+                          mt="md"
+                          variant="light"
+                          color="blue"
+                          rightSection={<IconChevronRight size={16} />}
+                          onClick={() => handleViewDetail(alert)}
+                        >
+                          View Detail
+                        </Button>
+                      </Box>
+                    </Card>
+                  ))}
+                </Group>
+              </ScrollArea>
 
-                      <Group gap="xs">
-                        <IconAlertCircle size={16} color={alert.status === "active" ? "red" : "green"} />
-                        <Text size="sm" c={alert.status === "active" ? "red" : "green"}>
-                          {alert.status === "active" ? `${alert.detectionHistory?.length || 0} detections` : "Case resolved"}
-                        </Text>
-                      </Group>
-                    </Stack>
+              {filteredAlerts.length > 3 && (
+                <ActionIcon
+                  variant="filled"
+                  color="black"
+                  radius="xl"
+                  size="xl"
+                  style={{
+                    position: "absolute",
+                    right: -25,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 10,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}
+                  onClick={scrollRight}
+                >
+                  <IconChevronRight size={20} />
+                </ActionIcon>
+              )}
+            </Box>
 
-                    <Button
-                      fullWidth
-                      mt="md"
-                      variant="light"
-                      color="blue"
-                      rightSection={<IconChevronRight size={16} />}
-                      onClick={() => handleViewDetail(alert)}
-                    >
-                      View Detail
-                    </Button>
-                  </Box>
-                </Card>
-              ))}
-            </Group>
-          </ScrollArea>
-
-          {filteredAlerts.length > 3 && (
-            <ActionIcon
-              variant="filled"
-              color="black"
-              radius="xl"
-              size="xl"
-              style={{
-                position: "absolute",
-                right: -25,
-                top: "50%",
-                transform: "translateY(-50%)",
-                zIndex: 10,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              }}
-              onClick={scrollRight}
-            >
-              <IconChevronRight size={20} />
-            </ActionIcon>
-          )}
-        </Box>
-
-        <Paper withBorder p="lg" mt="xl" radius="md" bg={paperBg}>
-          <SimpleGrid cols={{ base: 1, sm: 3 }}>
-            <Stack align="center" gap={0}>
-              <Text size="xl" fw={800} c="blue.6">
-                {stats.total}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Total Alerts
-              </Text>
-            </Stack>
-            <Stack align="center" gap={0}>
-              <Text size="xl" fw={800} c="green.6">
-                {stats.resolved}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Resolved
-              </Text>
-            </Stack>
-            <Stack align="center" gap={0}>
-              <Text size="xl" fw={800} c="red.6">
-                {stats.active}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Active
-              </Text>
-            </Stack>
-          </SimpleGrid>
-        </Paper>
+            <Paper withBorder p="lg" mt="xl" radius="md" bg={paperBg}>
+              <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                <Stack align="center" gap={0}>
+                  <Text size="xl" fw={800} c="blue.6">
+                    {stats.total}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    Total Alerts
+                  </Text>
+                </Stack>
+                <Stack align="center" gap={0}>
+                  <Text size="xl" fw={800} c="green.6">
+                    {stats.resolved}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    Resolved
+                  </Text>
+                </Stack>
+                <Stack align="center" gap={0}>
+                  <Text size="xl" fw={800} c="red.6">
+                    {stats.active}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    Active
+                  </Text>
+                </Stack>
+              </SimpleGrid>
+            </Paper>
+          </>
+        )}
       </Container>
 
       {/* POPUP DETAIL CARD - FIXED SCROLLING */}
@@ -689,7 +899,7 @@ export default function AlertPage() {
 
                 <Divider mb="xl" color={borderColor} />
 
-                {/* Description Section */}
+                {/* Full Description Section */}
                 <Box mb="xl">
                   <Group mb="md">
                     <IconInfoCircle size={24} />
@@ -711,7 +921,7 @@ export default function AlertPage() {
                 {selectedAlert.features && selectedAlert.features.length > 0 && (
                   <Box mb="xl">
                     <Text fw={700} size="xl" mb="lg">
-                      Vehicle Features
+                      Features
                     </Text>
                     <SimpleGrid cols={3} spacing="lg">
                       {selectedAlert.features.map((feature, index) => (
@@ -725,20 +935,22 @@ export default function AlertPage() {
                 )}
 
                 {/* Technical Specifications */}
-                {selectedAlert.technicalSpecs && (
+                {selectedAlert.technicalSpecs && Object.keys(selectedAlert.technicalSpecs).length > 0 && (
                   <Box mb="xl">
                     <Text fw={700} size="xl" mb="lg">
-                      Technical Specifications
+                      {selectedAlert.type === 'person' ? 'Personal Details' : 'Technical Specifications'}
                     </Text>
                     <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
                       <SimpleGrid cols={2} spacing="lg">
                         {Object.entries(selectedAlert.technicalSpecs).map(([key, value]) => (
-                          <Box key={key}>
-                            <Text fw={600} mb="xs" tt="capitalize">
-                              {key.replace(/([A-Z])/g, ' $1')}
-                            </Text>
-                            <Text>{value}</Text>
-                          </Box>
+                          value && value !== 'Unknown' && value !== 'Not provided' && (
+                            <Box key={key}>
+                              <Text fw={600} mb="xs" tt="capitalize">
+                                {key.replace(/([A-Z])/g, ' $1')}
+                              </Text>
+                              <Text>{value}</Text>
+                            </Box>
+                          )
                         ))}
                       </SimpleGrid>
                     </Paper>
@@ -766,12 +978,12 @@ export default function AlertPage() {
                         Report Timeline
                       </Text>
                     </Group>
-                    <Text size="md">Reported: {selectedAlert.reportDate || selectedAlert.date}</Text>
+                    <Text size="md">Reported: {selectedAlert.reportDate ? new Date(selectedAlert.reportDate).toLocaleDateString() : 'Unknown'}</Text>
                     <Text size="md" mt="sm">
                       Duration: {selectedAlert.duration}
                     </Text>
                     <Text size="sm" c="dimmed" mt="sm">
-                      Last Updated: Today
+                      Last Updated: {selectedAlert.reportDate ? new Date(selectedAlert.reportDate).toLocaleDateString() : 'Today'}
                     </Text>
                   </Paper>
                 </SimpleGrid>
@@ -794,11 +1006,6 @@ export default function AlertPage() {
                         <Text size="sm" c="dimmed" mt={4}>
                           {selectedAlert.contactInfo.role}
                         </Text>
-                        {selectedAlert.contactInfo.additional && (
-                          <Text size="sm" c="dimmed" mt={4}>
-                            {selectedAlert.contactInfo.additional}
-                          </Text>
-                        )}
                       </Box>
                       <Box>
                         <Group mb="sm">
