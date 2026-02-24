@@ -69,7 +69,7 @@ export default function UnifiedRegisterPage() {
   const [isHelpVisible, setIsHelpVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Vehicle selection states
+  // Vehicle selection states (for dropdowns)
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedModel, setSelectedModel] = useState(null);
   const [selectedSubmodel, setSelectedSubmodel] = useState(null);
@@ -79,6 +79,39 @@ export default function UnifiedRegisterPage() {
   const [specialCategory, setSpecialCategory] = useState(null);
   const [doctorReport, setDoctorReport] = useState(null);
   const [criminalRecord, setCriminalRecord] = useState(null);
+
+  // Central form state – holds all field values
+  const [formValues, setFormValues] = useState({
+    // Person / Special common fields
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    gender: '',
+    age: '',
+    height: '',
+    weight: '',
+    description: '',
+    specialCase: '',          // For Person tab
+    // Vehicle fields
+    brand: '',
+    model: '',
+    submodel: '',
+    color: '',
+    vehicleDescription: '',
+    plateType: '',
+    region: '',
+    code: '',
+    plateNumber: '',
+    // Special tab
+    specialCategory: '',
+    // Last seen
+    location: '',
+    lastSeenDate: '',
+    lastSeenTime: '',
+    // Contact
+    telegramUsername: '',
+    additionalContactInfo: '',
+  });
 
   // Data for dropdowns
   const [brands, setBrands] = useState([]);
@@ -176,6 +209,8 @@ export default function UnifiedRegisterPage() {
       setModels(modelList);
       setSelectedModel(null);
       setSelectedSubmodel(null);
+      // Also update formValues
+      setFormValues(prev => ({ ...prev, brand: selectedBrand, model: '', submodel: '' }));
     } else {
       setModels([]);
       setSubmodels([]);
@@ -190,11 +225,24 @@ export default function UnifiedRegisterPage() {
         const submodelList = brandData[selectedModel];
         setSubmodels(submodelList);
         setSelectedSubmodel(null);
+        setFormValues(prev => ({ ...prev, model: selectedModel, submodel: '' }));
       }
     } else {
       setSubmodels([]);
     }
   }, [selectedBrand, selectedModel]);
+
+  // When submodel changes, update formValues
+  useEffect(() => {
+    if (selectedSubmodel) {
+      setFormValues(prev => ({ ...prev, submodel: selectedSubmodel }));
+    }
+  }, [selectedSubmodel]);
+
+  // When specialCategory changes, update formValues
+  useEffect(() => {
+    setFormValues(prev => ({ ...prev, specialCategory }));
+  }, [specialCategory]);
 
   // Handle image upload preview
   const handleImageUpload = (event) => {
@@ -204,6 +252,29 @@ export default function UnifiedRegisterPage() {
       reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
     }
+  };
+
+  // Validate required fields before submission
+  const validateRequiredFields = () => {
+    const requiredFields = {
+      Person: ['firstName', 'lastName', 'gender', 'age', 'location', 'lastSeenDate'],
+      Vehicle: ['brand', 'model', 'color', 'plateType', 'region', 'code', 'plateNumber', 'location', 'lastSeenDate'],
+      Special: ['firstName', 'lastName', 'gender', 'age', 'specialCategory', 'location', 'lastSeenDate'],
+    };
+
+    const fieldsToCheck = requiredFields[regType] || [];
+    const missing = fieldsToCheck.filter(field => !formValues[field] || formValues[field].toString().trim() === '');
+
+    if (missing.length > 0) {
+      notifications.show({
+        title: 'Missing Required Fields',
+        message: `Please fill in: ${missing.join(', ')}`,
+        color: 'red',
+        icon: <IconAlertCircle size={20} />,
+      });
+      return false;
+    }
+    return true;
   };
 
   // Function to save data to JSON Server
@@ -242,21 +313,20 @@ export default function UnifiedRegisterPage() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Run validation
+    if (!validateRequiredFields()) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const formData = new FormData(e.target);
-      const formObject = Object.fromEntries(formData.entries());
-
-      // Add file names to formObject (actual file upload would be handled separately)
-      if (ownershipDoc) formObject.ownershipDocument = ownershipDoc.name;
-      if (doctorReport) formObject.doctorReport = doctorReport.name;
-      if (criminalRecord) formObject.criminalRecord = criminalRecord.name;
-
       const caseId = `CASE-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+
+      // Build base report data from formValues and other states
       const reportData = {
-        ...formObject,
-        type: regType,
         caseId,
+        type: regType,
         reportedBy: {
           userId: currentUser.id,
           firstName: currentUser.firstName,
@@ -264,7 +334,7 @@ export default function UnifiedRegisterPage() {
           email: currentUser.email,
           phone: currentUser.phone,
           role: currentUser.role,
-          telegramUsername: formObject.telegramUsername || null,
+          telegramUsername: formValues.telegramUsername || null,
         },
         reportDate: new Date().toISOString(),
         status: 'Active',
@@ -275,8 +345,16 @@ export default function UnifiedRegisterPage() {
         contactMethods: {
           email: currentUser.email,
           phone: currentUser.phone,
-          telegram: formObject.telegramUsername || null,
-        }
+          telegram: formValues.telegramUsername || null,
+        },
+        // Include all form values
+        ...formValues,
+        // Add file names if present
+        ownershipDocument: ownershipDoc?.name,
+        doctorReport: doctorReport?.name,
+        criminalRecord: criminalRecord?.name,
+        // Ensure image preview is saved if uploaded (this would need actual file upload later)
+        imagePreview: imagePreview || null,
       };
 
       const savedData = await saveToJsonServer(reportData);
@@ -293,11 +371,11 @@ export default function UnifiedRegisterPage() {
           <div>
             <p><strong>Case ID:</strong> {caseId}</p>
             <p>
-              {regType === 'Person' && `Person: ${formObject.firstName} ${formObject.lastName}`}
-              {regType === 'Vehicle' && `Vehicle: ${formObject.brand} ${formObject.model} - ${formObject.plateNumber}`}
-              {regType === 'Special' && `Special Case: ${formObject.firstName} ${formObject.lastName} (${formObject.specialCategory === 'mentally-ill' ? 'Mentally Ill' : 'Criminal Background'})`}
+              {regType === 'Person' && `Person: ${formValues.firstName} ${formValues.lastName}`}
+              {regType === 'Vehicle' && `Vehicle: ${formValues.brand} ${formValues.model} - ${formValues.plateNumber}`}
+              {regType === 'Special' && `Special Case: ${formValues.firstName} ${formValues.lastName} (${formValues.specialCategory === 'mentally-ill' ? 'Mentally Ill' : 'Criminal Background'})`}
             </p>
-            <Text size="sm" c="dimmed" mt={5}>We will contact you if we find any matches. {formObject.telegramUsername && `You can also be contacted via Telegram: @${formObject.telegramUsername}`}</Text>
+            <Text size="sm" c="dimmed" mt={5}>We will contact you if we find any matches. {formValues.telegramUsername && `You can also be contacted via Telegram: @${formValues.telegramUsername}`}</Text>
           </div>
         ),
         color: 'blue',
@@ -315,6 +393,11 @@ export default function UnifiedRegisterPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper to update form values
+  const handleInputChange = (field, value) => {
+    setFormValues(prev => ({ ...prev, [field]: value }));
   };
 
   // Loading state
@@ -599,1165 +682,1160 @@ export default function UnifiedRegisterPage() {
 
           <form onSubmit={handleSubmit}>
             <Stack gap="xl">
-              {/* Type Selection Card - Step 0 */}
-              {activeStep === 0 && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
+              {/* Type Selection Card - Step 0 (always visible) */}
+              <Box style={{ display: activeStep === 0 ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}`, transition: 'transform 0.3s ease' }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconInfoCircle size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Select Report Type</Title>
+                      <Text c="dimmed" size="sm">Choose the type of report you want to submit</Text>
+                    </Box>
+                  </Flex>
+                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
+                    {[
+                      { type: 'Person', icon: <IconUserPlus size={28} />, label: 'Missing Person', desc: 'Report a missing individual' },
+                      { type: 'Vehicle', icon: <IconCar size={28} />, label: 'Missing Vehicle', desc: 'Report a stolen/missing vehicle' },
+                      { type: 'Special', icon: <IconAlertTriangle size={28} />, label: 'Special Case', desc: 'Report mentally ill / criminal persons' }
+                    ].map(item => (
                       <Card
+                        key={item.type}
                         withBorder
-                        radius="lg"
                         padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}`, transition: 'transform 0.3s ease' }}
+                        radius="md"
+                        bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                        style={{
+                          cursor: 'pointer',
+                          borderColor: regType === item.type ? PRIMARY_COLOR : getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
+                          borderWidth: regType === item.type ? 3 : 1,
+                          transition: 'all 0.3s ease',
+                          background: regType === item.type ? `${PRIMARY_COLOR}08` : getBg(colorScheme, 'white', theme.colors.dark[7]),
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                        onClick={() => setRegType(item.type)}
                       >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconInfoCircle size={24} /></Box>
-                          <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Select Report Type</Title>
-                            <Text c="dimmed" size="sm">Choose the type of report you want to submit</Text>
+                        {regType === item.type && (
+                          <Box style={{ position: 'absolute', top: 10, right: 10, background: PRIMARY_COLOR, color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
+                            SELECTED
                           </Box>
-                        </Flex>
-                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-                          {[
-                            { type: 'Person', icon: <IconUserPlus size={28} />, label: 'Missing Person', desc: 'Report a missing individual' },
-                            { type: 'Vehicle', icon: <IconCar size={28} />, label: 'Missing Vehicle', desc: 'Report a stolen/missing vehicle' },
-                            { type: 'Special', icon: <IconAlertTriangle size={28} />, label: 'Special Case', desc: 'Report mentally ill / criminal persons' }
-                          ].map(item => (
-                            <Card
-                              key={item.type}
-                              withBorder
-                              padding="xl"
-                              radius="md"
-                              bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                              style={{
-                                cursor: 'pointer',
-                                borderColor: regType === item.type ? PRIMARY_COLOR : getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
-                                borderWidth: regType === item.type ? 3 : 1,
-                                transition: 'all 0.3s ease',
-                                background: regType === item.type ? `${PRIMARY_COLOR}08` : getBg(colorScheme, 'white', theme.colors.dark[7]),
-                                position: 'relative',
-                                overflow: 'hidden',
-                              }}
-                              onClick={() => setRegType(item.type)}
-                            >
-                              {regType === item.type && (
-                                <Box style={{ position: 'absolute', top: 10, right: 10, background: PRIMARY_COLOR, color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 700 }}>
-                                  SELECTED
-                                </Box>
-                              )}
-                              <Flex align="center" gap="md">
-                                <Box
-                                  style={{
-                                    background: regType === item.type ? PRIMARY_GRADIENT : getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]),
-                                    padding: '16px',
-                                    borderRadius: '12px',
-                                    color: regType === item.type ? 'white' : PRIMARY_COLOR,
-                                    transition: 'all 0.3s ease',
-                                  }}
-                                >
-                                  {item.icon}
-                                </Box>
-                                <Box>
-                                  <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>{item.label}</Text>
-                                  <Text size="sm" c="dimmed" mt={4}>{item.desc}</Text>
-                                </Box>
-                              </Flex>
-                              <Divider my="md" color={getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])} />
-                              <Text size="xs" c="dimmed">
-                                {item.type === 'Person' && '• Personal details\n• Physical description\n• Last known location'}
-                                {item.type === 'Vehicle' && '• Vehicle details\n• License plate\n• Last known location'}
-                                {item.type === 'Special' && '• Person details\n• Special category (mentally ill/criminal)\n• Required documentation\n• Last known location'}
-                              </Text>
-                            </Card>
-                          ))}
-                        </SimpleGrid>
-                      </Card>
-                    </div>
-                  )}
-                </Transition>
-              )}
-
-              {/* Person Details - Step 1 */}
-              {activeStep === 1 && regType === 'Person' && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
-                      <Card
-                        withBorder
-                        radius="lg"
-                        padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                      >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconUserPlus size={24} /></Box>
-                          <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Personal Information</Title>
-                            <Text c="dimmed" size="sm">Provide details about the missing person</Text>
-                          </Box>
-                        </Flex>
-                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="lg">
-                          <TextInput
-                            name="firstName"
-                            label={<Text fw={600} size="sm">First name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter first name"
-                            radius="md"
-                            required
-                            variant="filled"
-                          />
-                          <TextInput
-                            name="middleName"
-                            label={<Text fw={600} size="sm">Middle name</Text>}
-                            placeholder="Enter middle name"
-                            radius="md"
-                            variant="filled"
-                          />
-                          <TextInput
-                            name="lastName"
-                            label={<Text fw={600} size="sm">Last name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter last name"
-                            radius="md"
-                            required
-                            variant="filled"
-                          />
-                        </SimpleGrid>
-                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
-                          <Select
-                            name="gender"
-                            label={<Text fw={600} size="sm">Gender <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            data={['Male', 'Female', 'Other']}
-                            radius="md"
-                            required
-                            variant="filled"
-                          />
-                          <NumberInput
-                            name="age"
-                            label={<Text fw={600} size="sm">Age <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter age"
-                            radius="md"
-                            min={0}
-                            required
-                            variant="filled"
-                          />
-                          <NumberInput
-                            name="height"
-                            label={<Text fw={600} size="sm">Height (cm)</Text>}
-                            placeholder="Height in cm"
-                            radius="md"
-                            min={0}
-                            variant="filled"
-                          />
-                          <NumberInput
-                            name="weight"
-                            label={<Text fw={600} size="sm">Weight (kg)</Text>}
-                            placeholder="Weight in kg"
-                            radius="md"
-                            min={0}
-                            variant="filled"
-                          />
-                        </SimpleGrid>
-                        <Textarea
-                          name="description"
-                          label={<Text fw={600} size="sm">Additional Description</Text>}
-                          placeholder="Add any distinguishing features, clothing description, last seen with, medical conditions, etc."
-                          minRows={4}
-                          radius="md"
-                          mb="lg"
-                          variant="filled"
-                        />
-
-                        {/* Optional special case field for Person */}
-                        <Select
-                          name="specialCase"
-                          label={<Text fw={600} size="sm">Special Case (if applicable)</Text>}
-                          placeholder="Select if the person has special circumstances"
-                          data={[
-                            { value: 'none', label: 'None' },
-                            { value: 'mentally-ill', label: 'Mentally Ill' },
-                            { value: 'criminal', label: 'Criminal Background' }
-                          ]}
-                          radius="md"
-                          clearable
-                          mb="lg"
-                          variant="filled"
-                          styles={{
-                            input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                            description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                          }}
-                        />
-
-                        {/* Image Upload Section */}
-                        <Card
-                          withBorder
-                          radius="lg"
-                          padding="xl"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            borderStyle: 'dashed',
-                            borderColor: PRIMARY_LIGHT,
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            borderWidth: 2,
-                          }}
-                          onClick={() => document.getElementById('person-image-upload').click()}
-                        >
-                          <input type="file" id="person-image-upload" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
-                          <Flex direction="column" align="center" gap="md">
-                            {imagePreview ? (
-                              <>
-                                <Box style={{ position: 'relative', width: 120, height: 120 }}>
-                                  <Image src={imagePreview} alt="Preview" fill style={{ borderRadius: '12px', objectFit: 'cover', border: `3px solid ${PRIMARY_COLOR}` }} />
-                                </Box>
-                                <Flex gap="sm">
-                                  <Button size="sm" variant="light" color="blue" onClick={(e) => { e.stopPropagation(); document.getElementById('person-image-upload').click(); }} leftSection={<IconRefresh size={14} />}>Change</Button>
-                                  <Button size="sm" variant="light" color="red" onClick={(e) => { e.stopPropagation(); setImagePreview(null); }}>Remove</Button>
-                                </Flex>
-                              </>
-                            ) : (
-                              <>
-                                <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white', marginBottom: '8px' }}><IconCamera size={40} /></Box>
-                                <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Persons Photo</Text>
-                                <Text c="dimmed" size="sm" ta="center">Click or drag & drop to upload a clear recent photo</Text>
-                                <Text size="xs" c={PRIMARY_COLOR} fw={600} mt="xs">Recommended: Front-facing, good lighting, recent photo</Text>
-                                <Badge color="blue" variant="light" size="sm" mt="xs">Max 5MB • JPG, PNG, WebP</Badge>
-                              </>
-                            )}
-                          </Flex>
-                        </Card>
-                      </Card>
-                    </div>
-                  )}
-                </Transition>
-              )}
-
-              {/* Vehicle Details - Step 1 */}
-              {activeStep === 1 && regType === 'Vehicle' && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
-                      <Card
-                        withBorder
-                        radius="lg"
-                        padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                      >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconCar size={24} /></Box>
-                          <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Vehicle Information</Title>
-                            <Text c="dimmed" size="sm">Provide detailed information about the vehicle</Text>
-                          </Box>
-                        </Flex>
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mb="lg">
-                          <Select
-                            name="brand"
-                            label={<Text fw={600} size="sm">Brand <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Select vehicle brand"
-                            data={brands}
-                            value={selectedBrand}
-                            onChange={setSelectedBrand}
-                            radius="md"
-                            searchable
-                            clearable
-                            required
-                            leftSection={<IconCar size={16} color={PRIMARY_COLOR} />}
-                            variant="filled"
-                          />
-                          <Select
-                            name="model"
-                            label={<Text fw={600} size="sm">Model <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Select vehicle model"
-                            data={models}
-                            value={selectedModel}
-                            onChange={setSelectedModel}
-                            radius="md"
-                            disabled={!selectedBrand}
-                            searchable
-                            clearable
-                            required
-                            variant="filled"
-                          />
-                          <Select
-                            name="submodel"
-                            label={<Text fw={600} size="sm">Sub Model</Text>}
-                            placeholder="Select sub model"
-                            data={submodels}
-                            value={selectedSubmodel}
-                            onChange={setSelectedSubmodel}
-                            radius="md"
-                            disabled={!selectedModel}
-                            searchable
-                            clearable
-                            variant="filled"
-                          />
-                          <Select
-                            name="color"
-                            label={<Text fw={600} size="sm">Color <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Select vehicle color"
-                            data={colorOptions}
-                            radius="md"
-                            searchable
-                            required
-                            variant="filled"
-                          />
-                        </SimpleGrid>
-                        <Textarea
-                          name="vehicleDescription"
-                          label={<Text fw={600} size="sm">Additional Vehicle Description</Text>}
-                          placeholder="Add additional information about the vehicle (damages, modifications, special features, stickers, dents, unique characteristics, etc.)"
-                          radius="md"
-                          minRows={4}
-                          mb="lg"
-                          variant="filled"
-                        />
-
-                        {/* Special Case Field for Vehicle (optional) */}
-                        <Select
-                          name="specialCase"
-                          label={<Text fw={600} size="sm">Special Case (if applicable)</Text>}
-                          placeholder="Select if the vehicle is linked to a person with special circumstances"
-                          data={[
-                            { value: 'none', label: 'None' },
-                            { value: 'mentally-ill', label: 'Mentally Ill Owner/Driver' },
-                            { value: 'criminal', label: 'Criminal Background Owner/Driver' }
-                          ]}
-                          radius="md"
-                          clearable
-                          mb="lg"
-                          variant="filled"
-                          styles={{
-                            input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                            description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                          }}
-                        />
-
-                        {/* License Plate Section */}
-                        <Card
-                          withBorder
-                          radius="lg"
-                          padding="xl"
-                          mb="lg"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            borderColor: PRIMARY_COLOR,
-                            borderWidth: 2,
-                          }}
-                        >
-                          <Flex align="center" gap="md" mb="lg">
-                            <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}><IconInfoCircle size={20} /></Box>
-                            <Box>
-                              <Title order={5} style={{ color: PRIMARY_DARK }}>License Plate Information</Title>
-                              <Text c="dimmed" size="sm">Ethiopian license plate format details</Text>
-                            </Box>
-                          </Flex>
-                          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="md">
-                            <Select
-                              name="plateType"
-                              label={<Text fw={600} size="sm">Plate Type <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                              data={['National', 'Diplomatic', 'Government', 'Police', 'Military', 'Temporary']}
-                              radius="md"
-                              placeholder="Select type"
-                              required
-                              variant="filled"
-                            />
-                            <Select
-                              name="region"
-                              label={<Text fw={600} size="sm">Region <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                              data={regionOptions}
-                              radius="md"
-                              placeholder="Select region"
-                              searchable
-                              required
-                              variant="filled"
-                            />
-                            <Select
-                              name="code"
-                              label={<Text fw={600} size="sm">Code <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                              data={Array.from({ length: 10 }, (_, i) => (i + 1).toString())}
-                              radius="md"
-                              placeholder="Select code"
-                              required
-                              variant="filled"
-                            />
-                          </SimpleGrid>
-                          <TextInput
-                            name="plateNumber"
-                            label={<Text fw={600} size="sm">Plate Number <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter plate number (e.g., AA-12345)"
-                            radius="md"
-                            description="Format: RegionCode-Number (e.g., AA-12345 for Addis Ababa)"
-                            required
-                            variant="filled"
-                            styles={{
-                              input: { fontFamily: 'monospace', fontSize: '1.1em', fontWeight: 700, letterSpacing: '1px', color: PRIMARY_DARK },
-                              description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                            }}
-                          />
-                        </Card>
-
-                        {/* Ownership Documentation Upload */}
-                        <Card
-                          withBorder
-                          radius="lg"
-                          padding="xl"
-                          mb="lg"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            borderColor: PRIMARY_LIGHT,
-                            borderWidth: 2,
-                          }}
-                        >
-                          <Flex align="center" gap="md" mb="md">
-                            <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
-                              <IconFileDescription size={20} />
-                            </Box>
-                            <Box>
-                              <Title order={5} style={{ color: PRIMARY_DARK }}>Ownership Documentation (Optional)</Title>
-                              <Text c="dimmed" size="sm">Upload proof of ownership (e.g., title, registration)</Text>
-                            </Box>
-                          </Flex>
-                          <FileInput
-                            name="ownershipDoc"
-                            placeholder="Choose file..."
-                            accept="image/*,application/pdf"
-                            onChange={setOwnershipDoc}
-                            value={ownershipDoc}
-                            radius="md"
-                            clearable
-                            leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
-                            description="Accepted formats: JPG, PNG, PDF (max 10MB)"
-                            variant="filled"
-                            styles={{
-                              input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                              description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                            }}
-                          />
-                          {/* TODO: Handle file upload to server when submitting */}
-                        </Card>
-
-                        {/* Vehicle Images Upload */}
-                        <Card
-                          withBorder
-                          radius="lg"
-                          padding="xl"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            borderStyle: 'dashed',
-                            borderColor: PRIMARY_LIGHT,
-                            borderWidth: 2,
-                          }}
-                        >
-                          <Flex direction="column" align="center" gap="md">
-                            <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white' }}><IconPhoto size={40} /></Box>
-                            <Box ta="center">
-                              <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }} mb="xs">Vehicle Images</Text>
-                              <Text c="dimmed" size="sm">Upload clear images from multiple angles for better identification</Text>
-                            </Box>
-                            <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" w="100%">
-                              {['Front', 'Back', 'Left Side', 'Right Side'].map((angle, idx) => (
-                                <Card
-                                  key={idx}
-                                  withBorder
-                                  padding="lg"
-                                  radius="md"
-                                  bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                                  style={{
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
-                                  }}
-                                >
-                                  <Flex direction="column" align="center" gap="xs">
-                                    <Box style={{ background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]), padding: '12px', borderRadius: '10px', color: PRIMARY_COLOR }}><IconCamera size={24} /></Box>
-                                    <Text size="sm" fw={600} style={{ color: PRIMARY_DARK }}>{angle} View</Text>
-                                    <Text size="xs" c="dimmed">Click to upload</Text>
-                                  </Flex>
-                                </Card>
-                              ))}
-                            </SimpleGrid>
-                            <Badge color="blue" variant="light" size="sm" mt="sm">Up to 10 images allowed • Max 5MB each</Badge>
-                          </Flex>
-                        </Card>
-                      </Card>
-                    </div>
-                  )}
-                </Transition>
-              )}
-
-              {/* Special Case Details - Step 1 */}
-              {activeStep === 1 && regType === 'Special' && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
-                      <Card
-                        withBorder
-                        radius="lg"
-                        padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                      >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconAlertTriangle size={24} /></Box>
-                          <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Special Case Information</Title>
-                            <Text c="dimmed" size="sm">Provide details about the person with special circumstances</Text>
-                          </Box>
-                        </Flex>
-                        
-                        {/* Required special category field */}
-                        <Select
-                          name="specialCategory"
-                          label={<Text fw={600} size="sm">Special Category <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                          placeholder="Select the category"
-                          data={[
-                            { value: 'mentally-ill', label: 'Mentally Ill' },
-                            { value: 'criminal', label: 'Criminal Background' }
-                          ]}
-                          radius="md"
-                          required
-                          value={specialCategory}
-                          onChange={setSpecialCategory}
-                          mb="lg"
-                          variant="filled"
-                          styles={{
-                            input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                            description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                          }}
-                        />
-
-                        {/* Conditional file uploads */}
-                        {specialCategory === 'mentally-ill' && (
-                          <Card
-                            withBorder
-                            radius="lg"
-                            padding="xl"
-                            mb="lg"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{
-                              borderColor: PRIMARY_LIGHT,
-                              borderWidth: 2,
-                            }}
-                          >
-                            <Flex align="center" gap="md" mb="md">
-                              <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
-                                <IconFileDescription size={20} />
-                              </Box>
-                              <Box>
-                                <Title order={5} style={{ color: PRIMARY_DARK }}>Doctors Report <Text span c={PRIMARY_COLOR}>*</Text></Title>
-                                <Text c="dimmed" size="sm">Upload a medical report or documentation</Text>
-                              </Box>
-                            </Flex>
-                            <FileInput
-                              name="doctorReport"
-                              placeholder="Choose file..."
-                              accept="image/*,application/pdf"
-                              onChange={setDoctorReport}
-                              value={doctorReport}
-                              radius="md"
-                              required
-                              clearable
-                              leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
-                              description="Accepted formats: JPG, PNG, PDF (max 10MB)"
-                              variant="filled"
-                              styles={{
-                                input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                                description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                              }}
-                            />
-                          </Card>
                         )}
-
-                        {specialCategory === 'criminal' && (
-                          <Card
-                            withBorder
-                            radius="lg"
-                            padding="xl"
-                            mb="lg"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                        <Flex align="center" gap="md">
+                          <Box
                             style={{
-                              borderColor: PRIMARY_LIGHT,
-                              borderWidth: 2,
+                              background: regType === item.type ? PRIMARY_GRADIENT : getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]),
+                              padding: '16px',
+                              borderRadius: '12px',
+                              color: regType === item.type ? 'white' : PRIMARY_COLOR,
+                              transition: 'all 0.3s ease',
                             }}
                           >
-                            <Flex align="center" gap="md" mb="md">
-                              <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
-                                <IconFileDescription size={20} />
-                              </Box>
-                              <Box>
-                                <Title order={5} style={{ color: PRIMARY_DARK }}>Arrest Warrant / Criminal Record <Text span c={PRIMARY_COLOR}>*</Text></Title>
-                                <Text c="dimmed" size="sm">Upload official documentation</Text>
-                              </Box>
-                            </Flex>
-                            <FileInput
-                              name="criminalRecord"
-                              placeholder="Choose file..."
-                              accept="image/*,application/pdf"
-                              onChange={setCriminalRecord}
-                              value={criminalRecord}
-                              radius="md"
-                              required
-                              clearable
-                              leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
-                              description="Accepted formats: JPG, PNG, PDF (max 10MB)"
-                              variant="filled"
-                              styles={{
-                                input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                                description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                              }}
-                            />
-                          </Card>
-                        )}
-
-                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="lg">
-                          <TextInput
-                            name="firstName"
-                            label={<Text fw={600} size="sm">First name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter first name"
-                            radius="md"
-                            required
-                            variant="filled"
-                          />
-                          <TextInput
-                            name="middleName"
-                            label={<Text fw={600} size="sm">Middle name</Text>}
-                            placeholder="Enter middle name"
-                            radius="md"
-                            variant="filled"
-                          />
-                          <TextInput
-                            name="lastName"
-                            label={<Text fw={600} size="sm">Last name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter last name"
-                            radius="md"
-                            required
-                            variant="filled"
-                          />
-                        </SimpleGrid>
-                        
-                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
-                          <Select
-                            name="gender"
-                            label={<Text fw={600} size="sm">Gender <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            data={['Male', 'Female', 'Other']}
-                            radius="md"
-                            required
-                            variant="filled"
-                          />
-                          <NumberInput
-                            name="age"
-                            label={<Text fw={600} size="sm">Age <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="Enter age"
-                            radius="md"
-                            min={0}
-                            required
-                            variant="filled"
-                          />
-                          <NumberInput
-                            name="height"
-                            label={<Text fw={600} size="sm">Height (cm)</Text>}
-                            placeholder="Height in cm"
-                            radius="md"
-                            min={0}
-                            variant="filled"
-                          />
-                          <NumberInput
-                            name="weight"
-                            label={<Text fw={600} size="sm">Weight (kg)</Text>}
-                            placeholder="Weight in kg"
-                            radius="md"
-                            min={0}
-                            variant="filled"
-                          />
-                        </SimpleGrid>
-                        
-                        <Textarea
-                          name="description"
-                          label={<Text fw={600} size="sm">Additional Description</Text>}
-                          placeholder="Add any distinguishing features, clothing description, last seen with, medical conditions, etc."
-                          minRows={4}
-                          radius="md"
-                          mb="lg"
-                          variant="filled"
-                        />
-
-                        {/* Image Upload Section */}
-                        <Card
-                          withBorder
-                          radius="lg"
-                          padding="xl"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            borderStyle: 'dashed',
-                            borderColor: PRIMARY_LIGHT,
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            borderWidth: 2,
-                          }}
-                          onClick={() => document.getElementById('special-image-upload').click()}
-                        >
-                          <input type="file" id="special-image-upload" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
-                          <Flex direction="column" align="center" gap="md">
-                            {imagePreview ? (
-                              <>
-                                <Box style={{ position: 'relative', width: 120, height: 120 }}>
-                                  <Image src={imagePreview} alt="Preview" fill style={{ borderRadius: '12px', objectFit: 'cover', border: `3px solid ${PRIMARY_COLOR}` }} />
-                                </Box>
-                                <Flex gap="sm">
-                                  <Button size="sm" variant="light" color="blue" onClick={(e) => { e.stopPropagation(); document.getElementById('special-image-upload').click(); }} leftSection={<IconRefresh size={14} />}>Change</Button>
-                                  <Button size="sm" variant="light" color="red" onClick={(e) => { e.stopPropagation(); setImagePreview(null); }}>Remove</Button>
-                                </Flex>
-                              </>
-                            ) : (
-                              <>
-                                <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white', marginBottom: '8px' }}><IconCamera size={40} /></Box>
-                                <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Persons Photo</Text>
-                                <Text c="dimmed" size="sm" ta="center">Click or drag & drop to upload a clear recent photo</Text>
-                                <Text size="xs" c={PRIMARY_COLOR} fw={600} mt="xs">Recommended: Front-facing, good lighting, recent photo</Text>
-                                <Badge color="blue" variant="light" size="sm" mt="xs">Max 5MB • JPG, PNG, WebP</Badge>
-                              </>
-                            )}
-                          </Flex>
-                        </Card>
-                      </Card>
-                    </div>
-                  )}
-                </Transition>
-              )}
-
-              {/* Last Seen Information - Step 2 (same for all types) */}
-              {activeStep === 2 && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
-                      <Card
-                        withBorder
-                        radius="lg"
-                        padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                      >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconMap size={24} /></Box>
+                            {item.icon}
+                          </Box>
                           <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Last Known Information</Title>
-                            <Text c="dimmed" size="sm">Where and when was the {regType.toLowerCase()} last seen?</Text>
+                            <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>{item.label}</Text>
+                            <Text size="sm" c="dimmed" mt={4}>{item.desc}</Text>
                           </Box>
                         </Flex>
-                        <TextInput
-                          name="location"
-                          label={<Text fw={600} size="sm">Last Seen Location <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                          placeholder="Enter city, specific address, or landmark"
-                          leftSection={<IconMapPin size={18} color={PRIMARY_COLOR} />}
-                          radius="md"
-                          mb="lg"
-                          required
-                          variant="filled"
-                        />
-                        <Card
-                          withBorder
-                          radius="lg"
-                          padding={0}
-                          mb="lg"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            height: isMobile ? 200 : 300,
-                            position: 'relative',
-                            overflow: 'hidden',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            borderColor: PRIMARY_LIGHT,
-                          }}
-                          onClick={() => notifications.show({ title: 'Map Integration', message: 'Interactive map feature would open here', color: 'blue' })}
-                        >
-                          <Flex direction="column" align="center" justify="center" gap="md" style={{ height: '100%', background: PRIMARY_GRADIENT, padding: '20px' }}>
-                            <IconMap size={isMobile ? 40 : 60} color="white" />
-                            <Text c="white" fw={700} size={isMobile ? 'md' : 'lg'}>Interactive Location Map</Text>
-                            <Text c="white" size="sm" ta="center" opacity={0.9}>Click to select exact location on map<br /><Text span size="xs">(GPS coordinates will be captured)</Text></Text>
-                            <Badge color="white" variant="filled" size="lg" style={{ color: PRIMARY_COLOR, fontWeight: 700 }}>CLICK TO OPEN MAP</Badge>
-                          </Flex>
-                        </Card>
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
-                          <TextInput
-                            name="lastSeenDate"
-                            label={<Text fw={600} size="sm">Last Seen Date <Text span c={PRIMARY_COLOR}>*</Text></Text>}
-                            placeholder="YYYY-MM-DD"
-                            radius="md"
-                            required
-                            type="date"
-                            max={new Date().toISOString().split('T')[0]}
-                            leftSection={<IconCalendar size={18} color={PRIMARY_COLOR} />}
-                            variant="filled"
-                          />
-                          <TextInput
-                            name="lastSeenTime"
-                            label={<Text fw={600} size="sm">Approximate Time</Text>}
-                            placeholder="HH:MM (24-hour format)"
-                            radius="md"
-                            type="time"
-                            leftSection={<IconClock size={18} color={PRIMARY_COLOR} />}
-                            variant="filled"
-                          />
-                        </SimpleGrid>
-                        <Alert
-                          icon={<IconInfoCircle size={18} color={PRIMARY_COLOR} />}
-                          title="Accuracy Matters"
-                          color="blue"
-                          variant="light"
-                          radius="md"
-                          mt="lg"
-                          style={{
-                            borderColor: PRIMARY_LIGHT,
-                            backgroundColor: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]),
-                          }}
-                        >
-                          <Text size="sm">The more accurate your location and time information, the better chance we have of finding the missing {regType.toLowerCase()}.</Text>
-                        </Alert>
-                      </Card>
-                    </div>
-                  )}
-                </Transition>
-              )}
-
-              {/* Contact Information - Step 3 (same for all types) */}
-              {activeStep === 3 && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
-                      <Card
-                        withBorder
-                        radius="lg"
-                        padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                      >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconMessageCircle size={24} /></Box>
-                          <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Contact Information</Title>
-                            <Text c="dimmed" size="sm">How can people contact you with information?</Text>
-                          </Box>
-                        </Flex>
-                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Flex align="center" gap="md">
-                              <Avatar color={PRIMARY_COLOR} radius="xl" style={{ background: PRIMARY_GRADIENT }}>
-                                <IconUser size={20} />
-                              </Avatar>
-                              <Box>
-                                <Text size="xs" c="dimmed" fw={600}>Name</Text>
-                                <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.firstName} {currentUser?.lastName}</Text>
-                              </Box>
-                            </Flex>
-                          </Card>
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Flex align="center" gap="md">
-                              <Avatar color="green" radius="xl" style={{ background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)' }}>
-                                <IconMail size={20} />
-                              </Avatar>
-                              <Box>
-                                <Text size="xs" c="dimmed" fw={600}>Email</Text>
-                                <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.email}</Text>
-                              </Box>
-                            </Flex>
-                          </Card>
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Flex align="center" gap="md">
-                              <Avatar color="red" radius="xl" style={{ background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)' }}>
-                                <IconPhone size={20} />
-                              </Avatar>
-                              <Box>
-                                <Text size="xs" c="dimmed" fw={600}>Phone</Text>
-                                <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.phone}</Text>
-                              </Box>
-                            </Flex>
-                          </Card>
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Flex align="center" gap="md">
-                              <Avatar color="grape" radius="xl" style={{ background: 'linear-gradient(135deg, #cc66ff 0%, #9933ff 100%)' }}>
-                                <IconWorld size={20} />
-                              </Avatar>
-                              <Box>
-                                <Text size="xs" c="dimmed" fw={600}>Role</Text>
-                                <Badge
-                                  color="blue"
-                                  variant="light"
-                                  size="sm"
-                                  style={{
-                                    background: `${PRIMARY_COLOR}15`,
-                                    color: PRIMARY_COLOR,
-                                    fontWeight: 700,
-                                    border: `1px solid ${PRIMARY_COLOR}30`,
-                                  }}
-                                >
-                                  {currentUser?.role || 'User'}
-                                </Badge>
-                              </Box>
-                            </Flex>
-                          </Card>
-                        </SimpleGrid>
-                        <Card
-                          withBorder
-                          padding="lg"
-                          radius="lg"
-                          mb="md"
-                          bg={getBg(
-                            colorScheme,
-                            'linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%)',
-                            `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`
-                          )}
-                          style={{ borderColor: '#0088cc', borderWidth: 2 }}
-                        >
-                          <Flex align="center" gap="md" mb="md">
-                            <IconBrandTelegram size={28} color="#0088cc" />
-                            <Box>
-                              <Text fw={700} size="lg" style={{ color: '#0088cc' }}>Telegram Contact (Optional)</Text>
-                              <Text size="sm" c="dimmed">Add your Telegram username for faster, secure communication</Text>
-                            </Box>
-                          </Flex>
-                          <TextInput
-                            name="telegramUsername"
-                            placeholder="username (without @ symbol)"
-                            radius="md"
-                            leftSection={<Text c="#0088cc" fw={700}>@</Text>}
-                            description="People with information can contact you quickly via Telegram"
-                            variant="filled"
-                            styles={{
-                              root: { marginBottom: 8 },
-                              input: { borderColor: '#0088cc' },
-                              description: { color: '#0088cc', fontWeight: 500 }
-                            }}
-                          />
-                          <Text size="xs" c="dimmed" mt="xs">
-                            • Telegram provides end-to-end encryption for privacy<br />
-                            • Faster than email for urgent communications<br />
-                            • You can share photos and location easily
-                          </Text>
-                        </Card>
-                        <Textarea
-                          name="additionalContactInfo"
-                          label={<Text fw={600} size="sm">Additional Contact Methods</Text>}
-                          placeholder="Any other ways people can contact you (e.g., other social media profiles, alternative phone numbers, WhatsApp, etc.)"
-                          description="Optional: Add any other contact methods or special instructions"
-                          minRows={3}
-                          radius="md"
-                          mb="lg"
-                          variant="filled"
-                        />
-                        <Alert
-                          icon={<IconLock size={20} color={PRIMARY_COLOR} />}
-                          title="Your Privacy & Security"
-                          color="blue"
-                          variant="light"
-                          radius="md"
-                          style={{
-                            borderColor: PRIMARY_COLOR,
-                            background: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]),
-                          }}
-                        >
-                          <Stack gap="xs">
-                            <Text size="sm">
-                              <IconShieldCheck size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
-                              Your contact information is protected with end-to-end encryption
-                            </Text>
-                            <Text size="sm">
-                              <IconEyeOff size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
-                              Only verified users with relevant information can see your contact details
-                            </Text>
-                            <Text size="sm">
-                              <IconInfoCircle size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
-                              We never share your personal data with third parties or advertisers
-                            </Text>
-                          </Stack>
-                        </Alert>
-                      </Card>
-                    </div>
-                  )}
-                </Transition>
-              )}
-
-              {/* Review & Submit - Step 4 (same for all types) */}
-              {activeStep === 4 && (
-                <Transition mounted transition="pop" duration={400}>
-                  {(styles) => (
-                    <div style={styles}>
-                      <Card
-                        withBorder
-                        radius="lg"
-                        padding="xl"
-                        bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                        style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                      >
-                        <Flex align="center" gap="md" mb="lg">
-                          <Box style={gradientIconBox}><IconCheck size={24} /></Box>
-                          <Box>
-                            <Title order={4} style={{ color: PRIMARY_DARK }}>Review & Submit Your Report</Title>
-                            <Text c="dimmed" size="sm">Please review all information before final submission</Text>
-                          </Box>
-                        </Flex>
-                        <Text size="sm" c="dimmed" mb="xl" ta="center">Youre almost done! Take a moment to verify all details are correct.</Text>
-                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg" mb="xl">
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Text size="sm" c="dimmed" mb="xs">Report Type</Text>
-                            <Badge
-                              size="lg"
-                              style={{ background: PRIMARY_GRADIENT, color: 'white', fontWeight: 700, padding: '8px 16px' }}
-                              leftSection={regType === 'Person' ? <IconUserPlus size={16} /> : regType === 'Vehicle' ? <IconCar size={16} /> : <IconAlertTriangle size={16} />}
-                            >
-                              Missing {regType === 'Special' ? 'Special Case' : regType}
-                            </Badge>
-                          </Card>
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Text size="sm" c="dimmed" mb="xs">Reporter</Text>
-                            <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.firstName} {currentUser?.lastName}</Text>
-                            <Text size="xs" c="dimmed">{currentUser?.email}</Text>
-                          </Card>
-                          <Card
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{ borderColor: PRIMARY_LIGHT }}
-                          >
-                            <Text size="sm" c="dimmed" mb="xs">Report Status</Text>
-                            <Badge
-                              color="green"
-                              variant="light"
-                              size="lg"
-                              style={{
-                                background: getBg(colorScheme, '#d4edda', theme.colors.dark[5]),
-                                color: getBg(colorScheme, '#155724', theme.colors.green[3]),
-                                fontWeight: 700,
-                              }}
-                            >
-                              Ready to Submit
-                            </Badge>
-                          </Card>
-                        </SimpleGrid>
-                        <Card
-                          withBorder
-                          padding="lg"
-                          radius="md"
-                          mb="xl"
-                          bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                          style={{
-                            borderColor: '#40c057',
-                            borderWidth: 2,
-                            boxShadow: '0 4px 20px rgba(64, 192, 87, 0.1)',
-                          }}
-                        >
-                          <Flex align="center" gap="md">
-                            <IconCheck color="#40c057" size={24} />
-                            <Box style={{ flex: 1 }}>
-                              <Text fw={700} style={{ color: getBg(colorScheme, '#155724', theme.colors.green[3]) }}>Final Confirmation</Text>
-                              <Text size="sm" c="dimmed">I confirm that all information provided is accurate to the best of my knowledge</Text>
-                            </Box>
-                            <Checkbox
-                              size="lg"
-                              color="green"
-                              defaultChecked
-                              styles={{
-                                input: {
-                                  borderColor: '#40c057',
-                                  backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
-                                  ':checked': { backgroundColor: '#40c057', borderColor: '#40c057' },
-                                },
-                              }}
-                            />
-                          </Flex>
-                        </Card>
-                        <Button
-                          type="submit"
-                          size="lg"
-                          radius="xl"
-                          loading={isSubmitting}
-                          disabled={isSubmitting}
-                          fullWidth
-                          style={{
-                            background: isSubmitting ? PRIMARY_COLOR : PRIMARY_GRADIENT,
-                            border: 'none',
-                            boxShadow: `0 8px 30px ${PRIMARY_COLOR}40`,
-                            transition: 'all 0.3s ease',
-                            height: '60px',
-                            fontSize: '18px',
-                            fontWeight: 800,
-                            letterSpacing: '0.5px',
-                          }}
-                          rightSection={
-                            !isSubmitting && (
-                              <Box
-                                style={{
-                                  background: 'rgba(255, 255, 255, 0.2)',
-                                  padding: '8px',
-                                  borderRadius: '50%',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <IconArrowRight size={22} />
-                              </Box>
-                            )
-                          }
-                        >
-                          {isSubmitting ? (
-                            <Flex align="center" justify="center" gap="sm">
-                              <Loader size="sm" color="white" />
-                              <span>Submitting Your Report...</span>
-                            </Flex>
-                          ) : (
-                            <Flex align="center" justify="center" gap="sm">
-                              <IconShieldCheck size={22} />
-                              <span>SUBMIT REPORT NOW</span>
-                            </Flex>
-                          )}
-                        </Button>
-                        <Text size="xs" c="dimmed" ta="center" mt="md">
-                          <IconLock size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-                          Your submission is secure and encrypted
+                        <Divider my="md" color={getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])} />
+                        <Text size="xs" c="dimmed">
+                          {item.type === 'Person' && '• Personal details\n• Physical description\n• Last known location'}
+                          {item.type === 'Vehicle' && '• Vehicle details\n• License plate\n• Last known location'}
+                          {item.type === 'Special' && '• Person details\n• Special category (mentally ill/criminal)\n• Required documentation\n• Last known location'}
                         </Text>
                       </Card>
-                    </div>
+                    ))}
+                  </SimpleGrid>
+                </Card>
+              </Box>
+
+              {/* Person Details - Step 1 */}
+              <Box style={{ display: activeStep === 1 && regType === 'Person' ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconUserPlus size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Personal Information</Title>
+                      <Text c="dimmed" size="sm">Provide details about the missing person</Text>
+                    </Box>
+                  </Flex>
+                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="lg">
+                    <TextInput
+                      name="firstName"
+                      label={<Text fw={600} size="sm">First name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter first name"
+                      radius="md"
+                      variant="filled"
+                      value={formValues.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    />
+                    <TextInput
+                      name="middleName"
+                      label={<Text fw={600} size="sm">Middle name</Text>}
+                      placeholder="Enter middle name"
+                      radius="md"
+                      variant="filled"
+                      value={formValues.middleName}
+                      onChange={(e) => handleInputChange('middleName', e.target.value)}
+                    />
+                    <TextInput
+                      name="lastName"
+                      label={<Text fw={600} size="sm">Last name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter last name"
+                      radius="md"
+                      variant="filled"
+                      value={formValues.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    />
+                  </SimpleGrid>
+                  <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
+                    <Select
+                      name="gender"
+                      label={<Text fw={600} size="sm">Gender <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      data={['Male', 'Female', 'Other']}
+                      radius="md"
+                      variant="filled"
+                      value={formValues.gender}
+                      onChange={(value) => handleInputChange('gender', value)}
+                    />
+                    <NumberInput
+                      name="age"
+                      label={<Text fw={600} size="sm">Age <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter age"
+                      radius="md"
+                      min={0}
+                      variant="filled"
+                      value={formValues.age}
+                      onChange={(value) => handleInputChange('age', value)}
+                    />
+                    <NumberInput
+                      name="height"
+                      label={<Text fw={600} size="sm">Height (cm)</Text>}
+                      placeholder="Height in cm"
+                      radius="md"
+                      min={0}
+                      variant="filled"
+                      value={formValues.height}
+                      onChange={(value) => handleInputChange('height', value)}
+                    />
+                    <NumberInput
+                      name="weight"
+                      label={<Text fw={600} size="sm">Weight (kg)</Text>}
+                      placeholder="Weight in kg"
+                      radius="md"
+                      min={0}
+                      variant="filled"
+                      value={formValues.weight}
+                      onChange={(value) => handleInputChange('weight', value)}
+                    />
+                  </SimpleGrid>
+                  <Textarea
+                    name="description"
+                    label={<Text fw={600} size="sm">Additional Description</Text>}
+                    placeholder="Add any distinguishing features, clothing description, last seen with, medical conditions, etc."
+                    minRows={4}
+                    radius="md"
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                  />
+
+                  {/* Optional special case field for Person */}
+                  <Select
+                    name="specialCase"
+                    label={<Text fw={600} size="sm">Special Case (if applicable)</Text>}
+                    placeholder="Select if the person has special circumstances"
+                    data={[
+                      { value: 'none', label: 'None' },
+                      { value: 'mentally-ill', label: 'Mentally Ill' },
+                      { value: 'criminal', label: 'Criminal Background' }
+                    ]}
+                    radius="md"
+                    clearable
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.specialCase}
+                    onChange={(value) => handleInputChange('specialCase', value)}
+                    styles={{
+                      input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
+                      description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                    }}
+                  />
+
+                  {/* Image Upload Section */}
+                  <Card
+                    withBorder
+                    radius="lg"
+                    padding="xl"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      borderStyle: 'dashed',
+                      borderColor: PRIMARY_LIGHT,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      borderWidth: 2,
+                    }}
+                    onClick={() => document.getElementById('person-image-upload').click()}
+                  >
+                    <input type="file" id="person-image-upload" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
+                    <Flex direction="column" align="center" gap="md">
+                      {imagePreview ? (
+                        <>
+                          <Box style={{ position: 'relative', width: 120, height: 120 }}>
+                            <Image src={imagePreview} alt="Preview" fill style={{ borderRadius: '12px', objectFit: 'cover', border: `3px solid ${PRIMARY_COLOR}` }} />
+                          </Box>
+                          <Flex gap="sm">
+                            <Button size="sm" variant="light" color="blue" onClick={(e) => { e.stopPropagation(); document.getElementById('person-image-upload').click(); }} leftSection={<IconRefresh size={14} />}>Change</Button>
+                            <Button size="sm" variant="light" color="red" onClick={(e) => { e.stopPropagation(); setImagePreview(null); }}>Remove</Button>
+                          </Flex>
+                        </>
+                      ) : (
+                        <>
+                          <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white', marginBottom: '8px' }}><IconCamera size={40} /></Box>
+                          <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Persons Photo</Text>
+                          <Text c="dimmed" size="sm" ta="center">Click or drag & drop to upload a clear recent photo</Text>
+                          <Text size="xs" c={PRIMARY_COLOR} fw={600} mt="xs">Recommended: Front-facing, good lighting, recent photo</Text>
+                          <Badge color="blue" variant="light" size="sm" mt="xs">Max 5MB • JPG, PNG, WebP</Badge>
+                        </>
+                      )}
+                    </Flex>
+                  </Card>
+                </Card>
+              </Box>
+
+              {/* Vehicle Details - Step 1 */}
+              <Box style={{ display: activeStep === 1 && regType === 'Vehicle' ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconCar size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Vehicle Information</Title>
+                      <Text c="dimmed" size="sm">Provide detailed information about the vehicle</Text>
+                    </Box>
+                  </Flex>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mb="lg">
+                    <Select
+                      name="brand"
+                      label={<Text fw={600} size="sm">Brand <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Select vehicle brand"
+                      data={brands}
+                      value={selectedBrand}
+                      onChange={setSelectedBrand}
+                      radius="md"
+                      searchable
+                      clearable
+                      leftSection={<IconCar size={16} color={PRIMARY_COLOR} />}
+                      variant="filled"
+                    />
+                    <Select
+                      name="model"
+                      label={<Text fw={600} size="sm">Model <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Select vehicle model"
+                      data={models}
+                      value={selectedModel}
+                      onChange={setSelectedModel}
+                      radius="md"
+                      disabled={!selectedBrand}
+                      searchable
+                      clearable
+                      variant="filled"
+                    />
+                    <Select
+                      name="submodel"
+                      label={<Text fw={600} size="sm">Sub Model</Text>}
+                      placeholder="Select sub model"
+                      data={submodels}
+                      value={selectedSubmodel}
+                      onChange={setSelectedSubmodel}
+                      radius="md"
+                      disabled={!selectedModel}
+                      searchable
+                      clearable
+                      variant="filled"
+                    />
+                    <Select
+                      name="color"
+                      label={<Text fw={600} size="sm">Color <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Select vehicle color"
+                      data={colorOptions}
+                      radius="md"
+                      searchable
+                      variant="filled"
+                      value={formValues.color}
+                      onChange={(value) => handleInputChange('color', value)}
+                    />
+                  </SimpleGrid>
+                  <Textarea
+                    name="vehicleDescription"
+                    label={<Text fw={600} size="sm">Additional Vehicle Description</Text>}
+                    placeholder="Add additional information about the vehicle (damages, modifications, special features, stickers, dents, unique characteristics, etc.)"
+                    radius="md"
+                    minRows={4}
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.vehicleDescription}
+                    onChange={(e) => handleInputChange('vehicleDescription', e.target.value)}
+                  />
+
+                  {/* Special Case Field for Vehicle (optional) */}
+                  <Select
+                    name="specialCase"
+                    label={<Text fw={600} size="sm">Special Case (if applicable)</Text>}
+                    placeholder="Select if the vehicle is linked to a person with special circumstances"
+                    data={[
+                      { value: 'none', label: 'None' },
+                      { value: 'mentally-ill', label: 'Mentally Ill Owner/Driver' },
+                      { value: 'criminal', label: 'Criminal Background Owner/Driver' }
+                    ]}
+                    radius="md"
+                    clearable
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.specialCase}
+                    onChange={(value) => handleInputChange('specialCase', value)}
+                    styles={{
+                      input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
+                      description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                    }}
+                  />
+
+                  {/* License Plate Section */}
+                  <Card
+                    withBorder
+                    radius="lg"
+                    padding="xl"
+                    mb="lg"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      borderColor: PRIMARY_COLOR,
+                      borderWidth: 2,
+                    }}
+                  >
+                    <Flex align="center" gap="md" mb="lg">
+                      <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}><IconInfoCircle size={20} /></Box>
+                      <Box>
+                        <Title order={5} style={{ color: PRIMARY_DARK }}>License Plate Information</Title>
+                        <Text c="dimmed" size="sm">Ethiopian license plate format details</Text>
+                      </Box>
+                    </Flex>
+                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="md">
+                      <Select
+                        name="plateType"
+                        label={<Text fw={600} size="sm">Plate Type <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                        data={['National', 'Diplomatic', 'Government', 'Police', 'Military', 'Temporary']}
+                        radius="md"
+                        placeholder="Select type"
+                        variant="filled"
+                        value={formValues.plateType}
+                        onChange={(value) => handleInputChange('plateType', value)}
+                      />
+                      <Select
+                        name="region"
+                        label={<Text fw={600} size="sm">Region <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                        data={regionOptions}
+                        radius="md"
+                        placeholder="Select region"
+                        searchable
+                        variant="filled"
+                        value={formValues.region}
+                        onChange={(value) => handleInputChange('region', value)}
+                      />
+                      <Select
+                        name="code"
+                        label={<Text fw={600} size="sm">Code <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                        data={Array.from({ length: 10 }, (_, i) => (i + 1).toString())}
+                        radius="md"
+                        placeholder="Select code"
+                        variant="filled"
+                        value={formValues.code}
+                        onChange={(value) => handleInputChange('code', value)}
+                      />
+                    </SimpleGrid>
+                    <TextInput
+                      name="plateNumber"
+                      label={<Text fw={600} size="sm">Plate Number <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter plate number (e.g., AA-12345)"
+                      radius="md"
+                      description="Format: RegionCode-Number (e.g., AA-12345 for Addis Ababa)"
+                      variant="filled"
+                      value={formValues.plateNumber}
+                      onChange={(e) => handleInputChange('plateNumber', e.target.value)}
+                      styles={{
+                        input: { fontFamily: 'monospace', fontSize: '1.1em', fontWeight: 700, letterSpacing: '1px', color: PRIMARY_DARK },
+                        description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                      }}
+                    />
+                  </Card>
+
+                  {/* Ownership Documentation Upload */}
+                  <Card
+                    withBorder
+                    radius="lg"
+                    padding="xl"
+                    mb="lg"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      borderColor: PRIMARY_LIGHT,
+                      borderWidth: 2,
+                    }}
+                  >
+                    <Flex align="center" gap="md" mb="md">
+                      <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
+                        <IconFileDescription size={20} />
+                      </Box>
+                      <Box>
+                        <Title order={5} style={{ color: PRIMARY_DARK }}>Ownership Documentation (Optional)</Title>
+                        <Text c="dimmed" size="sm">Upload proof of ownership (e.g., title, registration)</Text>
+                      </Box>
+                    </Flex>
+                    <FileInput
+                      name="ownershipDoc"
+                      placeholder="Choose file..."
+                      accept="image/*,application/pdf"
+                      onChange={setOwnershipDoc}
+                      value={ownershipDoc}
+                      radius="md"
+                      clearable
+                      leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
+                      description="Accepted formats: JPG, PNG, PDF (max 10MB)"
+                      variant="filled"
+                      styles={{
+                        input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
+                        description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                      }}
+                    />
+                  </Card>
+
+                  {/* Vehicle Images Upload */}
+                  <Card
+                    withBorder
+                    radius="lg"
+                    padding="xl"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      borderStyle: 'dashed',
+                      borderColor: PRIMARY_LIGHT,
+                      borderWidth: 2,
+                    }}
+                  >
+                    <Flex direction="column" align="center" gap="md">
+                      <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white' }}><IconPhoto size={40} /></Box>
+                      <Box ta="center">
+                        <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }} mb="xs">Vehicle Images</Text>
+                        <Text c="dimmed" size="sm">Upload clear images from multiple angles for better identification</Text>
+                      </Box>
+                      <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" w="100%">
+                        {['Front', 'Back', 'Left Side', 'Right Side'].map((angle, idx) => (
+                          <Card
+                            key={idx}
+                            withBorder
+                            padding="lg"
+                            radius="md"
+                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                            style={{
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
+                            }}
+                          >
+                            <Flex direction="column" align="center" gap="xs">
+                              <Box style={{ background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]), padding: '12px', borderRadius: '10px', color: PRIMARY_COLOR }}><IconCamera size={24} /></Box>
+                              <Text size="sm" fw={600} style={{ color: PRIMARY_DARK }}>{angle} View</Text>
+                              <Text size="xs" c="dimmed">Click to upload</Text>
+                            </Flex>
+                          </Card>
+                        ))}
+                      </SimpleGrid>
+                      <Badge color="blue" variant="light" size="sm" mt="sm">Up to 10 images allowed • Max 5MB each</Badge>
+                    </Flex>
+                  </Card>
+                </Card>
+              </Box>
+
+              {/* Special Case Details - Step 1 */}
+              <Box style={{ display: activeStep === 1 && regType === 'Special' ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconAlertTriangle size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Special Case Information</Title>
+                      <Text c="dimmed" size="sm">Provide details about the person with special circumstances</Text>
+                    </Box>
+                  </Flex>
+                  
+                  {/* Required special category field */}
+                  <Select
+                    name="specialCategory"
+                    label={<Text fw={600} size="sm">Special Category <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                    placeholder="Select the category"
+                    data={[
+                      { value: 'mentally-ill', label: 'Mentally Ill' },
+                      { value: 'criminal', label: 'Criminal Background' }
+                    ]}
+                    radius="md"
+                    value={specialCategory}
+                    onChange={setSpecialCategory}
+                    mb="lg"
+                    variant="filled"
+                    styles={{
+                      input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
+                      description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                    }}
+                  />
+
+                  {/* Conditional file uploads */}
+                  {specialCategory === 'mentally-ill' && (
+                    <Card
+                      withBorder
+                      radius="lg"
+                      padding="xl"
+                      mb="lg"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{
+                        borderColor: PRIMARY_LIGHT,
+                        borderWidth: 2,
+                      }}
+                    >
+                      <Flex align="center" gap="md" mb="md">
+                        <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
+                          <IconFileDescription size={20} />
+                        </Box>
+                        <Box>
+                          <Title order={5} style={{ color: PRIMARY_DARK }}>Doctors Report <Text span c={PRIMARY_COLOR}>*</Text></Title>
+                          <Text c="dimmed" size="sm">Upload a medical report or documentation</Text>
+                        </Box>
+                      </Flex>
+                      <FileInput
+                        name="doctorReport"
+                        placeholder="Choose file..."
+                        accept="image/*,application/pdf"
+                        onChange={setDoctorReport}
+                        value={doctorReport}
+                        radius="md"
+                        clearable
+                        leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
+                        description="Accepted formats: JPG, PNG, PDF (max 10MB)"
+                        variant="filled"
+                        styles={{
+                          input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
+                          description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                        }}
+                      />
+                    </Card>
                   )}
-                </Transition>
-              )}
+
+                  {specialCategory === 'criminal' && (
+                    <Card
+                      withBorder
+                      radius="lg"
+                      padding="xl"
+                      mb="lg"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{
+                        borderColor: PRIMARY_LIGHT,
+                        borderWidth: 2,
+                      }}
+                    >
+                      <Flex align="center" gap="md" mb="md">
+                        <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
+                          <IconFileDescription size={20} />
+                        </Box>
+                        <Box>
+                          <Title order={5} style={{ color: PRIMARY_DARK }}>Arrest Warrant / Criminal Record <Text span c={PRIMARY_COLOR}>*</Text></Title>
+                          <Text c="dimmed" size="sm">Upload official documentation</Text>
+                        </Box>
+                      </Flex>
+                      <FileInput
+                        name="criminalRecord"
+                        placeholder="Choose file..."
+                        accept="image/*,application/pdf"
+                        onChange={setCriminalRecord}
+                        value={criminalRecord}
+                        radius="md"
+                        clearable
+                        leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
+                        description="Accepted formats: JPG, PNG, PDF (max 10MB)"
+                        variant="filled"
+                        styles={{
+                          input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
+                          description: { color: PRIMARY_COLOR, fontWeight: 500 }
+                        }}
+                      />
+                    </Card>
+                  )}
+
+                  <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="lg">
+                    <TextInput
+                      name="firstName"
+                      label={<Text fw={600} size="sm">First name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter first name"
+                      radius="md"
+                      variant="filled"
+                      value={formValues.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    />
+                    <TextInput
+                      name="middleName"
+                      label={<Text fw={600} size="sm">Middle name</Text>}
+                      placeholder="Enter middle name"
+                      radius="md"
+                      variant="filled"
+                      value={formValues.middleName}
+                      onChange={(e) => handleInputChange('middleName', e.target.value)}
+                    />
+                    <TextInput
+                      name="lastName"
+                      label={<Text fw={600} size="sm">Last name <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter last name"
+                      radius="md"
+                      variant="filled"
+                      value={formValues.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    />
+                  </SimpleGrid>
+                  
+                  <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
+                    <Select
+                      name="gender"
+                      label={<Text fw={600} size="sm">Gender <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      data={['Male', 'Female', 'Other']}
+                      radius="md"
+                      variant="filled"
+                      value={formValues.gender}
+                      onChange={(value) => handleInputChange('gender', value)}
+                    />
+                    <NumberInput
+                      name="age"
+                      label={<Text fw={600} size="sm">Age <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="Enter age"
+                      radius="md"
+                      min={0}
+                      variant="filled"
+                      value={formValues.age}
+                      onChange={(value) => handleInputChange('age', value)}
+                    />
+                    <NumberInput
+                      name="height"
+                      label={<Text fw={600} size="sm">Height (cm)</Text>}
+                      placeholder="Height in cm"
+                      radius="md"
+                      min={0}
+                      variant="filled"
+                      value={formValues.height}
+                      onChange={(value) => handleInputChange('height', value)}
+                    />
+                    <NumberInput
+                      name="weight"
+                      label={<Text fw={600} size="sm">Weight (kg)</Text>}
+                      placeholder="Weight in kg"
+                      radius="md"
+                      min={0}
+                      variant="filled"
+                      value={formValues.weight}
+                      onChange={(value) => handleInputChange('weight', value)}
+                    />
+                  </SimpleGrid>
+                  
+                  <Textarea
+                    name="description"
+                    label={<Text fw={600} size="sm">Additional Description</Text>}
+                    placeholder="Add any distinguishing features, clothing description, last seen with, medical conditions, etc."
+                    minRows={4}
+                    radius="md"
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                  />
+
+                  {/* Image Upload Section */}
+                  <Card
+                    withBorder
+                    radius="lg"
+                    padding="xl"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      borderStyle: 'dashed',
+                      borderColor: PRIMARY_LIGHT,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      borderWidth: 2,
+                    }}
+                    onClick={() => document.getElementById('special-image-upload').click()}
+                  >
+                    <input type="file" id="special-image-upload" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
+                    <Flex direction="column" align="center" gap="md">
+                      {imagePreview ? (
+                        <>
+                          <Box style={{ position: 'relative', width: 120, height: 120 }}>
+                            <Image src={imagePreview} alt="Preview" fill style={{ borderRadius: '12px', objectFit: 'cover', border: `3px solid ${PRIMARY_COLOR}` }} />
+                          </Box>
+                          <Flex gap="sm">
+                            <Button size="sm" variant="light" color="blue" onClick={(e) => { e.stopPropagation(); document.getElementById('special-image-upload').click(); }} leftSection={<IconRefresh size={14} />}>Change</Button>
+                            <Button size="sm" variant="light" color="red" onClick={(e) => { e.stopPropagation(); setImagePreview(null); }}>Remove</Button>
+                          </Flex>
+                        </>
+                      ) : (
+                        <>
+                          <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white', marginBottom: '8px' }}><IconCamera size={40} /></Box>
+                          <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Persons Photo</Text>
+                          <Text c="dimmed" size="sm" ta="center">Click or drag & drop to upload a clear recent photo</Text>
+                          <Text size="xs" c={PRIMARY_COLOR} fw={600} mt="xs">Recommended: Front-facing, good lighting, recent photo</Text>
+                          <Badge color="blue" variant="light" size="sm" mt="xs">Max 5MB • JPG, PNG, WebP</Badge>
+                        </>
+                      )}
+                    </Flex>
+                  </Card>
+                </Card>
+              </Box>
+
+              {/* Last Seen Information - Step 2 (same for all types) */}
+              <Box style={{ display: activeStep === 2 ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconMap size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Last Known Information</Title>
+                      <Text c="dimmed" size="sm">Where and when was the {regType.toLowerCase()} last seen?</Text>
+                    </Box>
+                  </Flex>
+                  <TextInput
+                    name="location"
+                    label={<Text fw={600} size="sm">Last Seen Location <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                    placeholder="Enter city, specific address, or landmark"
+                    leftSection={<IconMapPin size={18} color={PRIMARY_COLOR} />}
+                    radius="md"
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                  />
+                  <Card
+                    withBorder
+                    radius="lg"
+                    padding={0}
+                    mb="lg"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      height: isMobile ? 200 : 300,
+                      position: 'relative',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      borderColor: PRIMARY_LIGHT,
+                    }}
+                    onClick={() => notifications.show({ title: 'Map Integration', message: 'Interactive map feature would open here', color: 'blue' })}
+                  >
+                    <Flex direction="column" align="center" justify="center" gap="md" style={{ height: '100%', background: PRIMARY_GRADIENT, padding: '20px' }}>
+                      <IconMap size={isMobile ? 40 : 60} color="white" />
+                      <Text c="white" fw={700} size={isMobile ? 'md' : 'lg'}>Interactive Location Map</Text>
+                      <Text c="white" size="sm" ta="center" opacity={0.9}>Click to select exact location on map<br /><Text span size="xs">(GPS coordinates will be captured)</Text></Text>
+                      <Badge color="white" variant="filled" size="lg" style={{ color: PRIMARY_COLOR, fontWeight: 700 }}>CLICK TO OPEN MAP</Badge>
+                    </Flex>
+                  </Card>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                    <TextInput
+                      name="lastSeenDate"
+                      label={<Text fw={600} size="sm">Last Seen Date <Text span c={PRIMARY_COLOR}>*</Text></Text>}
+                      placeholder="YYYY-MM-DD"
+                      radius="md"
+                      type="date"
+                      max={new Date().toISOString().split('T')[0]}
+                      leftSection={<IconCalendar size={18} color={PRIMARY_COLOR} />}
+                      variant="filled"
+                      value={formValues.lastSeenDate}
+                      onChange={(e) => handleInputChange('lastSeenDate', e.target.value)}
+                    />
+                    <TextInput
+                      name="lastSeenTime"
+                      label={<Text fw={600} size="sm">Approximate Time</Text>}
+                      placeholder="HH:MM (24-hour format)"
+                      radius="md"
+                      type="time"
+                      leftSection={<IconClock size={18} color={PRIMARY_COLOR} />}
+                      variant="filled"
+                      value={formValues.lastSeenTime}
+                      onChange={(e) => handleInputChange('lastSeenTime', e.target.value)}
+                    />
+                  </SimpleGrid>
+                  <Alert
+                    icon={<IconInfoCircle size={18} color={PRIMARY_COLOR} />}
+                    title="Accuracy Matters"
+                    color="blue"
+                    variant="light"
+                    radius="md"
+                    mt="lg"
+                    style={{
+                      borderColor: PRIMARY_LIGHT,
+                      backgroundColor: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]),
+                    }}
+                  >
+                    <Text size="sm">The more accurate your location and time information, the better chance we have of finding the missing {regType.toLowerCase()}.</Text>
+                  </Alert>
+                </Card>
+              </Box>
+
+              {/* Contact Information - Step 3 (same for all types) */}
+              <Box style={{ display: activeStep === 3 ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconMessageCircle size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Contact Information</Title>
+                      <Text c="dimmed" size="sm">How can people contact you with information?</Text>
+                    </Box>
+                  </Flex>
+                  <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Flex align="center" gap="md">
+                        <Avatar color={PRIMARY_COLOR} radius="xl" style={{ background: PRIMARY_GRADIENT }}>
+                          <IconUser size={20} />
+                        </Avatar>
+                        <Box>
+                          <Text size="xs" c="dimmed" fw={600}>Name</Text>
+                          <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.firstName} {currentUser?.lastName}</Text>
+                        </Box>
+                      </Flex>
+                    </Card>
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Flex align="center" gap="md">
+                        <Avatar color="green" radius="xl" style={{ background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)' }}>
+                          <IconMail size={20} />
+                        </Avatar>
+                        <Box>
+                          <Text size="xs" c="dimmed" fw={600}>Email</Text>
+                          <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.email}</Text>
+                        </Box>
+                      </Flex>
+                    </Card>
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Flex align="center" gap="md">
+                        <Avatar color="red" radius="xl" style={{ background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)' }}>
+                          <IconPhone size={20} />
+                        </Avatar>
+                        <Box>
+                          <Text size="xs" c="dimmed" fw={600}>Phone</Text>
+                          <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.phone}</Text>
+                        </Box>
+                      </Flex>
+                    </Card>
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Flex align="center" gap="md">
+                        <Avatar color="grape" radius="xl" style={{ background: 'linear-gradient(135deg, #cc66ff 0%, #9933ff 100%)' }}>
+                          <IconWorld size={20} />
+                        </Avatar>
+                        <Box>
+                          <Text size="xs" c="dimmed" fw={600}>Role</Text>
+                          <Badge
+                            color="blue"
+                            variant="light"
+                            size="sm"
+                            style={{
+                              background: `${PRIMARY_COLOR}15`,
+                              color: PRIMARY_COLOR,
+                              fontWeight: 700,
+                              border: `1px solid ${PRIMARY_COLOR}30`,
+                            }}
+                          >
+                            {currentUser?.role || 'User'}
+                          </Badge>
+                        </Box>
+                      </Flex>
+                    </Card>
+                  </SimpleGrid>
+                  <Card
+                    withBorder
+                    padding="lg"
+                    radius="lg"
+                    mb="md"
+                    bg={getBg(
+                      colorScheme,
+                      'linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%)',
+                      `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`
+                    )}
+                    style={{ borderColor: '#0088cc', borderWidth: 2 }}
+                  >
+                    <Flex align="center" gap="md" mb="md">
+                      <IconBrandTelegram size={28} color="#0088cc" />
+                      <Box>
+                        <Text fw={700} size="lg" style={{ color: '#0088cc' }}>Telegram Contact (Optional)</Text>
+                        <Text size="sm" c="dimmed">Add your Telegram username for faster, secure communication</Text>
+                      </Box>
+                    </Flex>
+                    <TextInput
+                      name="telegramUsername"
+                      placeholder="username (without @ symbol)"
+                      radius="md"
+                      leftSection={<Text c="#0088cc" fw={700}>@</Text>}
+                      description="People with information can contact you quickly via Telegram"
+                      variant="filled"
+                      value={formValues.telegramUsername}
+                      onChange={(e) => handleInputChange('telegramUsername', e.target.value)}
+                      styles={{
+                        root: { marginBottom: 8 },
+                        input: { borderColor: '#0088cc' },
+                        description: { color: '#0088cc', fontWeight: 500 }
+                      }}
+                    />
+                    <Text size="xs" c="dimmed" mt="xs">
+                      • Telegram provides end-to-end encryption for privacy<br />
+                      • Faster than email for urgent communications<br />
+                      • You can share photos and location easily
+                    </Text>
+                  </Card>
+                  <Textarea
+                    name="additionalContactInfo"
+                    label={<Text fw={600} size="sm">Additional Contact Methods</Text>}
+                    placeholder="Any other ways people can contact you (e.g., other social media profiles, alternative phone numbers, WhatsApp, etc.)"
+                    description="Optional: Add any other contact methods or special instructions"
+                    minRows={3}
+                    radius="md"
+                    mb="lg"
+                    variant="filled"
+                    value={formValues.additionalContactInfo}
+                    onChange={(e) => handleInputChange('additionalContactInfo', e.target.value)}
+                  />
+                  <Alert
+                    icon={<IconLock size={20} color={PRIMARY_COLOR} />}
+                    title="Your Privacy & Security"
+                    color="blue"
+                    variant="light"
+                    radius="md"
+                    style={{
+                      borderColor: PRIMARY_COLOR,
+                      background: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]),
+                    }}
+                  >
+                    <Stack gap="xs">
+                      <Text size="sm">
+                        <IconShieldCheck size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
+                        Your contact information is protected with end-to-end encryption
+                      </Text>
+                      <Text size="sm">
+                        <IconEyeOff size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
+                        Only verified users with relevant information can see your contact details
+                      </Text>
+                      <Text size="sm">
+                        <IconInfoCircle size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
+                        We never share your personal data with third parties or advertisers
+                      </Text>
+                    </Stack>
+                  </Alert>
+                </Card>
+              </Box>
+
+              {/* Review & Submit - Step 4 (same for all types) */}
+              <Box style={{ display: activeStep === 4 ? 'block' : 'none' }}>
+                <Card
+                  withBorder
+                  radius="lg"
+                  padding="xl"
+                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
+                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
+                >
+                  <Flex align="center" gap="md" mb="lg">
+                    <Box style={gradientIconBox}><IconCheck size={24} /></Box>
+                    <Box>
+                      <Title order={4} style={{ color: PRIMARY_DARK }}>Review & Submit Your Report</Title>
+                      <Text c="dimmed" size="sm">Please review all information before final submission</Text>
+                    </Box>
+                  </Flex>
+                  <Text size="sm" c="dimmed" mb="xl" ta="center">Youre almost done! Take a moment to verify all details are correct.</Text>
+                  <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg" mb="xl">
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Text size="sm" c="dimmed" mb="xs">Report Type</Text>
+                      <Badge
+                        size="lg"
+                        style={{ background: PRIMARY_GRADIENT, color: 'white', fontWeight: 700, padding: '8px 16px' }}
+                        leftSection={regType === 'Person' ? <IconUserPlus size={16} /> : regType === 'Vehicle' ? <IconCar size={16} /> : <IconAlertTriangle size={16} />}
+                      >
+                        Missing {regType === 'Special' ? 'Special Case' : regType}
+                      </Badge>
+                    </Card>
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Text size="sm" c="dimmed" mb="xs">Reporter</Text>
+                      <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.firstName} {currentUser?.lastName}</Text>
+                      <Text size="xs" c="dimmed">{currentUser?.email}</Text>
+                    </Card>
+                    <Card
+                      withBorder
+                      padding="lg"
+                      radius="md"
+                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                      style={{ borderColor: PRIMARY_LIGHT }}
+                    >
+                      <Text size="sm" c="dimmed" mb="xs">Report Status</Text>
+                      <Badge
+                        color="green"
+                        variant="light"
+                        size="lg"
+                        style={{
+                          background: getBg(colorScheme, '#d4edda', theme.colors.dark[5]),
+                          color: getBg(colorScheme, '#155724', theme.colors.green[3]),
+                          fontWeight: 700,
+                        }}
+                      >
+                        Ready to Submit
+                      </Badge>
+                    </Card>
+                  </SimpleGrid>
+                  <Card
+                    withBorder
+                    padding="lg"
+                    radius="md"
+                    mb="xl"
+                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
+                    style={{
+                      borderColor: '#40c057',
+                      borderWidth: 2,
+                      boxShadow: '0 4px 20px rgba(64, 192, 87, 0.1)',
+                    }}
+                  >
+                    <Flex align="center" gap="md">
+                      <IconCheck color="#40c057" size={24} />
+                      <Box style={{ flex: 1 }}>
+                        <Text fw={700} style={{ color: getBg(colorScheme, '#155724', theme.colors.green[3]) }}>Final Confirmation</Text>
+                        <Text size="sm" c="dimmed">I confirm that all information provided is accurate to the best of my knowledge</Text>
+                      </Box>
+                      <Checkbox
+                        size="lg"
+                        color="green"
+                        defaultChecked
+                        styles={{
+                          input: {
+                            borderColor: '#40c057',
+                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
+                            ':checked': { backgroundColor: '#40c057', borderColor: '#40c057' },
+                          },
+                        }}
+                      />
+                    </Flex>
+                  </Card>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    radius="xl"
+                    loading={isSubmitting}
+                    disabled={isSubmitting}
+                    fullWidth
+                    style={{
+                      background: isSubmitting ? PRIMARY_COLOR : PRIMARY_GRADIENT,
+                      border: 'none',
+                      boxShadow: `0 8px 30px ${PRIMARY_COLOR}40`,
+                      transition: 'all 0.3s ease',
+                      height: '60px',
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      letterSpacing: '0.5px',
+                    }}
+                    rightSection={
+                      !isSubmitting && (
+                        <Box
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.2)',
+                            padding: '8px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <IconArrowRight size={22} />
+                        </Box>
+                      )
+                    }
+                  >
+                    {isSubmitting ? (
+                      <Flex align="center" justify="center" gap="sm">
+                        <Loader size="sm" color="white" />
+                        <span>Submitting Your Report...</span>
+                      </Flex>
+                    ) : (
+                      <Flex align="center" justify="center" gap="sm">
+                        <IconShieldCheck size={22} />
+                        <span>SUBMIT REPORT NOW</span>
+                      </Flex>
+                    )}
+                  </Button>
+                  <Text size="xs" c="dimmed" ta="center" mt="md">
+                    <IconLock size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                    Your submission is secure and encrypted
+                  </Text>
+                </Card>
+              </Box>
 
               {/* Navigation Buttons */}
               <Flex justify="space-between" mt="xl" gap="md" wrap="wrap">
@@ -1794,6 +1872,32 @@ export default function UnifiedRegisterPage() {
                       setSpecialCategory(null);
                       setDoctorReport(null);
                       setCriminalRecord(null);
+                      setFormValues({
+                        firstName: '',
+                        middleName: '',
+                        lastName: '',
+                        gender: '',
+                        age: '',
+                        height: '',
+                        weight: '',
+                        description: '',
+                        specialCase: '',
+                        brand: '',
+                        model: '',
+                        submodel: '',
+                        color: '',
+                        vehicleDescription: '',
+                        plateType: '',
+                        region: '',
+                        code: '',
+                        plateNumber: '',
+                        specialCategory: '',
+                        location: '',
+                        lastSeenDate: '',
+                        lastSeenTime: '',
+                        telegramUsername: '',
+                        additionalContactInfo: '',
+                      });
                       notifications.show({ title: 'Form Reset', message: 'All form data has been cleared', color: 'blue', icon: <IconRefresh size={16} /> });
                     }}
                     disabled={isSubmitting}
