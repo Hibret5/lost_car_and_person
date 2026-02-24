@@ -29,38 +29,13 @@
       "verified": false,
       "matches": [],
       "notes": []
-    },
-    {
-      "id": "c18a",
-      "type": "Person",
-      "caseId": "CASE-MLR0GIY0-UK3O",
-      "reportedBy": {
-        "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
-        "firstName": "user",
-        "lastName": "user",
-        "email": "User1@gmail.com",
-        "phone": "+251911111111",
-        "role": "user",
-        "telegramUsername": null
-      },
-      "reportDate": "2026-02-17T19:43:16.968Z",
-      "status": "Active",
-      "lastUpdated": "2026-02-17T19:43:16.968Z",
-      "verified": false,
-      "matches": [],
-      "notes": [],
-      "contactMethods": {
-        "email": "User1@gmail.com",
-        "phone": "+251911111111",
-        "telegram": null
-      }
     }
   ],
   "missingVehicles": [
     {
-      "id": "cd28",
+      "id": "acce",
+      "caseId": "CASE-MLZRMPY5-2ZN8",
       "type": "Vehicle",
-      "caseId": "CASE-MLR0ADPE-Q6PY",
       "reportedBy": {
         "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
         "firstName": "user",
@@ -68,19 +43,44 @@
         "email": "User1@gmail.com",
         "phone": "+251911111111",
         "role": "user",
-        "telegramUsername": null
+        "telegramUsername": "tesfa"
       },
-      "reportDate": "2026-02-17T19:38:30.242Z",
+      "reportDate": "2026-02-23T22:46:05.021Z",
       "status": "Active",
-      "lastUpdated": "2026-02-17T19:38:30.242Z",
+      "lastUpdated": "2026-02-23T22:46:05.021Z",
       "verified": false,
       "matches": [],
       "notes": [],
       "contactMethods": {
         "email": "User1@gmail.com",
         "phone": "+251911111111",
-        "telegram": null
-      }
+        "telegram": "tesfa"
+      },
+      "firstName": "",
+      "middleName": "",
+      "lastName": "",
+      "gender": "",
+      "age": "",
+      "height": "",
+      "weight": "",
+      "description": "",
+      "specialCase": "none",
+      "brand": "Volkswagen",
+      "model": "Golf",
+      "submodel": "Trendline",
+      "color": "Black",
+      "vehicleDescription": "bla bla bla",
+      "plateType": "National",
+      "region": "Amhara",
+      "code": "6",
+      "plateNumber": "DD-12345",
+      "specialCategory": null,
+      "location": "addis ababa",
+      "lastSeenDate": "2026-02-22",
+      "lastSeenTime": "04:35",
+      "telegramUsername": "tesfa",
+      "additionalContactInfo": "45",
+      "imagePreview": null
     }
   ],
   "users": [
@@ -92,11 +92,11 @@
       "phone": "+251911111111",
       "password": "User@1111",
       "createdAt": "2026-02-05T06:52:23.735Z",
-      "updatedAt": "2026-02-20T10:23:23.928Z",
+      "updatedAt": "2026-02-23T22:46:05.421Z",
       "isActive": true,
       "role": "user",
       "lastLogin": "2026-02-20T10:23:23.928Z",
-      "registrations": 5,
+      "registrations": 7,
       "hasPaidSubscription": true
     },
     {

@@ -37,7 +37,8 @@ import {
   Image as MantineImage,
   CopyButton,
   Textarea,
-  useMantineColorScheme
+  useMantineColorScheme,
+  Skeleton
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -101,7 +102,6 @@ const PRIMARY_GRADIENT_HOVER = `linear-gradient(135deg, ${PRIMARY_DARK} 0%, #005
 
 // Helper to get dynamic background/color values
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
-const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // Status options with colors
 const STATUS_OPTIONS = [
@@ -169,7 +169,6 @@ export default function ReportedCasesPage() {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
-  const isTablet = useMediaQuery(`(max-width: ${theme.breakpoints.md})`);
   
   // State management
   const [loading, setLoading] = useState(true);
@@ -183,10 +182,19 @@ export default function ReportedCasesPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [caseToView, setCaseToView] = useState(null);
   const [caseToEdit, setCaseToEdit] = useState(null);
+  const [caseToAlert, setCaseToAlert] = useState(null);
+  const [alertMessage, setAlertMessage] = useState('');
   const [editForm, setEditForm] = useState({});
+  
+  // Async action states
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [sendingAlert, setSendingAlert] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Stats state
   const [stats, setStats] = useState({
@@ -231,125 +239,132 @@ export default function ReportedCasesPage() {
     return user;
   };
 
-  // Fetch cases and user data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Get current user from localStorage
-        const userData = localStorage.getItem('currentUser');
-        if (userData) {
-          const user = JSON.parse(userData);
-          setCurrentUser(user);
-        }
+  // Fetch cases and user data (filtered by logged-in user)
+  const fetchData = async (showLoadingNotification = false) => {
+    try {
+      if (showLoadingNotification) setRefreshing(true);
+      
+      // Get current user from localStorage
+      const userData = localStorage.getItem('currentUser');
+      if (!userData) {
+        router.push('/login');
+        return;
+      }
+      const user = JSON.parse(userData);
+      setCurrentUser(user);
 
-        // Fetch cases from both endpoints
-        const [personsResponse, vehiclesResponse] = await Promise.all([
-          fetch(MISSING_PERSONS_API),
-          fetch(MISSING_VEHICLES_API)
-        ]);
+      // Fetch cases from both endpoints filtered by reportedBy.userId
+      const [personsResponse, vehiclesResponse] = await Promise.all([
+        fetch(`${MISSING_PERSONS_API}?reportedBy.userId=${user.id}`),
+        fetch(`${MISSING_VEHICLES_API}?reportedBy.userId=${user.id}`)
+      ]);
 
-        const personsData = await personsResponse.json();
-        const vehiclesData = await vehiclesResponse.json();
+      if (!personsResponse.ok || !vehiclesResponse.ok) {
+        throw new Error('Failed to fetch data');
+      }
 
-        // Combine and format data - ONLY using fields from registration form
-        const allCases = [
-          ...personsData.map(item => ({
-            id: item.id,
-            caseId: item.caseId || `PERSON-${item.id}`,
-            type: 'Person',
-            displayName: `${item.firstName || ''} ${item.lastName || ''}`.trim(),
-            firstName: item.firstName,
-            lastName: item.lastName,
-            age: item.age,
-            gender: item.gender,
-            height: item.height,
-            weight: item.weight,
-            description: item.description,
-            location: item.location,
-            lastSeen: item.lastSeen,
-            lastSeenDate: item.lastSeenDate,
-            lastSeenTime: item.lastSeenTime,
-            contactName: item.contactName,
-            contactPhone: item.contactPhone,
-            contactEmail: item.contactEmail,
-            telegramUsername: item.telegramUsername,
-            status: item.status || 'active',
-            priority: item.priority || 'medium',
-            reportDate: item.reportDate || new Date().toISOString(),
-            lastUpdated: item.lastUpdated || item.reportDate || new Date().toISOString(),
-            reportedBy: item.reportedBy,
-            icon: <IconUser size={16} />,
-            category: 'person'
-          })),
-          ...vehiclesData.map(item => ({
-            id: item.id,
-            caseId: item.caseId || `VEHICLE-${item.id}`,
-            type: 'Vehicle',
-            displayName: `${item.brand || ''} ${item.model || ''}`.trim(),
-            brand: item.brand,
-            model: item.model,
-            submodel: item.submodel,
-            color: item.color,
-            plateType: item.plateType,
-            region: item.region,
-            code: item.code,
-            plateNumber: item.plateNumber,
-            vehicleDescription: item.vehicleDescription,
-            location: item.location,
-            lastSeen: item.lastSeen,
-            lastSeenDate: item.lastSeenDate,
-            lastSeenTime: item.lastSeenTime,
-            contactName: item.contactName,
-            contactPhone: item.contactPhone,
-            contactEmail: item.contactEmail,
-            telegramUsername: item.telegramUsername,
-            status: item.status || 'active',
-            priority: item.priority || 'medium',
-            reportDate: item.reportDate || new Date().toISOString(),
-            lastUpdated: item.lastUpdated || item.reportDate || new Date().toISOString(),
-            reportedBy: item.reportedBy,
-            icon: <IconCar size={16} />,
-            category: 'vehicle'
-          }))
-        ];
+      const personsData = await personsResponse.json();
+      const vehiclesData = await vehiclesResponse.json();
 
-        setCases(allCases);
-        setFilteredCases(allCases);
-        
-        // Calculate statistics
-        const statsData = {
-          total: allCases.length,
-          active: allCases.filter(c => c.status === 'active').length,
-          resolved: allCases.filter(c => c.status === 'resolved').length,
-          pending: allCases.filter(c => c.status === 'pending').length,
-          persons: allCases.filter(c => c.type === 'Person').length,
-          vehicles: allCases.filter(c => c.type === 'Vehicle').length
-        };
-        setStats(statsData);
-        
-        // Show notification when data is loaded
+      // Combine and format data - ONLY using fields from registration form
+      const allCases = [
+        ...personsData.map(item => ({
+          id: item.id,
+          caseId: item.caseId || `PERSON-${item.id}`,
+          type: 'Person',
+          displayName: `${item.firstName || ''} ${item.lastName || ''}`.trim(),
+          firstName: item.firstName,
+          lastName: item.lastName,
+          age: item.age,
+          gender: item.gender,
+          height: item.height,
+          weight: item.weight,
+          description: item.description,
+          location: item.location,
+          lastSeen: item.lastSeen,
+          lastSeenDate: item.lastSeenDate,
+          lastSeenTime: item.lastSeenTime,
+          contactName: item.contactName,
+          contactPhone: item.contactPhone,
+          contactEmail: item.contactEmail,
+          telegramUsername: item.telegramUsername,
+          status: item.status || 'active',
+          priority: item.priority || 'medium',
+          reportDate: item.reportDate || new Date().toISOString(),
+          lastUpdated: item.lastUpdated || item.reportDate || new Date().toISOString(),
+          reportedBy: item.reportedBy,
+          icon: <IconUser size={16} />,
+          category: 'person'
+        })),
+        ...vehiclesData.map(item => ({
+          id: item.id,
+          caseId: item.caseId || `VEHICLE-${item.id}`,
+          type: 'Vehicle',
+          displayName: `${item.brand || ''} ${item.model || ''}`.trim(),
+          brand: item.brand,
+          model: item.model,
+          submodel: item.submodel,
+          color: item.color,
+          plateType: item.plateType,
+          region: item.region,
+          code: item.code,
+          plateNumber: item.plateNumber,
+          vehicleDescription: item.vehicleDescription,
+          location: item.location,
+          lastSeen: item.lastSeen,
+          lastSeenDate: item.lastSeenDate,
+          lastSeenTime: item.lastSeenTime,
+          contactName: item.contactName,
+          contactPhone: item.contactPhone,
+          contactEmail: item.contactEmail,
+          telegramUsername: item.telegramUsername,
+          status: item.status || 'active',
+          priority: item.priority || 'medium',
+          reportDate: item.reportDate || new Date().toISOString(),
+          lastUpdated: item.lastUpdated || item.reportDate || new Date().toISOString(),
+          reportedBy: item.reportedBy,
+          icon: <IconCar size={16} />,
+          category: 'vehicle'
+        }))
+      ];
+
+      setCases(allCases);
+      setFilteredCases(allCases);
+      
+      // Calculate statistics based on user's cases
+      const statsData = {
+        total: allCases.length,
+        active: allCases.filter(c => c.status === 'active').length,
+        resolved: allCases.filter(c => c.status === 'resolved').length,
+        pending: allCases.filter(c => c.status === 'pending').length,
+        persons: allCases.filter(c => c.type === 'Person').length,
+        vehicles: allCases.filter(c => c.type === 'Vehicle').length
+      };
+      setStats(statsData);
+      
+      if (showLoadingNotification) {
         showNotification(
-          'Data Loaded',
+          'Data Refreshed',
           `Successfully loaded ${allCases.length} cases`,
-          'success',
-          <IconCheck size={16} />
+          'success'
         );
-        
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      if (showLoadingNotification) {
         showNotification(
           'Error Loading Data',
           'Failed to load cases. Please try again.',
-          'error',
-          <IconX size={16} />
+          'error'
         );
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -438,7 +453,7 @@ export default function ReportedCasesPage() {
     });
 
     setFilteredCases(result);
-    setPage(1); // Reset to first page when filters change
+    setPage(1);
   }, [filters, cases, sortBy, sortDirection]);
 
   // Pagination calculation
@@ -462,6 +477,7 @@ export default function ReportedCasesPage() {
 
   // Handle case deletion
   const handleDeleteCase = async (caseId, type) => {
+    setDeleting(true);
     try {
       const endpoint = type === 'Person' ? MISSING_PERSONS_API : MISSING_VEHICLES_API;
       const response = await fetch(`${endpoint}/${caseId}`, {
@@ -474,12 +490,10 @@ export default function ReportedCasesPage() {
         setDeleteModalOpen(false);
         setSelectedCase(null);
         
-        // Show success notification
         showNotification(
           'Case Deleted',
           'Case has been successfully deleted.',
-          'success',
-          <IconCheck size={16} />
+          'success'
         );
       } else {
         throw new Error('Failed to delete case');
@@ -489,14 +503,16 @@ export default function ReportedCasesPage() {
       showNotification(
         'Deletion Failed',
         'Failed to delete case. Please try again.',
-        'error',
-        <IconX size={16} />
+        'error'
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
   // Export data
   const handleExportData = () => {
+    setExporting(true);
     try {
       const csvContent = [
         ['Case ID', 'Type', 'Name/Model', 'Status', 'Priority', 'Location', 'Report Date', 'Last Updated'],
@@ -519,21 +535,20 @@ export default function ReportedCasesPage() {
       a.download = `reported-cases-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       
-      // Show success notification
       showNotification(
         'Export Successful',
         `Exported ${filteredCases.length} cases to CSV file.`,
-        'success',
-        <IconDownload size={16} />
+        'success'
       );
     } catch (error) {
       console.error('Error exporting data:', error);
       showNotification(
         'Export Failed',
         'Failed to export data. Please try again.',
-        'error',
-        <IconX size={16} />
+        'error'
       );
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -551,8 +566,7 @@ export default function ReportedCasesPage() {
     showNotification(
       'Filters Cleared',
       'All filters have been reset.',
-      'info',
-      <IconFilter size={16} />
+      'info'
     );
   };
 
@@ -566,7 +580,7 @@ export default function ReportedCasesPage() {
   const handleEditClick = (caseItem) => {
     setCaseToEdit(caseItem);
     
-    // Create form data based on case type - ONLY using fields from registration form
+    // Create form data based on case type
     const formData = {
       type: caseItem.type,
       status: caseItem.status,
@@ -602,29 +616,78 @@ export default function ReportedCasesPage() {
     setEditModalOpen(true);
   };
 
+  // Handle alert button click
+  const handleAlertClick = (caseItem) => {
+    setCaseToAlert(caseItem);
+    setAlertMessage('');
+    setAlertModalOpen(true);
+  };
+
+  // Send alert
+  const handleSendAlert = async () => {
+    if (!alertMessage.trim()) {
+      showNotification('Alert Message Required', 'Please enter an alert message.', 'warning');
+      return;
+    }
+    setSendingAlert(true);
+    try {
+      // Simulate API call (replace with actual endpoint)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      showNotification(
+        'Alert Sent',
+        `Alert sent for ${caseToAlert?.displayName}`,
+        'warning'
+      );
+      setAlertModalOpen(false);
+    } catch (error) {
+      showNotification('Alert Failed', 'Could not send alert.', 'error');
+    } finally {
+      setSendingAlert(false);
+    }
+  };
+
+  // Handle share
+  const handleShare = (caseItem) => {
+    const shareData = {
+      title: `Missing ${caseItem.type} - ${caseItem.displayName}`,
+      text: `Case ID: ${caseItem.caseId}. Last seen: ${caseItem.location || 'Unknown location'} on ${caseItem.lastSeenDate || 'Unknown date'}.`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {
+        // Fallback if share fails or is cancelled
+        navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}`);
+        showNotification('Share', 'Case info copied to clipboard', 'info');
+      });
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}`);
+      showNotification('Share', 'Case info copied to clipboard', 'info');
+    }
+  };
+
   // Handle form submission
   const handleSaveEdit = async () => {
+    if (!isEditFormValid()) {
+      showNotification('Validation Error', 'Please fill all required fields.', 'warning');
+      return;
+    }
+    setSaving(true);
     try {
-      setSaving(true);
-      
       const endpoint = caseToEdit.type === 'Person' 
         ? `${MISSING_PERSONS_API}/${caseToEdit.id}`
         : `${MISSING_VEHICLES_API}/${caseToEdit.id}`;
       
-      // Prepare update data - ONLY fields from registration form
+      // Prepare update data
       const updateData = {
         ...editForm,
         lastUpdated: new Date().toISOString(),
       };
-      
-      // Remove type field as it shouldn't be changed
       delete updateData.type;
       
       const response = await fetch(endpoint, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData),
       });
       
@@ -646,24 +709,13 @@ export default function ReportedCasesPage() {
         setEditModalOpen(false);
         setCaseToEdit(null);
         
-        // Show success notification
-        showNotification(
-          'Case Updated',
-          'Case has been successfully updated.',
-          'success',
-          <IconCheck size={16} />
-        );
+        showNotification('Case Updated', 'Case has been successfully updated.', 'success');
       } else {
         throw new Error('Failed to update case');
       }
     } catch (error) {
       console.error('Error updating case:', error);
-      showNotification(
-        'Update Failed',
-        'Failed to update case. Please try again.',
-        'error',
-        <IconX size={16} />
-      );
+      showNotification('Update Failed', 'Failed to update case. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -671,27 +723,38 @@ export default function ReportedCasesPage() {
 
   // Handle form input changes
   const handleEditFormChange = (field, value) => {
-    setEditForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Loading state
+  // Validate edit form
+  const isEditFormValid = () => {
+    if (!caseToEdit) return false;
+    if (caseToEdit.type === 'Person') {
+      return editForm.firstName?.trim() && editForm.lastName?.trim();
+    } else {
+      return editForm.brand?.trim() && editForm.model?.trim() && editForm.plateNumber?.trim();
+    }
+  };
+
+  // Loading state with skeletons
   if (loading) {
     return (
       <Box style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: PRIMARY_GRADIENT
+        minHeight: '100vh',
+        background: isMobile 
+          ? getBg(colorScheme, '#f0f5ff', theme.colors.dark[7])
+          : colorScheme === 'dark'
+            ? `radial-gradient(circle at 10% 20%, rgba(0, 52, 209, 0.3) 0%, ${theme.colors.dark[7]} 100%)`
+            : `radial-gradient(circle at 10% 20%, rgba(0, 52, 209, 0.05) 0%, #ffffff 100%)`,
       }}>
-        <Flex direction="column" align="center" gap="md">
-          <Loader size="xl" color="white" variant="dots" />
-          <Text c="white" size="lg" fw={600}>Loading reported cases...</Text>
-          <Text c="white" size="sm" opacity={0.8}>Please wait while we fetch your data</Text>
-        </Flex>
+        <Container size="lg" py={40}>
+          <Skeleton height={80} radius="md" mb={40} />
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+            {Array(6).fill(0).map((_, i) => (
+              <Skeleton key={i} height={200} radius="lg" />
+            ))}
+          </SimpleGrid>
+        </Container>
       </Box>
     );
   }
@@ -725,36 +788,22 @@ export default function ReportedCasesPage() {
             direction={isMobile ? 'column' : 'row'}
             gap={isMobile ? 'md' : 'xs'}
           >
-            {/* Logo Section */}
             <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
               <Flex align="center" gap="md">
                 <Box style={{ display: 'inline-block', height: '40px', width: 'auto', overflow: 'hidden' }}>
-                                  <Image src="/logo.jpg" alt="Logo" width={2040} height={952} style={{ height: '100%', width: 'auto' }} />
-                                </Box>
+                  <Image src="/logo.jpg" alt="Logo" width={2040} height={952} style={{ height: '100%', width: 'auto' }} />
+                </Box>
                 <Box>
-                  <Text 
-                    size={isMobile ? "lg" : "xl"} 
-                    fw={900} 
-                    style={{ 
-                      color: PRIMARY_COLOR,
-                      letterSpacing: '-0.5px',
-                    }}
-                  >
+                  <Text size={isMobile ? "lg" : "xl"} fw={900} style={{ color: PRIMARY_COLOR, letterSpacing: '-0.5px' }}>
                     FindR
                   </Text>
-                  <Text 
-                    size="xs" 
-                    c={PRIMARY_DARK} 
-                    fw={600}
-                    style={{ letterSpacing: '1px' }}
-                  >
+                  <Text size="xs" c={PRIMARY_DARK} fw={600} style={{ letterSpacing: '1px' }}>
                     Reported Cases Dashboard
                   </Text>
                 </Box>
               </Flex>
             </Link>
 
-            {/* Navigation */}
             <Flex align="center" gap="lg">
               <Button
                 variant="light"
@@ -767,7 +816,6 @@ export default function ReportedCasesPage() {
                 Back to Dashboard
               </Button>
               
-              {/* User Profile */}
               {currentUser && (
                 <Flex 
                   align="center" 
@@ -811,7 +859,7 @@ export default function ReportedCasesPage() {
           <Flex justify="space-between" align="center" mb="md" wrap="wrap" gap="md">
             <Box>
               <Title order={1} style={{ color: PRIMARY_DARK, fontWeight: 800 }}>
-                Reported Cases
+                My Reported Cases
               </Title>
               <Text c="dimmed" size="sm">
                 Track and manage all your reported missing persons and vehicles
@@ -820,19 +868,12 @@ export default function ReportedCasesPage() {
             <Button
               color="blue"
               leftSection={<IconRefresh size={18} />}
-              onClick={() => {
-                window.location.reload();
-                showNotification(
-                  'Refreshing...',
-                  'Reloading cases data.',
-                  'info',
-                  <IconRefresh size={16} />
-                );
-              }}
+              onClick={() => fetchData(true)}
+              loading={refreshing}
               variant="light"
               size="sm"
             >
-              Refresh
+              {refreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
           </Flex>
 
@@ -843,7 +884,7 @@ export default function ReportedCasesPage() {
               radius="lg"
               withBorder
               bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-              style={{ borderTop: `4px solid ${PRIMARY_COLOR}` }}
+              style={{ borderTop: `4px solid ${PRIMARY_COLOR}`, transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } }}
             >
               <Flex align="center" gap="md">
                 <Box style={{ background: PRIMARY_GRADIENT, padding: 8, borderRadius: 8 }}>
@@ -861,7 +902,7 @@ export default function ReportedCasesPage() {
               radius="lg"
               withBorder
               bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-              style={{ borderTop: '4px solid #2f9e44' }}
+              style={{ borderTop: '4px solid #2f9e44', transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } }}
             >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #2f9e44 0%, #37b24d 100%)', padding: 8, borderRadius: 8 }}>
@@ -879,7 +920,7 @@ export default function ReportedCasesPage() {
               radius="lg"
               withBorder
               bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-              style={{ borderTop: '4px solid #1971c2' }}
+              style={{ borderTop: '4px solid #1971c2', transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } }}
             >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #1971c2 0%, #1c7ed6 100%)', padding: 8, borderRadius: 8 }}>
@@ -897,7 +938,7 @@ export default function ReportedCasesPage() {
               radius="lg"
               withBorder
               bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-              style={{ borderTop: '4px solid #e67700' }}
+              style={{ borderTop: '4px solid #e67700', transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } }}
             >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #e67700 0%, #f08c00 100%)', padding: 8, borderRadius: 8 }}>
@@ -915,7 +956,7 @@ export default function ReportedCasesPage() {
               radius="lg"
               withBorder
               bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-              style={{ borderTop: '4px solid #ae3ec9' }}
+              style={{ borderTop: '4px solid #ae3ec9', transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } }}
             >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #ae3ec9 0%, #be4bdb 100%)', padding: 8, borderRadius: 8 }}>
@@ -933,7 +974,7 @@ export default function ReportedCasesPage() {
               radius="lg"
               withBorder
               bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-              style={{ borderTop: '4px solid #f59f00' }}
+              style={{ borderTop: '4px solid #f59f00', transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } }}
             >
               <Flex align="center" gap="md">
                 <Box style={{ background: 'linear-gradient(135deg, #f59f00 0%, #fab005 100%)', padding: 8, borderRadius: 8 }}>
@@ -968,8 +1009,7 @@ export default function ReportedCasesPage() {
                   showNotification(
                     'View Mode Changed',
                     `Switched to ${value} view`,
-                    'info',
-                    value === 'list' ? <IconList size={16} /> : <IconLayoutGrid size={16} />
+                    'info'
                   );
                 }}
                 data={[
@@ -1141,8 +1181,7 @@ export default function ReportedCasesPage() {
                   showNotification(
                     'Sort Direction Changed',
                     `Sorting in ${sortDirection === 'asc' ? 'descending' : 'ascending'} order`,
-                    'info',
-                    sortDirection === 'asc' ? <IconSortDescending size={16} /> : <IconSortAscending size={16} />
+                    'info'
                   );
                 }}
               >
@@ -1160,8 +1199,9 @@ export default function ReportedCasesPage() {
                 size="sm"
                 leftSection={<IconDownload size={14} />}
                 onClick={handleExportData}
+                loading={exporting}
               >
-                Export
+                {exporting ? 'Exporting...' : 'Export'}
               </Button>
             </Group>
           </Flex>
@@ -1169,7 +1209,6 @@ export default function ReportedCasesPage() {
 
         {/* Cases Display */}
         {viewMode === 'list' ? (
-          /* List View */
           <Paper
             radius="lg"
             withBorder
@@ -1204,12 +1243,7 @@ export default function ReportedCasesPage() {
                                 variant="subtle"
                                 onClick={() => {
                                   copy();
-                                  showNotification(
-                                    'Copied!',
-                                    'Case ID copied to clipboard',
-                                    'success',
-                                    <IconCopy size={16} />
-                                  );
+                                  showNotification('Copied!', 'Case ID copied to clipboard', 'success');
                                 }}
                                 style={{ marginTop: 2 }}
                               >
@@ -1304,6 +1338,26 @@ export default function ReportedCasesPage() {
                             <IconEdit size={16} />
                           </ActionIcon>
                         </Tooltip>
+                        <Tooltip label="Send Alert" position="left">
+                          <ActionIcon
+                            variant="subtle"
+                            color="orange"
+                            size="sm"
+                            onClick={() => handleAlertClick(caseItem)}
+                          >
+                            <IconBell size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Share" position="left">
+                          <ActionIcon
+                            variant="subtle"
+                            color="blue"
+                            size="sm"
+                            onClick={() => handleShare(caseItem)}
+                          >
+                            <IconShare size={16} />
+                          </ActionIcon>
+                        </Tooltip>
                         <Tooltip label="Delete" position="left">
                           <ActionIcon
                             variant="subtle"
@@ -1331,21 +1385,13 @@ export default function ReportedCasesPage() {
                   No cases found
                 </Text>
                 <Text c="dimmed" mb={20}>
-                  Try adjusting your filters or report a new case
+                  You haven't reported any cases yet. Click below to report a new case.
                 </Text>
                 <Button
                   color="blue"
                   leftSection={<IconUserPlus size={16} />}
                   component={Link}
                   href="/register"
-                  onClick={() => {
-                    showNotification(
-                      'Reporting New Case',
-                      'Redirecting to case registration form...',
-                      'info',
-                      <IconUserPlus size={16} />
-                    );
-                  }}
                 >
                   Report New Case
                 </Button>
@@ -1353,7 +1399,6 @@ export default function ReportedCasesPage() {
             )}
           </Paper>
         ) : (
-          /* Grid View */
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
             {paginatedCases.map((caseItem) => (
               <Card
@@ -1408,6 +1453,18 @@ export default function ReportedCasesPage() {
                         onClick={() => handleEditClick(caseItem)}
                       >
                         Edit
+                      </Menu.Item>
+                      <Menu.Item 
+                        leftSection={<IconBell size={14} />}
+                        onClick={() => handleAlertClick(caseItem)}
+                      >
+                        Send Alert
+                      </Menu.Item>
+                      <Menu.Item 
+                        leftSection={<IconShare size={14} />}
+                        onClick={() => handleShare(caseItem)}
+                      >
+                        Share
                       </Menu.Item>
                       <Menu.Item 
                         leftSection={<IconTrash size={14} />} 
@@ -1473,14 +1530,7 @@ export default function ReportedCasesPage() {
                       <ActionIcon 
                         variant="subtle" 
                         color="orange"
-                        onClick={() => {
-                          showNotification(
-                            'Alert Sent',
-                            `Alert notification sent for ${caseItem.displayName}`,
-                            'warning',
-                            <IconBell size={16} />
-                          );
-                        }}
+                        onClick={() => handleAlertClick(caseItem)}
                       >
                         <IconBell size={16} />
                       </ActionIcon>
@@ -1489,14 +1539,7 @@ export default function ReportedCasesPage() {
                       <ActionIcon 
                         variant="subtle" 
                         color="blue"
-                        onClick={() => {
-                          showNotification(
-                            'Share Case',
-                            `Share link for ${caseItem.displayName} copied to clipboard`,
-                            'info',
-                            <IconShare size={16} />
-                          );
-                        }}
+                        onClick={() => handleShare(caseItem)}
                       >
                         <IconShare size={16} />
                       </ActionIcon>
@@ -1546,14 +1589,6 @@ export default function ReportedCasesPage() {
                 leftSection={<IconUserPlus size={16} />}
                 component={Link}
                 href="/register"
-                onClick={() => {
-                  showNotification(
-                    'Reporting New Case',
-                    'Redirecting to case registration form...',
-                    'info',
-                    <IconUserPlus size={16} />
-                  );
-                }}
               >
                 Report New Case
               </Button>
@@ -1563,12 +1598,7 @@ export default function ReportedCasesPage() {
                 leftSection={<IconPrinter size={16} />}
                 onClick={() => {
                   window.print();
-                  showNotification(
-                    'Printing Report',
-                    'Opening print dialog...',
-                    'info',
-                    <IconPrinter size={16} />
-                  );
+                  showNotification('Printing Report', 'Opening print dialog...', 'info');
                 }}
               >
                 Print Report
@@ -1610,6 +1640,7 @@ export default function ReportedCasesPage() {
               variant="light"
               color="gray"
               onClick={() => setDeleteModalOpen(false)}
+              disabled={deleting}
             >
               Cancel
             </Button>
@@ -1617,15 +1648,55 @@ export default function ReportedCasesPage() {
               color="red"
               leftSection={<IconTrash size={16} />}
               onClick={() => handleDeleteCase(selectedCase?.id, selectedCase?.type)}
-              loading={saving}
+              loading={deleting}
+              disabled={deleting}
             >
-              Delete Case
+              {deleting ? 'Deleting...' : 'Delete Case'}
             </Button>
           </Flex>
         </Stack>
       </Modal>
 
-      {/* View Case Modal */}
+      {/* Alert Modal */}
+      <Modal
+        opened={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        title={`Send Alert for ${caseToAlert?.displayName}`}
+        radius="lg"
+        centered
+        size="md"
+        styles={{
+          header: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+          body: { backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
+        }}
+      >
+        <Stack>
+          <Textarea
+            label="Alert Message"
+            placeholder="Enter details about the alert..."
+            value={alertMessage}
+            onChange={(e) => setAlertMessage(e.target.value)}
+            minRows={4}
+            autosize
+            required
+          />
+          <Flex gap="sm" justify="flex-end" mt="md">
+            <Button variant="light" onClick={() => setAlertModalOpen(false)} disabled={sendingAlert}>
+              Cancel
+            </Button>
+            <Button
+              color="orange"
+              onClick={handleSendAlert}
+              loading={sendingAlert}
+              disabled={!alertMessage.trim()}
+            >
+              {sendingAlert ? 'Sending...' : 'Send Alert'}
+            </Button>
+          </Flex>
+        </Stack>
+      </Modal>
+
+      {/* View Case Modal - Full Content */}
       <Modal
         opened={viewModalOpen}
         onClose={() => {
@@ -1934,7 +2005,7 @@ export default function ReportedCasesPage() {
         )}
       </Modal>
 
-      {/* Edit Case Modal */}
+      {/* Edit Case Modal - Full Content */}
       <Modal
         opened={editModalOpen}
         onClose={() => {
@@ -2543,7 +2614,7 @@ export default function ReportedCasesPage() {
                 leftSection={<IconDeviceFloppy size={16} />}
                 onClick={handleSaveEdit}
                 loading={saving}
-                radius="md"
+                disabled={!isEditFormValid() || saving}
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </Button>
