@@ -1,6 +1,5 @@
 "use client";
 import { notifications } from "@mantine/notifications";
-import { useMediaQuery } from "@mantine/hooks";
 
 import {
   Box,
@@ -52,11 +51,6 @@ import {
   IconBike,
   IconTruck,
   IconBattery,
-  IconSun,
-  IconMoon,
-  IconLogin,
-  IconUserPlus,
-  IconFileReport,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import MainFooter from "../../components/MainFooter.jsx";
@@ -65,16 +59,13 @@ import Image from "next/image";
 import { useRef, useState, useEffect } from "react";
 
 // API Endpoints
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
 const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
 
 // Helper to get dynamic background/color values
-const getBg = (colorScheme, light, dark) =>
-  colorScheme === "dark" ? dark : light;
-const getBorderColor = (colorScheme, light, dark) =>
-  colorScheme === "dark" ? dark : light;
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getBorderColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 export default function AlertPage() {
   const router = useRouter();
@@ -86,35 +77,8 @@ export default function AlertPage() {
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, resolved: 0, active: 0 });
-  const [user, setUser] = useState(null);
   const theme = useMantineTheme();
-  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const isMobile = useMediaQuery("(max-width: 768px)");
-
-  // Check for logged in user
-  useEffect(() => {
-    const checkAuth = () => {
-      const userData = localStorage.getItem("currentUser");
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-      }
-    };
-    checkAuth();
-  }, []);
-
-  // Get user initials
-  const getUserInitials = (firstName, lastName) => {
-    return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("currentUser");
-    setUser(null);
-    router.push("/");
-  };
+  const { colorScheme } = useMantineColorScheme();
 
   // State for logged-in username
   const [username, setUsername] = useState("User");
@@ -138,175 +102,161 @@ export default function AlertPage() {
     const fetchAlerts = async () => {
       try {
         setLoading(true);
-
+        
         // Fetch vehicles from database
         const vehiclesResponse = await fetch(MISSING_VEHICLES_API);
         const vehiclesData = await vehiclesResponse.json();
-
-        // Fetch persons from database
+        
+        // Fetch persons from database (if you want to show person alerts too)
         const personsResponse = await fetch(MISSING_PERSONS_API);
         const personsData = await personsResponse.json();
-
-        // Transform vehicle data
-        const transformedVehicles = vehiclesData.map((vehicle) => ({
+        
+        // Transform vehicle data to match your alert format
+        const transformedVehicles = vehiclesData.map(vehicle => ({
           id: vehicle.id,
           code: vehicle.caseId || `CASE-${vehicle.id}`,
-          brand:
-            `${vehicle.brand || ""} ${vehicle.model || ""} ${vehicle.submodel || ""}`.trim(),
+          brand: `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.submodel || ''}`.trim(),
           type: determineVehicleType(vehicle),
-          status: vehicle.status?.toLowerCase() || "active",
-          location: vehicle.lastSeenLocation || vehicle.location || "Unknown",
-          time: vehicle.lastSeenDate
-            ? new Date(vehicle.lastSeenDate).toLocaleDateString()
-            : vehicle.reportDate
-              ? new Date(vehicle.reportDate).toLocaleDateString()
-              : "Unknown",
-          imageUrl: "/default-car.jpg",
-          details:
-            vehicle.vehicleDescription ||
-            `${vehicle.color || ""} ${vehicle.brand || ""}`.trim(),
-          fullDescription:
-            vehicle.vehicleDescription || "No description provided",
-          lastSeen: vehicle.lastSeenLocation || "Unknown",
-          mapLocation: vehicle.lastSeenLocation || "Unknown",
+          status: vehicle.status?.toLowerCase() || 'active',
+          location: vehicle.lastSeenLocation || vehicle.location || 'Unknown',
+          time: vehicle.lastSeenDate ? new Date(vehicle.lastSeenDate).toLocaleDateString() : 
+                 vehicle.reportDate ? new Date(vehicle.reportDate).toLocaleDateString() : 'Unknown',
+          imageUrl: '/default-car.jpg', // You'll need to handle images
+          details: vehicle.vehicleDescription || `${vehicle.color || ''} ${vehicle.brand || ''}`.trim(),
+          fullDescription: vehicle.vehicleDescription || 'No description provided',
+          lastSeen: vehicle.lastSeenLocation || 'Unknown',
+          mapLocation: vehicle.lastSeenLocation || 'Unknown',
           reportDate: vehicle.reportDate,
           duration: calculateDuration(vehicle.reportDate),
+          
+          // Detection history (if you track this)
           detectionHistory: vehicle.detections || [],
-          contactInfo: vehicle.reportedBy
-            ? {
-                name:
-                  `${vehicle.reportedBy.firstName || ""} ${vehicle.reportedBy.lastName || ""}`.trim() ||
-                  "Unknown",
-                phone: vehicle.reportedBy.phone || "Not provided",
-                email: vehicle.reportedBy.email || "Not provided",
-                role: vehicle.reportedBy.role || "Reporter",
-              }
-            : {
-                name: "Unknown",
-                phone: "Not provided",
-                email: "Not provided",
-              },
+          
+          // Contact info from reporter
+          contactInfo: vehicle.reportedBy ? {
+            name: `${vehicle.reportedBy.firstName || ''} ${vehicle.reportedBy.lastName || ''}`.trim() || 'Unknown',
+            phone: vehicle.reportedBy.phone || 'Not provided',
+            email: vehicle.reportedBy.email || 'Not provided',
+            role: vehicle.reportedBy.role || 'Reporter'
+          } : {
+            name: 'Unknown',
+            phone: 'Not provided',
+            email: 'Not provided'
+          },
+          
+          // Technical specs
           technicalSpecs: {
-            color: vehicle.color || "Unknown",
-            plateNumber: vehicle.plateNumber || "Unknown",
-            plateType: vehicle.plateType || "Unknown",
-            region: vehicle.region || "Unknown",
-            ...vehicle.technicalSpecs,
+            color: vehicle.color || 'Unknown',
+            plateNumber: vehicle.plateNumber || 'Unknown',
+            plateType: vehicle.plateType || 'Unknown',
+            region: vehicle.region || 'Unknown',
+            ...vehicle.technicalSpecs
           },
+          
+          // Features if any
           features: vehicle.features || [],
+          
+          // Additional images
           additionalImages: vehicle.images || [],
-          cctvInfo: vehicle.cctvInfo || { confidence: "N/A" },
+          
+          // CCTV info if any
+          cctvInfo: vehicle.cctvInfo || { confidence: 'N/A' },
+          
           stats: {
-            totalDetections: vehicle.detections?.length || 0,
-          },
+            totalDetections: vehicle.detections?.length || 0
+          }
         }));
-
-        // Transform person data
-        const transformedPersons = personsData.map((person) => ({
+        
+        // Transform person data (if you want to show person alerts)
+        const transformedPersons = personsData.map(person => ({
           id: person.id,
           code: person.caseId || `CASE-${person.id}`,
-          brand:
-            `${person.firstName || ""} ${person.middleName || ""} ${person.lastName || ""}`.trim(),
-          type: "person",
-          status: person.status?.toLowerCase() || "active",
-          location: person.lastSeenLocation || person.location || "Unknown",
-          time: person.lastSeenDate
-            ? new Date(person.lastSeenDate).toLocaleDateString()
-            : person.reportDate
-              ? new Date(person.reportDate).toLocaleDateString()
-              : "Unknown",
-          imageUrl: "/default-person.jpg",
-          details: `Age: ${person.age || "Unknown"}, Gender: ${person.gender || "Unknown"}`,
-          fullDescription: person.description || "No description provided",
-          lastSeen: person.lastSeenLocation || "Unknown",
-          mapLocation: person.lastSeenLocation || "Unknown",
+          brand: `${person.firstName || ''} ${person.middleName || ''} ${person.lastName || ''}`.trim(),
+          type: 'person',
+          status: person.status?.toLowerCase() || 'active',
+          location: person.lastSeenLocation || person.location || 'Unknown',
+          time: person.lastSeenDate ? new Date(person.lastSeenDate).toLocaleDateString() : 
+                 person.reportDate ? new Date(person.reportDate).toLocaleDateString() : 'Unknown',
+          imageUrl: '/default-person.jpg', // You'll need to handle images
+          details: `Age: ${person.age || 'Unknown'}, Gender: ${person.gender || 'Unknown'}`,
+          fullDescription: person.description || 'No description provided',
+          lastSeen: person.lastSeenLocation || 'Unknown',
+          mapLocation: person.lastSeenLocation || 'Unknown',
           reportDate: person.reportDate,
           duration: calculateDuration(person.reportDate),
-          contactInfo: person.reportedBy
-            ? {
-                name:
-                  `${person.reportedBy.firstName || ""} ${person.reportedBy.lastName || ""}`.trim() ||
-                  "Unknown",
-                phone: person.reportedBy.phone || "Not provided",
-                email: person.reportedBy.email || "Not provided",
-                role: person.reportedBy.role || "Reporter",
-              }
-            : {
-                name: "Unknown",
-                phone: "Not provided",
-                email: "Not provided",
-              },
-          technicalSpecs: {
-            age: person.age || "Unknown",
-            gender: person.gender || "Unknown",
-            height: person.height ? `${person.height} cm` : "Unknown",
-            weight: person.weight ? `${person.weight} kg` : "Unknown",
+          
+          contactInfo: person.reportedBy ? {
+            name: `${person.reportedBy.firstName || ''} ${person.reportedBy.lastName || ''}`.trim() || 'Unknown',
+            phone: person.reportedBy.phone || 'Not provided',
+            email: person.reportedBy.email || 'Not provided',
+            role: person.reportedBy.role || 'Reporter'
+          } : {
+            name: 'Unknown',
+            phone: 'Not provided',
+            email: 'Not provided'
           },
+          
+          technicalSpecs: {
+            age: person.age || 'Unknown',
+            gender: person.gender || 'Unknown',
+            height: person.height ? `${person.height} cm` : 'Unknown',
+            weight: person.weight ? `${person.weight} kg` : 'Unknown'
+          },
+          
           features: person.features || [],
           additionalImages: person.images || [],
+          
           stats: {
-            totalDetections: person.detections?.length || 0,
-          },
+            totalDetections: person.detections?.length || 0
+          }
         }));
-
+        
         const allAlerts = [...transformedVehicles, ...transformedPersons];
-
+        
         setVehicles(transformedVehicles);
         setPersons(transformedPersons);
         setFilteredAlerts(allAlerts);
-
-        const activeCount = allAlerts.filter(
-          (v) => v.status === "active",
-        ).length;
-        const resolvedCount = allAlerts.filter(
-          (v) => v.status === "resolved" || v.status === "inactive",
-        ).length;
-
+        
+        // Calculate stats
+        const activeCount = allAlerts.filter(v => v.status === 'active').length;
+        const resolvedCount = allAlerts.filter(v => v.status === 'resolved' || v.status === 'inactive').length;
+        
         setStats({
           total: allAlerts.length,
           active: activeCount,
-          resolved: resolvedCount,
+          resolved: resolvedCount
         });
+        
       } catch (error) {
-        console.error("Error fetching alerts:", error);
+        console.error('Error fetching alerts:', error);
         notifications.show({
-          title: "Error",
-          message: "Failed to load alerts from database",
-          color: "red",
-          icon: <IconAlertCircle size={16} />,
+          title: 'Error',
+          message: 'Failed to load alerts from database',
+          color: 'red',
+          icon: <IconAlertCircle size={16} />
         });
       } finally {
         setLoading(false);
       }
     };
-
+    
     fetchAlerts();
   }, []);
 
   // Helper function to determine vehicle type
   const determineVehicleType = (vehicle) => {
     if (vehicle.type) return vehicle.type;
-    if (
-      vehicle.brand?.toLowerCase().includes("motor") ||
-      vehicle.model?.toLowerCase().includes("motor")
-    )
-      return "motorcycle";
-    if (
-      vehicle.brand?.toLowerCase().includes("truck") ||
-      vehicle.model?.toLowerCase().includes("truck")
-    )
-      return "truck";
-    if (vehicle.technicalSpecs?.electric) return "electric";
-    return "car";
+    if (vehicle.brand?.toLowerCase().includes('motor') || vehicle.model?.toLowerCase().includes('motor')) return 'motorcycle';
+    if (vehicle.brand?.toLowerCase().includes('truck') || vehicle.model?.toLowerCase().includes('truck')) return 'truck';
+    if (vehicle.technicalSpecs?.electric) return 'electric';
+    return 'car';
   };
 
   // Helper function to calculate duration
   const calculateDuration = (reportDate) => {
-    if (!reportDate) return "Unknown";
-    const days = Math.floor(
-      (new Date() - new Date(reportDate)) / (1000 * 60 * 60 * 24),
-    );
-    return `${days} day${days !== 1 ? "s" : ""}`;
+    if (!reportDate) return 'Unknown';
+    const days = Math.floor((new Date() - new Date(reportDate)) / (1000 * 60 * 60 * 24));
+    return `${days} day${days !== 1 ? 's' : ''}`;
   };
 
   // Search functionality
@@ -317,14 +267,13 @@ export default function AlertPage() {
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = [...vehicles, ...persons].filter(
-      (alert) =>
-        alert.brand.toLowerCase().includes(query) ||
-        alert.code.toLowerCase().includes(query) ||
-        alert.location.toLowerCase().includes(query) ||
-        alert.details.toLowerCase().includes(query) ||
-        alert.status.toLowerCase().includes(query) ||
-        (alert.technicalSpecs?.plateNumber || "").toLowerCase().includes(query),
+    const filtered = [...vehicles, ...persons].filter(alert =>
+      alert.brand.toLowerCase().includes(query) ||
+      alert.code.toLowerCase().includes(query) ||
+      alert.location.toLowerCase().includes(query) ||
+      alert.details.toLowerCase().includes(query) ||
+      alert.status.toLowerCase().includes(query) ||
+      (alert.technicalSpecs?.plateNumber || '').toLowerCase().includes(query)
     );
     setFilteredAlerts(filtered);
   }, [searchQuery, vehicles, persons]);
@@ -379,19 +328,22 @@ export default function AlertPage() {
 
     if (confirmed) {
       try {
-        const isVehicle = alertToDelete.type !== "person";
+        // Determine which API to use
+        const isVehicle = alertToDelete.type !== 'person';
         const apiUrl = isVehicle ? MISSING_VEHICLES_API : MISSING_PERSONS_API;
-
+        
+        // Delete from JSON Server
         await fetch(`${apiUrl}/${alertId}`, {
-          method: "DELETE",
+          method: 'DELETE',
         });
-
+        
+        // Update local state
         if (isVehicle) {
           setVehicles((prev) => prev.filter((alert) => alert.id !== alertId));
         } else {
           setPersons((prev) => prev.filter((alert) => alert.id !== alertId));
         }
-
+        
         setFilteredAlerts((prevAlerts) =>
           prevAlerts.filter((alert) => alert.id !== alertId),
         );
@@ -400,18 +352,15 @@ export default function AlertPage() {
           setSelectedAlert(null);
         }
 
+        // Update stats
         const newTotal = stats.total - 1;
-        const newActive =
-          alertToDelete.status === "active" ? stats.active - 1 : stats.active;
-        const newResolved =
-          alertToDelete.status === "resolved"
-            ? stats.resolved - 1
-            : stats.resolved;
-
+        const newActive = alertToDelete.status === 'active' ? stats.active - 1 : stats.active;
+        const newResolved = alertToDelete.status === 'resolved' ? stats.resolved - 1 : stats.resolved;
+        
         setStats({
           total: newTotal,
           active: newActive,
-          resolved: newResolved,
+          resolved: newResolved
         });
 
         notifications.show({
@@ -421,7 +370,7 @@ export default function AlertPage() {
           icon: <IconTrash size={16} />,
         });
       } catch (error) {
-        console.error("Error deleting alert:", error);
+        console.error('Error deleting alert:', error);
         notifications.show({
           title: "Error",
           message: "Failed to delete alert from database",
@@ -435,101 +384,68 @@ export default function AlertPage() {
   // Get icon based on vehicle type
   const getVehicleIcon = (type) => {
     switch (type) {
-      case "motorcycle":
-        return <IconBike size={16} color="blue" />;
-      case "truck":
-        return <IconTruck size={16} color="blue" />;
-      case "electric":
-        return <IconBattery size={16} color="blue" />;
-      case "person":
-        return <IconUser size={16} color="blue" />;
-      default:
-        return <IconCar size={16} color="blue" />;
+      case 'motorcycle': return <IconBike size={16} color="blue" />;
+      case 'truck': return <IconTruck size={16} color="blue" />;
+      case 'electric': return <IconBattery size={16} color="blue" />;
+      case 'person': return <IconUser size={16} color="blue" />;
+      default: return <IconCar size={16} color="blue" />;
     }
   };
 
   // Dynamic colors
-  const mainBg = getBg(colorScheme, "white", theme.colors.dark[7]);
-  const headerBg = getBg(colorScheme, "white", theme.colors.dark[6]);
-  const borderColor = getBorderColor(
-    colorScheme,
-    "#E9ECEF",
-    theme.colors.dark[5],
-  );
-  const paperBg = getBg(colorScheme, "white", theme.colors.dark[6]);
-  const blueLightBg = getBg(colorScheme, "blue.0", theme.colors.blue[9]);
-  const grayLightBg = getBg(colorScheme, "gray.0", theme.colors.dark[5]);
-  const overlayBg =
-    colorScheme === "dark" ? "rgba(0, 0, 0, 0.85)" : "rgba(0, 0, 0, 0.75)";
-  const cardBorder = colorScheme === "dark" ? theme.colors.dark[4] : "#e0e0e0";
+  const mainBg = getBg(colorScheme, 'white', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const borderColor = getBorderColor(colorScheme, '#E9ECEF', theme.colors.dark[5]);
+  const paperBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const blueLightBg = getBg(colorScheme, 'blue.0', theme.colors.blue[9]);
+  const grayLightBg = getBg(colorScheme, 'gray.0', theme.colors.dark[5]);
+  const overlayBg = colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.85)' : 'rgba(0, 0, 0, 0.75)';
+  const cardBorder = colorScheme === 'dark' ? theme.colors.dark[4] : '#e0e0e0';
 
   return (
     <Box bg={mainBg} style={{ minHeight: "100vh", position: "relative" }}>
       {/* Header */}
       <Box
-        bg={getBg(colorScheme, "white", theme.colors.dark[7])} // ← Added colorScheme
-        py={{ base: "xs", md: "sm" }}
+        bg={headerBg}
+        py="sm"
         style={{
-          borderBottom: `1px solid ${getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])}`, // ← Added colorScheme
+          borderBottom: `1px solid ${borderColor}`,
           position: "sticky",
           top: 0,
           zIndex: 100,
-          backdropFilter: "blur(10px)",
-          background: getBg(
-            colorScheme,
-            "rgba(255,255,255,0.95)",
-            `rgba(${theme.colors.dark[7]},0.95)`,
-          ), // ← Added colorScheme
         }}
       >
         <Container size="xl">
-          <Group justify="space-between" wrap="nowrap">
-            {/* Logo */}
-            <Link href="/" style={{ flexShrink: 0 }}>
-              <Image
-                src="/logo.jpg"
-                alt="Logo"
-                width={120}
-                height={40}
-                style={{
-                  width: "auto",
-                  height: "40px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                }}
-              />
-            </Link>
+          <Group justify="space-between">
+            <Image
+              src="/logo.jpg"
+              alt="Logo"
+              width={0}
+              height={50}
+              sizes="100vw"
+              style={{ width: "auto", height: "50px", borderRadius: "8px" }}
+            />
 
-            {/* Search Bar */}
             <TextInput
               placeholder="Search alerts by brand, code, location..."
               leftSection={<IconSearch size={16} />}
-              style={{
-                flex: 1,
-                maxWidth: isMobile ? "200px" : "400px",
-                minWidth: isMobile ? "150px" : "300px",
-              }}
+              style={{ width: "40%" }}
               radius="xl"
-              size={isMobile ? "sm" : "md"}
-              variant="filled"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
 
-            <Group gap={isMobile ? "xs" : "md"} wrap="nowrap">
-              {/* Home Icon */}
+            <Group gap="lg">
               <ActionIcon
-                variant="subtle"
+                variant="transparent"
                 color="gray"
-                size={isMobile ? "md" : "lg"}
+                size="lg"
                 component={Link}
                 href="/"
-                title="Go to Home"
               >
-                <IconHome size={isMobile ? 20 : 24} />
+                <IconHome size={28} />
               </ActionIcon>
 
-<<<<<<< HEAD
               <Menu
                 shadow="md"
                 width={320}
@@ -573,209 +489,33 @@ export default function AlertPage() {
                     <Menu.Item
                       leftSection={<IconBell size={20} />}
                       onClick={() => router.push("/alert")}
-=======
-              
-
-              {/* User Menu */}
-              {user ? (
-                <Menu
-                  shadow="md"
-                  width={320}
-                  radius="md"
-                  transitionProps={{ transition: "pop-top-right" }}
-                >
-                  <Menu.Target>
-                    <UnstyledButton>
-                      <Group gap="sm" wrap="nowrap">
-                        {!isMobile && (
-                          <Box ta="right">
-                            <Text
-                              fw={800}
-                              size="sm"
-                              truncate
-                              style={{
-                                color: getBg(
-                                  colorScheme,
-                                  theme.black,
-                                  theme.white,
-                                ),
-                              }}
-                            >
-                              {user.firstName} {user.lastName}
-                            </Text>
-                            <Text
-                              size="xs"
-                              c="dimmed"
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                              }}
-                            >
-                              <IconMail size={10} />
-                              {user.email}
-                            </Text>
-                          </Box>
-                        )}
-                        <Avatar
-                          src={null}
-                          alt={`${user.firstName} ${user.lastName}`}
-                          color="blue"
-                          size={isMobile ? "sm" : "md"}
-                          radius="xl"
-                          style={{
-                            border: "2px solid #2f80ed",
-                          }}
-                        >
-                          {getUserInitials(user.firstName, user.lastName)}
-                        </Avatar>
-                      </Group>
-                    </UnstyledButton>
-                  </Menu.Target>
-                  <Menu.Dropdown
-                    bg={getBg(colorScheme, "white", theme.colors.dark[7])} // ← Added colorScheme
-                    style={{
-                      borderColor: getBg(
-                        colorScheme,
-                        theme.colors.gray[2],
-                        theme.colors.dark[5],
-                      ),
-                    }} // ← Added colorScheme
-                  >
-                    <Box
-                      mb="md"
-                      pb="md"
-                      style={{
-                        borderBottom: `1px solid ${getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])}`,
-                      }} // ← Added colorScheme
->>>>>>> 4fc3842765368887fa1c0985aa5980c9bd2f8e97
                     >
-                      <Group mb="xs">
-                        <Avatar
-                          src={null}
-                          alt={`${user.firstName} ${user.lastName}`}
-                          color="blue"
-                          size="lg"
-                          radius="xl"
-                          style={{ border: "3px solid #2f80ed" }}
-                        >
-                          {getUserInitials(user.firstName, user.lastName)}
-                        </Avatar>
-                        <Box style={{ flex: 1, minWidth: 0 }}>
-                          <Text
-                            size="md"
-                            fw={700}
-                            truncate
-                            style={{
-                              color: getBg(
-                                colorScheme,
-                                theme.black,
-                                theme.white,
-                              ),
-                            }}
-                          >
-                            {user.firstName} {user.lastName}
-                          </Text>
-                          <Text size="sm" c="dimmed" truncate>
-                            {user.email}
-                          </Text>
-                          <Badge
-                            size="xs"
-                            color={user.role === "admin" ? "red" : "blue"}
-                            variant="light"
-                            mt={4}
-                          >
-                            {user.role}
-                          </Badge>
-                        </Box>
-                      </Group>
-                      <Button
-                        fullWidth
-                        variant="light"
-                        component={Link}
-                        href="/profile"
-                        leftSection={<IconUser size={16} />}
-                        size="sm"
-                      >
-                        View Profile
-                      </Button>
-                    </Box>
-
-                    <Stack gap={4}>
-                      <Menu.Item
-                        leftSection={<IconUser size={18} />}
-                        component={Link}
-                        href="/profile"
-                      >
-                        My Profile
-                      </Menu.Item>
-                      <Menu.Item
-                        leftSection={<IconFileReport size={18} />}
-                        component={Link}
-                        href="/reported-cases"
-                      >
-                        Reported Cases
-                      </Menu.Item>
-                      <Menu.Item
-                        leftSection={<IconBell size={18} />}
-                        onClick={() => router.push("/alert")}
-                      >
-                        My Notifications
-                      </Menu.Item>
-                      <Menu.Item
-                        leftSection={<IconHistory size={18} />}
-                        component={Link}
-                        href="/history"
-                      >
-                        Search History
-                      </Menu.Item>
-                      <Menu.Item
-                        leftSection={<IconSettings size={18} />}
-                        component={Link}
-                        href="/settings"
-                      >
-                        Account Settings
-                      </Menu.Item>
-                    </Stack>
-                    <Menu.Divider />
-                    <Menu.Item
-                      color="red"
-                      leftSection={<IconLogout size={18} />}
-                      onClick={handleLogout}
-                    >
-                      Logout
+                      Notification
                     </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              ) : (
-                <Group gap={isMobile ? "xs" : "sm"} wrap="nowrap">
-                  <Button
-                    variant="outline"
-                    color="blue"
-                    leftSection={<IconLogin size={16} />}
+                    <Menu.Item leftSection={<IconShieldCheck size={20} />}>
+                      Privacy and Policy
+                    </Menu.Item>
+                    <Menu.Item leftSection={<IconBell size={20} />}>
+                      Alerts
+                    </Menu.Item>
+                    <Menu.Item leftSection={<IconHistory size={20} />}>
+                      History
+                    </Menu.Item>
+                    <Menu.Item leftSection={<IconSettings size={20} />}>
+                      Settings
+                    </Menu.Item>
+                  </Stack>
+                  <Menu.Divider />
+                  <Menu.Item
+                    color="red"
+                    leftSection={<IconLogout size={20} />}
                     component={Link}
                     href="/login"
-                    radius="xl"
-                    size={isMobile ? "xs" : "sm"}
                   >
-                    {isMobile ? "Login" : "Sign In"}
-                  </Button>
-                  <Button
-                    color="blue"
-                    leftSection={<IconUserPlus size={16} />}
-                    component={Link}
-                    href="/signup"
-                    radius="xl"
-                    size={isMobile ? "xs" : "sm"}
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
-                    }}
-                  >
-                    {isMobile ? "Join" : "Sign Up"}
-                  </Button>
-                </Group>
-              )}
+                    Logout
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
             </Group>
           </Group>
         </Container>
@@ -789,23 +529,14 @@ export default function AlertPage() {
             <div>
               <Text fw={600}>Alert Notifications</Text>
               <Text size="sm" c="dimmed">
-                {loading
-                  ? "Loading..."
-                  : `You have ${filteredAlerts.filter((a) => a.status === "active").length} active alerts ${searchQuery && `matching "${searchQuery}"`}`}
+                {loading ? 'Loading...' : `You have ${filteredAlerts.filter((a) => a.status === "active").length} active alerts ${searchQuery && `matching "${searchQuery}"`}`}
               </Text>
             </div>
           </Group>
         </Paper>
 
         {loading ? (
-          <Box
-            style={{
-              minHeight: "60vh",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
+          <Box style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Stack align="center" gap="md">
               <Loader size="xl" color="blue" />
               <Text>Loading alerts from database...</Text>
@@ -895,13 +626,7 @@ export default function AlertPage() {
                               backdropFilter: "blur(4px)",
                               border: "1px solid rgba(255, 255, 255, 0.2)",
                             }}
-<<<<<<< HEAD
                             onClick={() => router.push(`/alert-detail/${alert.id}`)}
-=======
-                            onClick={() =>
-                              router.push(`/alert-detail/${alert.code}`)
-                            }
->>>>>>> 4fc3842765368887fa1c0985aa5980c9bd2f8e97
                           >
                             <IconBell size={18} />
                           </ActionIcon>
@@ -1009,19 +734,9 @@ export default function AlertPage() {
                           </Group>
 
                           <Group gap="xs">
-                            <IconAlertCircle
-                              size={16}
-                              color={
-                                alert.status === "active" ? "red" : "green"
-                              }
-                            />
-                            <Text
-                              size="sm"
-                              c={alert.status === "active" ? "red" : "green"}
-                            >
-                              {alert.status === "active"
-                                ? `${alert.stats?.totalDetections || 0} detections`
-                                : "Case resolved"}
+                            <IconAlertCircle size={16} color={alert.status === "active" ? "red" : "green"} />
+                            <Text size="sm" c={alert.status === "active" ? "red" : "green"}>
+                              {alert.status === "active" ? `${alert.stats?.totalDetections || 0} detections` : "Case resolved"}
                             </Text>
                           </Group>
                         </Stack>
@@ -1095,7 +810,7 @@ export default function AlertPage() {
         )}
       </Container>
 
-      {/* POPUP DETAIL CARD */}
+      {/* POPUP DETAIL CARD - FIXED SCROLLING */}
       {selectedAlert && (
         <>
           {/* Overlay */}
@@ -1220,51 +935,44 @@ export default function AlertPage() {
                 </Box>
 
                 {/* Features Grid */}
-                {selectedAlert.features &&
-                  selectedAlert.features.length > 0 && (
-                    <Box mb="xl">
-                      <Text fw={700} size="xl" mb="lg">
-                        Features
-                      </Text>
-                      <SimpleGrid cols={3} spacing="lg">
-                        {selectedAlert.features.map((feature, index) => (
-                          <Group key={index} gap="sm">
-                            <IconCheck size={20} color="green" />
-                            <Text fw={500}>{feature}</Text>
-                          </Group>
-                        ))}
-                      </SimpleGrid>
-                    </Box>
-                  )}
+                {selectedAlert.features && selectedAlert.features.length > 0 && (
+                  <Box mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      Features
+                    </Text>
+                    <SimpleGrid cols={3} spacing="lg">
+                      {selectedAlert.features.map((feature, index) => (
+                        <Group key={index} gap="sm">
+                          <IconCheck size={20} color="green" />
+                          <Text fw={500}>{feature}</Text>
+                        </Group>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
+                )}
 
                 {/* Technical Specifications */}
-                {selectedAlert.technicalSpecs &&
-                  Object.keys(selectedAlert.technicalSpecs).length > 0 && (
-                    <Box mb="xl">
-                      <Text fw={700} size="xl" mb="lg">
-                        {selectedAlert.type === "person"
-                          ? "Personal Details"
-                          : "Technical Specifications"}
-                      </Text>
-                      <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
-                        <SimpleGrid cols={2} spacing="lg">
-                          {Object.entries(selectedAlert.technicalSpecs).map(
-                            ([key, value]) =>
-                              value &&
-                              value !== "Unknown" &&
-                              value !== "Not provided" && (
-                                <Box key={key}>
-                                  <Text fw={600} mb="xs" tt="capitalize">
-                                    {key.replace(/([A-Z])/g, " $1")}
-                                  </Text>
-                                  <Text>{value}</Text>
-                                </Box>
-                              ),
-                          )}
-                        </SimpleGrid>
-                      </Paper>
-                    </Box>
-                  )}
+                {selectedAlert.technicalSpecs && Object.keys(selectedAlert.technicalSpecs).length > 0 && (
+                  <Box mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      {selectedAlert.type === 'person' ? 'Personal Details' : 'Technical Specifications'}
+                    </Text>
+                    <Paper p="xl" withBorder radius="md" bg={grayLightBg}>
+                      <SimpleGrid cols={2} spacing="lg">
+                        {Object.entries(selectedAlert.technicalSpecs).map(([key, value]) => (
+                          value && value !== 'Unknown' && value !== 'Not provided' && (
+                            <Box key={key}>
+                              <Text fw={600} mb="xs" tt="capitalize">
+                                {key.replace(/([A-Z])/g, ' $1')}
+                              </Text>
+                              <Text>{value}</Text>
+                            </Box>
+                          )
+                        ))}
+                      </SimpleGrid>
+                    </Paper>
+                  </Box>
+                )}
 
                 {/* Location & Time */}
                 <SimpleGrid cols={2} mb="xl">
@@ -1287,24 +995,12 @@ export default function AlertPage() {
                         Report Timeline
                       </Text>
                     </Group>
-                    <Text size="md">
-                      Reported:{" "}
-                      {selectedAlert.reportDate
-                        ? new Date(
-                            selectedAlert.reportDate,
-                          ).toLocaleDateString()
-                        : "Unknown"}
-                    </Text>
+                    <Text size="md">Reported: {selectedAlert.reportDate ? new Date(selectedAlert.reportDate).toLocaleDateString() : 'Unknown'}</Text>
                     <Text size="md" mt="sm">
                       Duration: {selectedAlert.duration}
                     </Text>
                     <Text size="sm" c="dimmed" mt="sm">
-                      Last Updated:{" "}
-                      {selectedAlert.reportDate
-                        ? new Date(
-                            selectedAlert.reportDate,
-                          ).toLocaleDateString()
-                        : "Today"}
+                      Last Updated: {selectedAlert.reportDate ? new Date(selectedAlert.reportDate).toLocaleDateString() : 'Today'}
                     </Text>
                   </Paper>
                 </SimpleGrid>
@@ -1351,39 +1047,36 @@ export default function AlertPage() {
                 )}
 
                 {/* Additional Images */}
-                {selectedAlert.additionalImages &&
-                  selectedAlert.additionalImages.length > 0 && (
-                    <Box mb="xl">
-                      <Text fw={700} size="xl" mb="lg">
-                        Additional Evidence
-                      </Text>
-                      <Group gap="lg">
-                        {selectedAlert.additionalImages
-                          .slice(0, 4)
-                          .map((img, i) => (
-                            <Box
-                              key={i}
-                              style={{
-                                width: 150,
-                                height: 150,
-                                position: "relative",
-                                borderRadius: "12px",
-                                overflow: "hidden",
-                                cursor: "pointer",
-                                border: `3px solid ${borderColor}`,
-                              }}
-                            >
-                              <Image
-                                src={img}
-                                alt={`Evidence ${i + 1}`}
-                                fill
-                                style={{ objectFit: "cover" }}
-                              />
-                            </Box>
-                          ))}
-                      </Group>
-                    </Box>
-                  )}
+                {selectedAlert.additionalImages && selectedAlert.additionalImages.length > 0 && (
+                  <Box mb="xl">
+                    <Text fw={700} size="xl" mb="lg">
+                      Additional Evidence
+                    </Text>
+                    <Group gap="lg">
+                      {selectedAlert.additionalImages.slice(0, 4).map((img, i) => (
+                        <Box
+                          key={i}
+                          style={{
+                            width: 150,
+                            height: 150,
+                            position: "relative",
+                            borderRadius: "12px",
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            border: `3px solid ${borderColor}`,
+                          }}
+                        >
+                          <Image
+                            src={img}
+                            alt={`Evidence ${i + 1}`}
+                            fill
+                            style={{ objectFit: "cover" }}
+                          />
+                        </Box>
+                      ))}
+                    </Group>
+                  </Box>
+                )}
 
                 {/* Detection Statistics */}
                 {selectedAlert.stats && (
@@ -1396,25 +1089,19 @@ export default function AlertPage() {
                         <Text size="sm" c="dimmed" mb="xs">
                           Total Detections
                         </Text>
-                        <Title order={2}>
-                          {selectedAlert.stats.totalDetections || 0}
-                        </Title>
+                        <Title order={2}>{selectedAlert.stats.totalDetections || 0}</Title>
                       </Box>
                       <Box ta="center">
                         <Text size="sm" c="dimmed" mb="xs">
                           Active Duration
                         </Text>
-                        <Title order={2}>
-                          {selectedAlert.duration || "N/A"}
-                        </Title>
+                        <Title order={2}>{selectedAlert.duration || "N/A"}</Title>
                       </Box>
                       <Box ta="center">
                         <Text size="sm" c="dimmed" mb="xs">
                           CCTV Confidence
                         </Text>
-                        <Title order={2}>
-                          {selectedAlert.cctvInfo?.confidence || "N/A"}
-                        </Title>
+                        <Title order={2}>{selectedAlert.cctvInfo?.confidence || "N/A"}</Title>
                       </Box>
                     </SimpleGrid>
                   </Paper>
