@@ -116,6 +116,23 @@ export default function AlertPage() {
     router.push("/");
   };
 
+  // State for logged-in username
+  const [username, setUsername] = useState("User");
+
+  // Fetch user data from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        // Adjust the property names based on your stored user object
+        setUsername(user.name || user.username || user.firstName || "User");
+      }
+    } catch (error) {
+      console.error('Failed to parse user data from localStorage', error);
+    }
+  }, []);
+
   // Fetch real data from JSON Server
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -512,6 +529,51 @@ export default function AlertPage() {
                 <IconHome size={isMobile ? 20 : 24} />
               </ActionIcon>
 
+<<<<<<< HEAD
+              <Menu
+                shadow="md"
+                width={320}
+                radius="md"
+                transitionProps={{ transition: "pop-top-right" }}
+              >
+                <Menu.Target>
+                  <UnstyledButton>
+                    <Group gap="sm">
+                      <Box ta="right" visibleFrom="xs">
+                        <Text fw={800} size="md">
+                          {username}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Personal account
+                        </Text>
+                      </Box>
+                      <Avatar
+                        src={null}
+                        alt="User"
+                        color="blue"
+                        size="md"
+                        radius="xl"
+                      />
+                    </Group>
+                  </UnstyledButton>
+                </Menu.Target>
+                <Menu.Dropdown p="md">
+                  <Group justify="space-between" mb="xs">
+                    <Text size="sm" fw={700}>
+                      Personal account
+                    </Text>
+                    <ActionIcon variant="subtle" size="sm" color="gray">
+                      <IconLogout size={14} />
+                    </ActionIcon>
+                  </Group>
+                  <Stack gap={4}>
+                    <Menu.Item leftSection={<IconUser size={20} />}>
+                      Person
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconBell size={20} />}
+                      onClick={() => router.push("/alert")}
+=======
               
 
               {/* User Menu */}
@@ -586,6 +648,7 @@ export default function AlertPage() {
                       style={{
                         borderBottom: `1px solid ${getBg(colorScheme, theme.colors.gray[2], theme.colors.dark[5])}`,
                       }} // ← Added colorScheme
+>>>>>>> 4fc3842765368887fa1c0985aa5980c9bd2f8e97
                     >
                       <Group mb="xs">
                         <Avatar
@@ -832,9 +895,13 @@ export default function AlertPage() {
                               backdropFilter: "blur(4px)",
                               border: "1px solid rgba(255, 255, 255, 0.2)",
                             }}
+<<<<<<< HEAD
+                            onClick={() => router.push(`/alert-detail/${alert.id}`)}
+=======
                             onClick={() =>
                               router.push(`/alert-detail/${alert.code}`)
                             }
+>>>>>>> 4fc3842765368887fa1c0985aa5980c9bd2f8e97
                           >
                             <IconBell size={18} />
                           </ActionIcon>
