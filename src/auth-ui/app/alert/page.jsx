@@ -80,6 +80,23 @@ export default function AlertPage() {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
 
+  // State for logged-in username
+  const [username, setUsername] = useState("User");
+
+  // Fetch user data from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        // Adjust the property names based on your stored user object
+        setUsername(user.name || user.username || user.firstName || "User");
+      }
+    } catch (error) {
+      console.error('Failed to parse user data from localStorage', error);
+    }
+  }, []);
+
   // Fetch real data from JSON Server
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -440,7 +457,7 @@ export default function AlertPage() {
                     <Group gap="sm">
                       <Box ta="right" visibleFrom="xs">
                         <Text fw={800} size="md">
-                          Feleke
+                          {username}
                         </Text>
                         <Text size="xs" c="dimmed">
                           Personal account
@@ -609,7 +626,7 @@ export default function AlertPage() {
                               backdropFilter: "blur(4px)",
                               border: "1px solid rgba(255, 255, 255, 0.2)",
                             }}
-                            onClick={() => router.push(`/alert-detail/${alert.code}`)}
+                            onClick={() => router.push(`/alert-detail/${alert.id}`)}
                           >
                             <IconBell size={18} />
                           </ActionIcon>
