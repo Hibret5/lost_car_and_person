@@ -254,6 +254,8 @@ export default function ReportedCasesPage() {
       setCurrentUser(user);
 
       // Fetch cases from both endpoints filtered by reportedBy.userId
+      // IMPORTANT: This query parameter works with JSON-server because it supports dot notation.
+      // In a real backend, you would authenticate the request and let the server filter by the logged-in user.
       const [personsResponse, vehiclesResponse] = await Promise.all([
         fetch(`${MISSING_PERSONS_API}?reportedBy.userId=${user.id}`),
         fetch(`${MISSING_VEHICLES_API}?reportedBy.userId=${user.id}`)
@@ -368,7 +370,7 @@ export default function ReportedCasesPage() {
     fetchData();
   }, []);
 
-  // Apply filters
+  // Apply filters (client-side filtering on the already user-specific data)
   useEffect(() => {
     let result = [...cases];
 
