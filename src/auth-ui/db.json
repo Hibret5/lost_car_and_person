@@ -111,18 +111,6 @@
       "isActive": true,
       "role": "admin",
       "lastLogin": "2026-02-20T09:25:12.569Z"
-    },
-    {
-      "id": "6bff129c-62b0-494f-a976-7b0c8e455d64",
-      "firstName": "Tesfalem",
-      "lastName": "Badeg",
-      "email": "tesfalembadeg@gmail.com",
-      "phone": "0973671282",
-      "password": "543852@Liduja",
-      "createdAt": "2026-02-25T07:35:48.298Z",
-      "updatedAt": "2026-02-25T07:35:48.298Z",
-      "isActive": true,
-      "role": "user"
     }
   ]
 }
