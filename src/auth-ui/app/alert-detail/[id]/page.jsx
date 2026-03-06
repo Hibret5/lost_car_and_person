@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Box,
@@ -57,10 +57,114 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
-import { getAlertById } from "../../../data/alertsData";
 import MainFooter from "../../../components/MainFooter.jsx";
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// Helper to get dynamic background/color values
+// Fix Leaflet default icon paths (required for webpack)
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// ---------- API Configuration ----------
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
+const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
+
+// ---------- Helper Functions ----------
+const determineVehicleType = (vehicle) => {
+  if (vehicle.type) return vehicle.type;
+  if (vehicle.brand?.toLowerCase().includes('motor') || vehicle.model?.toLowerCase().includes('motor')) return 'motorcycle';
+  if (vehicle.brand?.toLowerCase().includes('truck') || vehicle.model?.toLowerCase().includes('truck')) return 'truck';
+  if (vehicle.technicalSpecs?.electric) return 'electric';
+  return 'car';
+};
+
+const calculateDuration = (reportDate) => {
+  if (!reportDate) return 'Unknown';
+  const days = Math.floor((new Date() - new Date(reportDate)) / (1000 * 60 * 60 * 24));
+  return `${days} day${days !== 1 ? 's' : ''}`;
+};
+
+const getVehicleIcon = (type, size = 24) => {
+  switch (type) {
+    case 'motorcycle': return <IconBike size={size} />;
+    case 'truck': return <IconTruck size={size} />;
+    case 'electric': return <IconBattery size={size} />;
+    case 'person': return <IconUser size={size} />;
+    default: return <IconCar size={size} />;
+  }
+};
+
+// Helper to transform a raw vehicle/person into the format your detail page expects
+// Now includes lat/lng for each detection (randomly generated around a default center if not provided)
+const transformAlert = (item, type) => {
+  // Default center (e.g., Addis Ababa)
+  const defaultCenter = { lat: 9.03, lng: 38.74 };
+  
+  const base = {
+    id: item.id,
+    code: item.caseId || `CASE-${item.id}`,
+    brand: type === 'person'
+      ? `${item.firstName || ''} ${item.middleName || ''} ${item.lastName || ''}`.trim()
+      : `${item.brand || ''} ${item.model || ''} ${item.submodel || ''}`.trim(),
+    type: type,
+    status: item.status?.toLowerCase() || 'active',
+    location: item.lastSeenLocation || item.location || 'Unknown',
+    date: item.lastSeenDate ? new Date(item.lastSeenDate).toLocaleDateString() : 
+           item.reportDate ? new Date(item.reportDate).toLocaleDateString() : 'Unknown',
+    startTime: item.lastSeenTime || item.reportTime || 'Unknown',
+    description: item.vehicleDescription || item.description || 'No description provided',
+    lastSeen: item.lastSeenLocation || 'Unknown',
+    mapLocation: item.lastSeenLocation || 'Unknown',
+    reportDate: item.reportDate,
+    duration: calculateDuration(item.reportDate),
+    // Detection history – now includes lat/lng
+    detectionHistory: (item.detections || []).map((d, idx) => ({
+      id: d.id || `det-${idx}`,
+      name: `Detection ${idx + 1}`,
+      location: d.location || 'Unknown',
+      date: d.date ? new Date(d.date).toLocaleDateString() : (item.lastSeenDate ? new Date(item.lastSeenDate).toLocaleDateString() : 'Unknown'),
+      time: d.time || (item.lastSeenTime || '00:00'),
+      accuracy: d.accuracy || '85%',
+      type: d.source || (type === 'person' ? 'Suggestion' : 'CCTV'),
+      status: d.status || item.status || 'active',
+      startDate: d.date,
+      startTime: d.time,
+      // If lat/lng provided, use them; otherwise generate random around default center
+      lat: d.lat || defaultCenter.lat + (Math.random() - 0.5) * 0.1,
+      lng: d.lng || defaultCenter.lng + (Math.random() - 0.5) * 0.1,
+    })),
+    // Add dummy history if none exists (so map still has something)
+    ...(item.detections?.length === 0 && {
+      detectionHistory: Array.from({ length: 5 }, (_, i) => ({
+        id: `dummy-${i}`,
+        name: `Suggestion ${i + 1}`,
+        location: item.lastSeenLocation || 'Downtown',
+        date: new Date(item.reportDate || Date.now()).toLocaleDateString(),
+        time: `${10 + i}:00`,
+        accuracy: `${70 + i}%`,
+        type: 'Suggestion',
+        status: 'active',
+        startDate: item.reportDate,
+        startTime: `${10 + i}:00`,
+        lat: defaultCenter.lat + (Math.random() - 0.5) * 0.2,
+        lng: defaultCenter.lng + (Math.random() - 0.5) * 0.2,
+      }))
+    }),
+    cctvInfo: item.cctvInfo || { confidence: 'N/A' },
+    title: type === 'person' ? 'Missing Person Alert' : 'Missing Vehicle Alert',
+  };
+  return base;
+};
+
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
@@ -71,9 +175,12 @@ export default function AlertDetailPage() {
   const { colorScheme } = useMantineColorScheme();
   const [alertData, setAlertData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
+  const [error, setError] = useState(null);
   const [activePage, setActivePage] = useState(1);
   const [selectedDetection, setSelectedDetection] = useState(null);
+  const mapRef = useRef(null);
+  const leafletMap = useRef(null);
+  const markersRef = useRef([]);
   const itemsPerPage = 10;
 
   // Dynamic colors
@@ -82,51 +189,132 @@ export default function AlertDetailPage() {
   const borderColor = getBg(colorScheme, '#E9ECEF', theme.colors.dark[5]);
   const paperBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
   const lightBlueBg = getBg(colorScheme, '#f0f9ff', theme.colors.blue[9] + '40');
-  const mapGradient = colorScheme === 'dark'
-    ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
-    : 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)';
   const mapBorder = getBg(colorScheme, '#bfdbfe', theme.colors.blue[8]);
   const tableHeaderBg = getBg(colorScheme, '#dbeafe', theme.colors.blue[9]);
   const tableHeaderText = getBg(colorScheme, '#1e40af', theme.colors.blue[2]);
   const paginationBg = getBg(colorScheme, '#dbeafe', theme.colors.blue[9]);
   const paginationText = getBg(colorScheme, '#1e40af', theme.colors.blue[2]);
-  const backButtonBg = '#399afc'; // keep accent
+  const backButtonBg = '#399afc';
   const selectedRowBg = getBg(colorScheme, '#f0f9ff', theme.colors.blue[9] + '30');
-  const selectedRowBorder = '#3b82f6'; // accent
+  const selectedRowBorder = '#3b82f6';
 
   useEffect(() => {
-    setIsClient(true);
+    const fetchAlert = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let response = await fetch(`${MISSING_VEHICLES_API}/${params.id}`);
+        if (response.ok) {
+          const vehicle = await response.json();
+          const transformed = transformAlert(vehicle, determineVehicleType(vehicle));
+          setAlertData(transformed);
+          if (transformed.detectionHistory?.length > 0) {
+            setSelectedDetection(transformed.detectionHistory[0]);
+          }
+          setLoading(false);
+          return;
+        }
+
+        response = await fetch(`${MISSING_PERSONS_API}/${params.id}`);
+        if (response.ok) {
+          const person = await response.json();
+          const transformed = transformAlert(person, 'person');
+          setAlertData(transformed);
+          if (transformed.detectionHistory?.length > 0) {
+            setSelectedDetection(transformed.detectionHistory[0]);
+          }
+          setLoading(false);
+          return;
+        }
+
+        setError('Alert not found');
+      } catch (err) {
+        console.error('Error fetching alert:', err);
+        setError('Failed to load alert details');
+      } finally {
+        setLoading(false);
+      }
+    };
 
     if (params?.id) {
-      setTimeout(() => {
-        const data = getAlertById(params.id);
-        setAlertData(data);
-        // Set the first detection as selected by default
-        if (data?.detectionHistory?.length > 0) {
-          setSelectedDetection(data.detectionHistory[0]);
-        }
-        setLoading(false);
-      }, 300);
+      fetchAlert();
     }
   }, [params?.id]);
 
-  const handleDetectionClick = (detection) => {
-    setSelectedDetection(detection);
-  };
+  // Initialize Leaflet map when alertData is available
+  useEffect(() => {
+    if (!alertData || !mapRef.current) return;
 
-  const handleRowClick = (detection, e) => {
-    // Only trigger if not clicking the arrow button
-    if (!e.target.closest(".arrow-button")) {
-      handleDetectionClick(detection);
+    // Clear previous map instance
+    if (leafletMap.current) {
+      leafletMap.current.remove();
+      leafletMap.current = null;
     }
-  };
 
-  const handleArrowClick = (detection, e) => {
-    e.stopPropagation(); // Prevent row click from triggering
-    // TODO: Add navigation to detail page
-     router.push(`/alert-detail/${params.id}/detection/${detection.id}`);
-    
-  };
+    // Create map
+    const map = L.map(mapRef.current).setView([9.03, 38.74], 12); // Default center
+    leafletMap.current = map;
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Clear markers array
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    // Add markers for each detection
+    alertData.detectionHistory.forEach((detection) => {
+      if (detection.lat && detection.lng) {
+        const marker = L.marker([detection.lat, detection.lng])
+          .bindPopup(`
+            <b>${detection.name}</b><br>
+            ${detection.location}<br>
+            ${detection.date} ${detection.time}<br>
+            Accuracy: ${detection.accuracy}
+          `)
+          .on('click', () => {
+            setSelectedDetection(detection);
+          });
+        marker.addTo(map);
+        markersRef.current.push(marker);
+      }
+    });
+
+    // Fit map to markers if any
+    if (markersRef.current.length > 0) {
+      const group = L.featureGroup(markersRef.current);
+      map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, [alertData]);
+
+  // Fly to selected detection when it changes
+  useEffect(() => {
+    if (leafletMap.current && selectedDetection && selectedDetection.lat && selectedDetection.lng) {
+      leafletMap.current.flyTo([selectedDetection.lat, selectedDetection.lng], 15, {
+        duration: 1.5
+      });
+      // Open popup for selected marker
+      markersRef.current.forEach(marker => {
+        const latLng = marker.getLatLng();
+        if (latLng.lat === selectedDetection.lat && latLng.lng === selectedDetection.lng) {
+          marker.openPopup();
+        } else {
+          marker.closePopup();
+        }
+      });
+    }
+  }, [selectedDetection]);
 
   if (loading) {
     return (
@@ -144,10 +332,10 @@ export default function AlertDetailPage() {
     );
   }
 
-  if (!alertData) {
+  if (error || !alertData) {
     return (
       <Box style={{ padding: "40px", textAlign: "center", backgroundColor: mainBg }}>
-        <Title order={2}>Alert Not Found</Title>
+        <Title order={2}>{error || 'Alert Not Found'}</Title>
         <Button onClick={() => router.push("/alert")} mt="md">
           Back to Alerts
         </Button>
@@ -163,37 +351,20 @@ export default function AlertDetailPage() {
   );
   const totalPages = Math.ceil(detectionHistoryData.length / itemsPerPage);
 
-  // Get marker positions for the map
-  const getMarkerPositions = () => {
-    const positions = [];
-
-    // Add selected detection as main marker
-    if (selectedDetection) {
-      positions.push({
-        ...selectedDetection,
-        isSelected: true,
-        position: { left: "50%", top: "50%" },
-      });
-    }
-
-    // Add other detections as secondary markers
-    detectionHistoryData.slice(0, 5).forEach((detection, index) => {
-      if (selectedDetection && detection.id === selectedDetection.id) return;
-
-      positions.push({
-        ...detection,
-        isSelected: false,
-        position: {
-          left: `${20 + index * 15}%`,
-          top: `${30 + index * 10}%`,
-        },
-      });
-    });
-
-    return positions;
+  const handleDetectionClick = (detection) => {
+    setSelectedDetection(detection);
   };
 
-  const markerPositions = getMarkerPositions();
+  const handleRowClick = (detection, e) => {
+    if (!e.target.closest(".arrow-button")) {
+      handleDetectionClick(detection);
+    }
+  };
+
+  const handleArrowClick = (detection, e) => {
+    e.stopPropagation();
+    router.push(`/alert-detail/${params.id}/detection/${detection.id}`);
+  };
 
   return (
     <Box
@@ -204,7 +375,7 @@ export default function AlertDetailPage() {
         flexDirection: "column",
       }}
     >
-      {/* Header - EXACTLY LIKE AlertPage */}
+      {/* Header (unchanged, but using Container fluid) */}
       <Box
         bg={headerBg}
         py="sm"
@@ -215,9 +386,8 @@ export default function AlertDetailPage() {
           zIndex: 100,
         }}
       >
-        <Container size="xl">
+        <Container fluid px="md">
           <Group justify="space-between">
-            {/* Logo */}
             <Image
               src="/logo.jpg"
               alt="Logo"
@@ -226,16 +396,13 @@ export default function AlertDetailPage() {
               sizes="100vw"
               style={{ width: "auto", height: "50px", borderRadius: "8px" }}
             />
-
-            {/* Search Bar */}
             <TextInput
-              placeholder="Search alerts by brand, code, location..."
+              placeholder="Search alerts..."
               leftSection={<IconSearch size={16} />}
-              style={{ width: "40%" }}
+              style={{ width: "40%", minWidth: 200 }}
               radius="xl"
+              visibleFrom="sm"
             />
-
-            {/* Right Side Navigation */}
             <Group gap="lg">
               <ActionIcon
                 variant="transparent"
@@ -246,8 +413,6 @@ export default function AlertDetailPage() {
               >
                 <IconHome size={28} />
               </ActionIcon>
-
-              {/* User Menu - EXACTLY LIKE AlertPage */}
               <Menu
                 shadow="md"
                 width={320}
@@ -323,11 +488,9 @@ export default function AlertDetailPage() {
         </Container>
       </Box>
 
-      {/* Back to Alerts Section - BELOW the navigation bar */}
-      <Box style={{ 
-        padding: "24px 0 16px 0", 
-      }}>
-        <Container size="xl">
+      {/* Back to Alerts Section */}
+      <Box style={{ padding: "24px 16px 16px 16px" }}>
+        <Container fluid px="md">
           <Group>
             <Button
               variant="subtle"
@@ -335,13 +498,8 @@ export default function AlertDetailPage() {
               leftSection={<IconArrowLeft size={18} />}
               onClick={() => router.push("/alert")}
               size="md"
-              style={{
-                backgroundColor: backButtonBg,
-                padding: "10px"
-              }}
-            >
-              
-            </Button>
+              style={{ backgroundColor: backButtonBg, padding: "10px" }}
+            />
             <Box style={{ marginLeft: "16px" }}>
               <Text fw={800} size="xl" style={{ color: getTextColor(colorScheme, '#212529', theme.colors.gray[3]) }}>
                 Alert Detail
@@ -355,19 +513,16 @@ export default function AlertDetailPage() {
       </Box>
 
       {/* Main Content */}
-      <Container size="xl" py={40} style={{ flex: 1 }}>
+      <Box px="md" py={40} style={{ flex: 1 }}>
         {/* Alert Header */}
         <Paper p="xl" mb="xl" withBorder radius="md" bg={paperBg}>
-          <Group justify="space-between" mb="md">
+          <Group justify="space-between" mb="md" wrap="wrap">
             <Box>
               <Title order={2} mb="xs">
                 {alertData.title || alertData.brand}
               </Title>
-              <Group gap="lg">
-                <Badge
-                  size="lg"
-                  color={alertData.status === "active" ? "red" : "green"}
-                >
+              <Group gap="lg" wrap="wrap">
+                <Badge size="lg" color={alertData.status === "active" ? "red" : "green"}>
                   {alertData.status.toUpperCase()}
                 </Badge>
                 <Group gap="xs">
@@ -376,9 +531,7 @@ export default function AlertDetailPage() {
                 </Group>
                 <Group gap="xs">
                   <IconCalendar size={16} />
-                  <Text>
-                    {alertData.date} • {alertData.startTime}
-                  </Text>
+                  <Text>{alertData.date} • {alertData.startTime}</Text>
                 </Group>
                 <Group gap="xs">
                   <IconCar size={16} />
@@ -387,10 +540,10 @@ export default function AlertDetailPage() {
               </Group>
             </Box>
             <Group>
-              <Button leftSection={<IconDownload size={18} />} variant="light">
-                Export Data
+              <Button leftSection={<IconDownload size={18} />} variant="light" size="sm" visibleFrom="xs">
+                Export
               </Button>
-              <Button leftSection={<IconFilter size={18} />} variant="light">
+              <Button leftSection={<IconFilter size={18} />} variant="light" size="sm" visibleFrom="xs">
                 Filter
               </Button>
             </Group>
@@ -401,72 +554,62 @@ export default function AlertDetailPage() {
         </Paper>
 
         {/* Stats Grid */}
-        <SimpleGrid cols={{ base: 2, md: 4 }} mb="xl">
+        <SimpleGrid cols={{ base: 2, sm: 4 }} mb="xl">
           <Paper p="md" withBorder radius="md" ta="center">
             <Group justify="center" mb="xs">
               <IconEye size={20} />
-              <Text size="sm" c="dimmed">
-                Total Detections
-              </Text>
+              <Text size="sm" c="dimmed">Total Detections</Text>
             </Group>
             <Title order={2}>{detectionHistoryData.length || 0}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
             <Group justify="center" mb="xs">
               <IconClock size={20} />
-              <Text size="sm" c="dimmed">
-                Active Duration
-              </Text>
+              <Text size="sm" c="dimmed">Active Duration</Text>
             </Group>
             <Title order={2}>{alertData.duration || "N/A"}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
             <Group justify="center" mb="xs">
               <IconCamera size={20} />
-              <Text size="sm" c="dimmed">
-                CCTV Confidence
-              </Text>
+              <Text size="sm" c="dimmed">CCTV Confidence</Text>
             </Group>
             <Title order={2}>{alertData.cctvInfo?.confidence || "N/A"}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
             <Group justify="center" mb="xs">
               <IconShield size={20} />
-              <Text size="sm" c="dimmed">
-                Status
-              </Text>
+              <Text size="sm" c="dimmed">Status</Text>
             </Group>
-            <Title order={2}>
-              {alertData.status === "active" ? "Active" : "Resolved"}
-            </Title>
+            <Title order={2}>{alertData.status === "active" ? "Active" : "Resolved"}</Title>
           </Paper>
         </SimpleGrid>
 
-        {/* Split Layout: Map (Top Half) and Table (Bottom Half) */}
+        {/* Map + Table */}
         <Grid gutter="xl">
-          {/* TOP HALF: Map Section */}
+          {/* Map Section */}
           <Grid.Col span={12}>
-            <Paper withBorder radius="md" style={{ height: "400px" }}>
+            <Paper withBorder radius="md" style={{ height: "auto", minHeight: 400 }}>
               <Box
                 p="md"
                 style={{
                   borderBottom: `1px solid ${borderColor}`,
-                  backgroundColor: "#1e40af", // keep accent
+                  backgroundColor: "#1e40af",
                   color: "white",
                   borderTopLeftRadius: "8px",
                   borderTopRightRadius: "8px",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 8,
                 }}
               >
                 <Group>
                   <IconMap size={20} />
                   <Text fw={600}>
                     Detection Map -{" "}
-                    {selectedDetection
-                      ? selectedDetection.location
-                      : alertData.location}
+                    {selectedDetection ? selectedDetection.location : alertData.location}
                   </Text>
                 </Group>
                 {selectedDetection && (
@@ -475,158 +618,50 @@ export default function AlertDetailPage() {
                   </Badge>
                 )}
               </Box>
-              <Box
+              {/* Leaflet map container */}
+              <div
+                ref={mapRef}
                 style={{
-                  height: "calc(400px - 72px)",
+                  height: "clamp(300px, 50vh, 400px)",
+                  width: "100%",
                   background: lightBlueBg,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  position: "relative",
-                  cursor: "pointer",
+                  borderRadius: "0 0 8px 8px",
+                  zIndex: 1,
                 }}
-              >
-                <Box
-                  style={{
-                    textAlign: "center",
-                    position: "relative",
-                    width: "100%",
-                    padding: "20px",
-                  }}
-                >
-                  {/* Map visualization */}
-                  <Box
-                    style={{
-                      width: "100%",
-                      height: "250px",
-                      background: mapGradient,
-                      borderRadius: "8px",
-                      position: "relative",
-                      marginBottom: "15px",
-                      border: `1px solid ${mapBorder}`,
-                    }}
-                  >
-                    {/* Display markers */}
-                    {markerPositions.map((marker, index) => (
-                      <Box
-                        key={marker.id}
-                        style={{
-                          position: "absolute",
-                          left: marker.position.left,
-                          top: marker.position.top,
-                          transform: marker.isSelected
-                            ? "translate(-50%, -50%)"
-                            : "translate(-50%, -50%)",
-                          backgroundColor: marker.isSelected
-                            ? "#ef4444"
-                            : marker.status === "active"
-                              ? "#10b981"
-                              : "#6b7280",
-                          width: marker.isSelected ? "20px" : "14px",
-                          height: marker.isSelected ? "20px" : "14px",
-                          borderRadius: "50%",
-                          border: marker.isSelected
-                            ? "3px solid white"
-                            : "2px solid white",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          zIndex: marker.isSelected ? 10 : 1,
-                          transition: "all 0.2s",
-                        }}
-                        title={`${marker.location} - ${marker.startTime}\nClick to view details`}
-                        onClick={() => handleDetectionClick(marker)}
-                      >
-                        {marker.isSelected ? (
-                          <IconMapPinFilled size={12} color="white" />
-                        ) : (
-                          <Text
-                            size={marker.isSelected ? "10px" : "8px"}
-                            fw={700}
-                            color="white"
-                          >
-                            {index + 1}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-
-                    {/* Selected location label */}
-                    {selectedDetection && (
-                      <Box
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          backgroundColor: getBg(colorScheme, 'rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)'),
-                          padding: "8px 16px",
-                          borderRadius: "20px",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        <Text size="sm" fw={600} color={getBg(colorScheme, '#1e40af', theme.colors.blue[2])}>
-                          {selectedDetection.location}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {selectedDetection.date} • {selectedDetection.time}
-                        </Text>
-                      </Box>
-                    )}
-                  </Box>
-
-                  <Text mt="md" fw={600}>
-                    {selectedDetection
-                      ? selectedDetection.location
-                      : alertData.mapLocation || alertData.location}
-                  </Text>
-                  <Text size="sm" c="dimmed" mt="xs">
-                    {selectedDetection
-                      ? `Last seen: ${selectedDetection.time} • Accuracy: ${selectedDetection.accuracy || "N/A"}`
-                      : `Last seen: ${alertData.lastSeen}`}
-                  </Text>
-                </Box>
-              </Box>
+              />
             </Paper>
           </Grid.Col>
 
-          {/* BOTTOM HALF: Interactive Alerts Table */}
+          {/* Table Section (unchanged) */}
           <Grid.Col span={12}>
             <Paper
               withBorder
               radius="md"
               style={{
-                height: "400px",
+                height: "auto",
+                minHeight: 400,
                 display: "flex",
                 flexDirection: "column",
               }}
             >
-              {/* Table Header */}
               <Box
                 p="md"
                 style={{
                   borderBottom: `1px solid ${borderColor}`,
-                  backgroundColor: "#3b82f6", // keep accent
+                  backgroundColor: "#3b82f6",
                   color: "white",
                   borderTopLeftRadius: "8px",
                   borderTopRightRadius: "8px",
                 }}
               >
-                <Group justify="space-between">
+                <Group justify="space-between" wrap="wrap" gap="xs">
                   <Group>
                     <IconTable size={20} />
                     <Text fw={600}>Alerts History</Text>
                   </Group>
                   <Group>
                     <Badge color="white" variant="filled" size="lg">
-                      {
-                        detectionHistoryData.filter(
-                          (a) => a.status === "active",
-                        ).length
-                      }{" "}
-                      Active
+                      {detectionHistoryData.filter(a => a.status === "active").length} Active
                     </Badge>
                     <Badge color="white" variant="filled" size="lg">
                       {detectionHistoryData.length} Total
@@ -635,96 +670,27 @@ export default function AlertDetailPage() {
                 </Group>
               </Box>
 
-              {/* Table Container */}
-              <Box style={{ flex: 1, overflow: "hidden" }}>
-                <ScrollArea style={{ height: "100%" }}>
-                  <Table striped highlightOnHover>
+              <Box style={{ flex: 1, overflowX: "auto" }}>
+                <ScrollArea style={{ height: "100%", minWidth: "100%" }}>
+                  <Table striped highlightOnHover style={{ minWidth: 800 }}>
                     <Table.Thead style={{ backgroundColor: tableHeaderBg }}>
                       <Table.Tr>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Alert
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Location
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Date
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Time
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Accuracy
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Type
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Status
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            textAlign: "center",
-                            fontWeight: 700,
-                            color: tableHeaderText,
-                          }}
-                        >
-                          Actions
-                        </Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Alert</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Location</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Date</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Time</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Accuracy</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Type</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Status</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Actions</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
                       {paginatedData.map((detection) => {
                         const accuracy =
                           detection.accuracy ||
-                          (detection.type === "Suggestion"
-                            ? "--"
-                            : `${Math.floor(Math.random() * 30) + 50}%`);
-
-                        const isSelected =
-                          selectedDetection?.id === detection.id;
+                          (detection.type === "Suggestion" ? "--" : `${Math.floor(Math.random() * 30) + 50}%`);
+                        const isSelected = selectedDetection?.id === detection.id;
 
                         return (
                           <Table.Tr
@@ -732,22 +698,13 @@ export default function AlertDetailPage() {
                             style={{
                               backgroundColor: isSelected ? selectedRowBg : undefined,
                               cursor: "pointer",
-                              borderLeft: isSelected
-                                ? `4px solid ${selectedRowBorder}`
-                                : "none",
+                              borderLeft: isSelected ? `4px solid ${selectedRowBorder}` : "none",
                             }}
                             onClick={(e) => handleRowClick(detection, e)}
                           >
                             <Table.Td style={{ textAlign: "center" }}>
                               <Group justify="center" gap="xs">
-                                <IconAlertCircle
-                                  size={16}
-                                  color={
-                                    detection.type === "Suggestion"
-                                      ? "#f59e0b"
-                                      : "#ef4444"
-                                  }
-                                />
+                                <IconAlertCircle size={16} color={detection.type === "Suggestion" ? "#f59e0b" : "#ef4444"} />
                                 <Text fw={600}>{detection.name}</Text>
                               </Group>
                             </Table.Td>
@@ -760,9 +717,7 @@ export default function AlertDetailPage() {
                             <Table.Td style={{ textAlign: "center" }}>
                               <Group justify="center" gap="xs">
                                 <IconCalendar size={14} color="#3b82f6" />
-                                <Text>
-                                  {detection.date || detection.startDate}
-                                </Text>
+                                <Text>{detection.date || detection.startDate}</Text>
                               </Group>
                             </Table.Td>
                             <Table.Td style={{ textAlign: "center" }}>
@@ -774,11 +729,8 @@ export default function AlertDetailPage() {
                               ) : (
                                 <Badge
                                   color={
-                                    parseFloat(accuracy) >= 80
-                                      ? "green"
-                                      : parseFloat(accuracy) >= 60
-                                        ? "yellow"
-                                        : "red"
+                                    parseFloat(accuracy) >= 80 ? "green" :
+                                    parseFloat(accuracy) >= 60 ? "yellow" : "red"
                                   }
                                   variant="light"
                                   size="sm"
@@ -795,11 +747,7 @@ export default function AlertDetailPage() {
                                   <IconCamera size={14} color="#3b82f6" />
                                 )}
                                 <Badge
-                                  color={
-                                    detection.type === "Suggestion"
-                                      ? "yellow"
-                                      : "blue"
-                                  }
+                                  color={detection.type === "Suggestion" ? "yellow" : "blue"}
                                   variant="light"
                                   size="sm"
                                 >
@@ -809,17 +757,11 @@ export default function AlertDetailPage() {
                             </Table.Td>
                             <Table.Td style={{ textAlign: "center" }}>
                               <Badge
-                                color={
-                                  detection.status === "active"
-                                    ? "red"
-                                    : "green"
-                                }
+                                color={detection.status === "active" ? "red" : "green"}
                                 variant="filled"
                                 size="sm"
                               >
-                                {detection.status === "active"
-                                  ? "ACTIVE"
-                                  : "RESOLVED"}
+                                {detection.status === "active" ? "ACTIVE" : "RESOLVED"}
                               </Badge>
                             </Table.Td>
                             <Table.Td style={{ textAlign: "center" }}>
@@ -854,15 +796,15 @@ export default function AlertDetailPage() {
                   borderTop: `1px solid ${borderColor}`,
                   backgroundColor: paginationBg,
                   display: "flex",
+                  flexWrap: "wrap",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  gap: 8,
                 }}
               >
                 <Text size="sm" c={paginationText} fw={500}>
-                  Page {activePage} of {totalPages} •{" "}
-                  {detectionHistoryData.length} total alerts
-                  {selectedDetection &&
-                    ` • Selected: ${selectedDetection.name}`}
+                  Page {activePage} of {totalPages} • {detectionHistoryData.length} total alerts
+                  {selectedDetection && ` • Selected: ${selectedDetection.name}`}
                 </Text>
                 <Pagination
                   value={activePage}
@@ -890,15 +832,11 @@ export default function AlertDetailPage() {
           >
             Back to Alerts
           </Button>
-          <Button
-            size="lg"
-            color="blue"
-            leftSection={<IconDownload size={18} />}
-          >
+          <Button size="lg" color="blue" leftSection={<IconDownload size={18} />}>
             Download Full Report
           </Button>
         </Group>
-      </Container>
+      </Box>
 
       <MainFooter />
     </Box>
