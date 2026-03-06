@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Container, Box, Title, Text, TextInput, Select, NumberInput,
-  Textarea, SimpleGrid, Paper, Button, Group, FileInput, Stack,
-  Loader, Alert, Badge, Divider, Flex, Stepper, Progress,
-  Card, Tabs, Transition, Collapse, ActionIcon, Tooltip,
-  Avatar, Modal, useMantineTheme, Overlay, Center,
-  Radio, Checkbox, useMantineColorScheme
+  Textarea, SimpleGrid, Paper, Button, FileInput, Stack,
+  Loader, Alert, Badge, Divider, Flex, Stepper,
+  Card, Tabs, Collapse, ActionIcon, Tooltip,
+  Avatar, Modal, useMantineTheme,
+  Checkbox, useMantineColorScheme
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -18,7 +18,7 @@ import {
   IconMap, IconCar, IconUserPlus, IconPhoto,
   IconLock, IconWorld, IconMessageCircle,
   IconArrowRight, IconRefresh, IconExternalLink,
-  IconShieldCheck, IconEye, IconEyeOff, IconStar,
+  IconShieldCheck, IconEyeOff, IconStar,
   IconHome, IconDashboard, IconFileDescription,
   IconAlertTriangle
 } from '@tabler/icons-react';
@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation';
 import MainFooter from '../../components/MainFooter';
 import carData from '../data/carData';
 import { useMediaQuery } from '@mantine/hooks';
+import dynamic from 'next/dynamic';
 
 // JSON Server URLs
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
@@ -35,27 +36,32 @@ const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
 const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
 const USERS_API = `${API_BASE_URL}/users`;
 
-// Theme constants (primary color stays the same in both modes)
+// Theme constants
 const PRIMARY_COLOR = '#0034D1';
 const PRIMARY_LIGHT = '#4d79ff';
 const PRIMARY_DARK = '#0029a8';
 const PRIMARY_GRADIENT = `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #0066ff 100%)`;
-const PRIMARY_GRADIENT_HOVER = `linear-gradient(135deg, ${PRIMARY_DARK} 0%, #0052d4 100%)`;
 
-// Helper to get dynamic background/text colors
+// Helper for dynamic background/text colors
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
-const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
-// Reusable style objects (will be used inside component where theme & colorScheme are available)
-const cardBorderLeft = (colorScheme) => ({ borderLeft: `4px solid ${PRIMARY_COLOR}` });
 const gradientIconBox = { background: PRIMARY_GRADIENT, padding: '10px', borderRadius: '10px', color: 'white' };
+
+// Dynamic import of the map (no SSR) – now using the optimized component
+const LocationPicker = dynamic(() => import('../../components/LocationPicker'), {
+  ssr: false,
+  loading: () => (
+    <Box style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f5ff' }}>
+      <Loader size="lg" color={PRIMARY_COLOR} />
+    </Box>
+  ),
+});
 
 export default function UnifiedRegisterPage() {
   const router = useRouter();
   const theme = useMantineTheme();
-  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const { colorScheme } = useMantineColorScheme();
   const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
-  const isTablet = useMediaQuery(`(max-width: ${theme.breakpoints.md})`);
 
   const [regType, setRegType] = useState('Person');
   const [loading, setLoading] = useState(true);
@@ -67,9 +73,9 @@ export default function UnifiedRegisterPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [isHelpVisible, setIsHelpVisible] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [mapCenter, setMapCenter] = useState([9.03, 38.74]); // Default to Addis Ababa
 
-  // Vehicle selection states (for dropdowns)
+  // Vehicle selection states
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedModel, setSelectedModel] = useState(null);
   const [selectedSubmodel, setSelectedSubmodel] = useState(null);
@@ -80,9 +86,8 @@ export default function UnifiedRegisterPage() {
   const [doctorReport, setDoctorReport] = useState(null);
   const [criminalRecord, setCriminalRecord] = useState(null);
 
-  // Central form state – holds all field values
+  // Central form state
   const [formValues, setFormValues] = useState({
-    // Person / Special common fields
     firstName: '',
     middleName: '',
     lastName: '',
@@ -91,8 +96,7 @@ export default function UnifiedRegisterPage() {
     height: '',
     weight: '',
     description: '',
-    specialCase: '',          // For Person tab
-    // Vehicle fields
+    specialCase: '',
     brand: '',
     model: '',
     submodel: '',
@@ -102,15 +106,14 @@ export default function UnifiedRegisterPage() {
     region: '',
     code: '',
     plateNumber: '',
-    // Special tab
     specialCategory: '',
-    // Last seen
     location: '',
     lastSeenDate: '',
     lastSeenTime: '',
-    // Contact
     telegramUsername: '',
     additionalContactInfo: '',
+    latitude: '',
+    longitude: '',
   });
 
   // Data for dropdowns
@@ -118,13 +121,11 @@ export default function UnifiedRegisterPage() {
   const [models, setModels] = useState([]);
   const [submodels, setSubmodels] = useState([]);
 
-  // Color options
   const colorOptions = [
     'White', 'Black', 'Silver', 'Gray', 'Red', 'Blue', 'Green', 'Yellow',
     'Orange', 'Brown', 'Gold', 'Beige', 'Maroon', 'Purple', 'Pink'
   ];
 
-  // Region options (Ethiopian regions)
   const regionOptions = [
     'Addis Ababa', 'Afar', 'Amhara', 'Benishangul-Gumuz', 'Dire Dawa',
     'Gambela', 'Harari', 'Oromia', 'Sidama', 'Somali',
@@ -132,15 +133,14 @@ export default function UnifiedRegisterPage() {
     'Tigray'
   ];
 
-  // Stepper steps
   const steps = [
     { label: 'Basic Info', icon: <IconUser size={18} /> },
-    { 
-      label: regType === 'Person' ? 'Person Details' : 
-              regType === 'Vehicle' ? 'Vehicle Details' : 
-              'Special Case Details', 
-      icon: regType === 'Person' ? <IconUserPlus size={18} /> : 
-            regType === 'Vehicle' ? <IconCar size={18} /> : 
+    {
+      label: regType === 'Person' ? 'Person Details' :
+              regType === 'Vehicle' ? 'Vehicle Details' :
+              'Special Case Details',
+      icon: regType === 'Person' ? <IconUserPlus size={18} /> :
+            regType === 'Vehicle' ? <IconCar size={18} /> :
             <IconAlertTriangle size={18} />
     },
     { label: 'Last Seen', icon: <IconMap size={18} /> },
@@ -148,7 +148,7 @@ export default function UnifiedRegisterPage() {
     { label: 'Review & Submit', icon: <IconCheck size={18} /> },
   ];
 
-  // Check registration count and authentication on page load
+  // Authentication and registration check
   useEffect(() => {
     const checkRegistrationAndAuth = async () => {
       try {
@@ -191,7 +191,6 @@ export default function UnifiedRegisterPage() {
     checkRegistrationAndAuth();
   }, [router]);
 
-  // Update progress based on active step
   useEffect(() => {
     setProgress(((activeStep + 1) / steps.length) * 100);
   }, [activeStep, steps.length]);
@@ -209,7 +208,6 @@ export default function UnifiedRegisterPage() {
       setModels(modelList);
       setSelectedModel(null);
       setSelectedSubmodel(null);
-      // Also update formValues
       setFormValues(prev => ({ ...prev, brand: selectedBrand, model: '', submodel: '' }));
     } else {
       setModels([]);
@@ -232,19 +230,16 @@ export default function UnifiedRegisterPage() {
     }
   }, [selectedBrand, selectedModel]);
 
-  // When submodel changes, update formValues
   useEffect(() => {
     if (selectedSubmodel) {
       setFormValues(prev => ({ ...prev, submodel: selectedSubmodel }));
     }
   }, [selectedSubmodel]);
 
-  // When specialCategory changes, update formValues
   useEffect(() => {
     setFormValues(prev => ({ ...prev, specialCategory }));
   }, [specialCategory]);
 
-  // Handle image upload preview
   const handleImageUpload = (event) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -254,7 +249,6 @@ export default function UnifiedRegisterPage() {
     }
   };
 
-  // Validate required fields before submission
   const validateRequiredFields = () => {
     const requiredFields = {
       Person: ['firstName', 'lastName', 'gender', 'age', 'location', 'lastSeenDate'],
@@ -277,7 +271,6 @@ export default function UnifiedRegisterPage() {
     return true;
   };
 
-  // Function to save data to JSON Server
   const saveToJsonServer = async (data) => {
     try {
       const endpoint = regType === 'Vehicle' ? MISSING_VEHICLES_API : MISSING_PERSONS_API;
@@ -294,7 +287,6 @@ export default function UnifiedRegisterPage() {
     }
   };
 
-  // Function to update user registration count on JSON Server
   const updateUserRegistrationCount = async (userId, newCount) => {
     try {
       const response = await fetch(`${USERS_API}/${userId}`, {
@@ -310,11 +302,9 @@ export default function UnifiedRegisterPage() {
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Run validation
+
     if (!validateRequiredFields()) {
       return;
     }
@@ -323,7 +313,6 @@ export default function UnifiedRegisterPage() {
     try {
       const caseId = `CASE-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-      // Build base report data from formValues and other states
       const reportData = {
         caseId,
         type: regType,
@@ -347,17 +336,14 @@ export default function UnifiedRegisterPage() {
           phone: currentUser.phone,
           telegram: formValues.telegramUsername || null,
         },
-        // Include all form values
         ...formValues,
-        // Add file names if present
         ownershipDocument: ownershipDoc?.name,
         doctorReport: doctorReport?.name,
         criminalRecord: criminalRecord?.name,
-        // Ensure image preview is saved if uploaded (this would need actual file upload later)
         imagePreview: imagePreview || null,
       };
 
-      const savedData = await saveToJsonServer(reportData);
+      await saveToJsonServer(reportData);
       const currentRegistrations = currentUser.registrations || 0;
       const newCount = currentRegistrations + 1;
       const updatedUser = await updateUserRegistrationCount(currentUser.id, newCount);
@@ -395,12 +381,10 @@ export default function UnifiedRegisterPage() {
     }
   };
 
-  // Helper to update form values
   const handleInputChange = (field, value) => {
     setFormValues(prev => ({ ...prev, [field]: value }));
   };
 
-  // Loading state
   if (loading) {
     return (
       <Box
@@ -416,7 +400,6 @@ export default function UnifiedRegisterPage() {
     );
   }
 
-  // Subscription redirect warning
   if (showSubscriptionRedirect) {
     return (
       <Box style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: PRIMARY_GRADIENT }}>
@@ -570,7 +553,6 @@ export default function UnifiedRegisterPage() {
       </Box>
 
       <Container size="lg" py={isMobile ? 20 : 40}>
-        {/* Main Form Container */}
         <Paper
           radius="lg"
           p={isMobile ? 'md' : 'xl'}
@@ -582,10 +564,8 @@ export default function UnifiedRegisterPage() {
             overflow: 'hidden',
           }}
         >
-          {/* Decorative Corner */}
           <Box style={{ position: 'absolute', top: 0, right: 0, width: 100, height: 100, background: PRIMARY_GRADIENT, borderBottomLeftRadius: '100%', opacity: 0.05 }} />
 
-          {/* Form Title with Icon */}
           <Flex justify="space-between" align="center" mb="xl" wrap="wrap" gap="md">
             <Flex align="center" gap="md">
               <Box style={{ background: PRIMARY_GRADIENT, padding: '14px', borderRadius: '14px', color: 'white', boxShadow: `0 6px 20px ${PRIMARY_COLOR}40` }}>
@@ -601,7 +581,6 @@ export default function UnifiedRegisterPage() {
               </Box>
             </Flex>
 
-            {/* Registration Type Toggle with three tabs */}
             <Tabs
               value={regType}
               onChange={setRegType}
@@ -609,10 +588,7 @@ export default function UnifiedRegisterPage() {
               radius="xl"
               style={{ minWidth: isMobile ? '100%' : 'auto' }}
             >
-              <Tabs.List
-                grow={isMobile}
-                bg={getBg(colorScheme, '#f0f5ff', theme.colors.dark[6])}
-              >
+              <Tabs.List grow={isMobile} bg={getBg(colorScheme, '#f0f5ff', theme.colors.dark[6])}>
                 <Tabs.Tab
                   value="Person"
                   leftSection={<IconUserPlus size={18} />}
@@ -621,7 +597,6 @@ export default function UnifiedRegisterPage() {
                     color: regType === 'Person' ? 'white' : PRIMARY_COLOR,
                     fontWeight: regType === 'Person' ? 700 : 500,
                     border: regType === 'Person' ? 'none' : `1px solid ${PRIMARY_COLOR}40`,
-                    transition: 'all 0.3s ease',
                   }}
                 >
                   Missing Person
@@ -634,7 +609,6 @@ export default function UnifiedRegisterPage() {
                     color: regType === 'Vehicle' ? 'white' : PRIMARY_COLOR,
                     fontWeight: regType === 'Vehicle' ? 700 : 500,
                     border: regType === 'Vehicle' ? 'none' : `1px solid ${PRIMARY_COLOR}40`,
-                    transition: 'all 0.3s ease',
                   }}
                 >
                   Missing Vehicle
@@ -647,7 +621,6 @@ export default function UnifiedRegisterPage() {
                     color: regType === 'Special' ? 'white' : PRIMARY_COLOR,
                     fontWeight: regType === 'Special' ? 700 : 500,
                     border: regType === 'Special' ? 'none' : `1px solid ${PRIMARY_COLOR}40`,
-                    transition: 'all 0.3s ease',
                   }}
                 >
                   Special Case
@@ -656,14 +629,13 @@ export default function UnifiedRegisterPage() {
             </Tabs>
           </Flex>
 
-          {/* Stepper Navigation */}
           <Stepper
             active={activeStep}
             onStepClick={setActiveStep}
             size={isMobile ? 'sm' : 'md'}
             mb="xl"
             styles={{
-              step: { cursor: 'pointer', transition: 'all 0.3s ease' },
+              step: { cursor: 'pointer' },
               stepIcon: { borderWidth: 3, backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]) },
               stepCompleted: { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR },
             }}
@@ -682,15 +654,9 @@ export default function UnifiedRegisterPage() {
 
           <form onSubmit={handleSubmit}>
             <Stack gap="xl">
-              {/* Type Selection Card - Step 0 (always visible) */}
+              {/* Step 0 - Type Selection */}
               <Box style={{ display: activeStep === 0 ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}`, transition: 'transform 0.3s ease' }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconInfoCircle size={24} /></Box>
                     <Box>
@@ -714,10 +680,8 @@ export default function UnifiedRegisterPage() {
                           cursor: 'pointer',
                           borderColor: regType === item.type ? PRIMARY_COLOR : getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
                           borderWidth: regType === item.type ? 3 : 1,
-                          transition: 'all 0.3s ease',
                           background: regType === item.type ? `${PRIMARY_COLOR}08` : getBg(colorScheme, 'white', theme.colors.dark[7]),
                           position: 'relative',
-                          overflow: 'hidden',
                         }}
                         onClick={() => setRegType(item.type)}
                       >
@@ -733,7 +697,6 @@ export default function UnifiedRegisterPage() {
                               padding: '16px',
                               borderRadius: '12px',
                               color: regType === item.type ? 'white' : PRIMARY_COLOR,
-                              transition: 'all 0.3s ease',
                             }}
                           >
                             {item.icon}
@@ -755,15 +718,9 @@ export default function UnifiedRegisterPage() {
                 </Card>
               </Box>
 
-              {/* Person Details - Step 1 */}
+              {/* Step 1 - Person Details */}
               <Box style={{ display: activeStep === 1 && regType === 'Person' ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconUserPlus size={24} /></Box>
                     <Box>
@@ -852,8 +809,6 @@ export default function UnifiedRegisterPage() {
                     value={formValues.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                   />
-
-                  {/* Optional special case field for Person */}
                   <Select
                     name="specialCase"
                     label={<Text fw={600} size="sm">Special Case (if applicable)</Text>}
@@ -869,25 +824,13 @@ export default function UnifiedRegisterPage() {
                     variant="filled"
                     value={formValues.specialCase}
                     onChange={(value) => handleInputChange('specialCase', value)}
-                    styles={{
-                      input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                      description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                    }}
                   />
-
-                  {/* Image Upload Section */}
                   <Card
                     withBorder
                     radius="lg"
                     padding="xl"
                     bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      borderStyle: 'dashed',
-                      borderColor: PRIMARY_LIGHT,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      borderWidth: 2,
-                    }}
+                    style={{ borderStyle: 'dashed', borderColor: PRIMARY_LIGHT, cursor: 'pointer', borderWidth: 2 }}
                     onClick={() => document.getElementById('person-image-upload').click()}
                   >
                     <input type="file" id="person-image-upload" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
@@ -905,7 +848,7 @@ export default function UnifiedRegisterPage() {
                       ) : (
                         <>
                           <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white', marginBottom: '8px' }}><IconCamera size={40} /></Box>
-                          <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Persons Photo</Text>
+                          <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Person's Photo</Text>
                           <Text c="dimmed" size="sm" ta="center">Click or drag & drop to upload a clear recent photo</Text>
                           <Text size="xs" c={PRIMARY_COLOR} fw={600} mt="xs">Recommended: Front-facing, good lighting, recent photo</Text>
                           <Badge color="blue" variant="light" size="sm" mt="xs">Max 5MB • JPG, PNG, WebP</Badge>
@@ -916,15 +859,9 @@ export default function UnifiedRegisterPage() {
                 </Card>
               </Box>
 
-              {/* Vehicle Details - Step 1 */}
+              {/* Step 1 - Vehicle Details */}
               <Box style={{ display: activeStep === 1 && regType === 'Vehicle' ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconCar size={24} /></Box>
                     <Box>
@@ -995,8 +932,6 @@ export default function UnifiedRegisterPage() {
                     value={formValues.vehicleDescription}
                     onChange={(e) => handleInputChange('vehicleDescription', e.target.value)}
                   />
-
-                  {/* Special Case Field for Vehicle (optional) */}
                   <Select
                     name="specialCase"
                     label={<Text fw={600} size="sm">Special Case (if applicable)</Text>}
@@ -1012,24 +947,8 @@ export default function UnifiedRegisterPage() {
                     variant="filled"
                     value={formValues.specialCase}
                     onChange={(value) => handleInputChange('specialCase', value)}
-                    styles={{
-                      input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                      description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                    }}
                   />
-
-                  {/* License Plate Section */}
-                  <Card
-                    withBorder
-                    radius="lg"
-                    padding="xl"
-                    mb="lg"
-                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      borderColor: PRIMARY_COLOR,
-                      borderWidth: 2,
-                    }}
-                  >
+                  <Card withBorder radius="lg" padding="xl" mb="lg" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_COLOR, borderWidth: 2 }}>
                     <Flex align="center" gap="md" mb="lg">
                       <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}><IconInfoCircle size={20} /></Box>
                       <Box>
@@ -1085,19 +1004,7 @@ export default function UnifiedRegisterPage() {
                       }}
                     />
                   </Card>
-
-                  {/* Ownership Documentation Upload */}
-                  <Card
-                    withBorder
-                    radius="lg"
-                    padding="xl"
-                    mb="lg"
-                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      borderColor: PRIMARY_LIGHT,
-                      borderWidth: 2,
-                    }}
-                  >
+                  <Card withBorder radius="lg" padding="xl" mb="lg" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT, borderWidth: 2 }}>
                     <Flex align="center" gap="md" mb="md">
                       <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
                         <IconFileDescription size={20} />
@@ -1118,25 +1025,9 @@ export default function UnifiedRegisterPage() {
                       leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
                       description="Accepted formats: JPG, PNG, PDF (max 10MB)"
                       variant="filled"
-                      styles={{
-                        input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                        description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                      }}
                     />
                   </Card>
-
-                  {/* Vehicle Images Upload */}
-                  <Card
-                    withBorder
-                    radius="lg"
-                    padding="xl"
-                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      borderStyle: 'dashed',
-                      borderColor: PRIMARY_LIGHT,
-                      borderWidth: 2,
-                    }}
-                  >
+                  <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderStyle: 'dashed', borderColor: PRIMARY_LIGHT, borderWidth: 2 }}>
                     <Flex direction="column" align="center" gap="md">
                       <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white' }}><IconPhoto size={40} /></Box>
                       <Box ta="center">
@@ -1145,18 +1036,7 @@ export default function UnifiedRegisterPage() {
                       </Box>
                       <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" w="100%">
                         {['Front', 'Back', 'Left Side', 'Right Side'].map((angle, idx) => (
-                          <Card
-                            key={idx}
-                            withBorder
-                            padding="lg"
-                            radius="md"
-                            bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                            style={{
-                              cursor: 'pointer',
-                              transition: 'all 0.3s ease',
-                              borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
-                            }}
-                          >
+                          <Card key={idx} withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ cursor: 'pointer', borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) }}>
                             <Flex direction="column" align="center" gap="xs">
                               <Box style={{ background: getBg(colorScheme, '#f0f5ff', theme.colors.dark[6]), padding: '12px', borderRadius: '10px', color: PRIMARY_COLOR }}><IconCamera size={24} /></Box>
                               <Text size="sm" fw={600} style={{ color: PRIMARY_DARK }}>{angle} View</Text>
@@ -1171,15 +1051,9 @@ export default function UnifiedRegisterPage() {
                 </Card>
               </Box>
 
-              {/* Special Case Details - Step 1 */}
+              {/* Step 1 - Special Case Details */}
               <Box style={{ display: activeStep === 1 && regType === 'Special' ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconAlertTriangle size={24} /></Box>
                     <Box>
@@ -1187,8 +1061,6 @@ export default function UnifiedRegisterPage() {
                       <Text c="dimmed" size="sm">Provide details about the person with special circumstances</Text>
                     </Box>
                   </Flex>
-                  
-                  {/* Required special category field */}
                   <Select
                     name="specialCategory"
                     label={<Text fw={600} size="sm">Special Category <Text span c={PRIMARY_COLOR}>*</Text></Text>}
@@ -1202,31 +1074,15 @@ export default function UnifiedRegisterPage() {
                     onChange={setSpecialCategory}
                     mb="lg"
                     variant="filled"
-                    styles={{
-                      input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                      description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                    }}
                   />
-
-                  {/* Conditional file uploads */}
                   {specialCategory === 'mentally-ill' && (
-                    <Card
-                      withBorder
-                      radius="lg"
-                      padding="xl"
-                      mb="lg"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{
-                        borderColor: PRIMARY_LIGHT,
-                        borderWidth: 2,
-                      }}
-                    >
+                    <Card withBorder radius="lg" padding="xl" mb="lg" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT, borderWidth: 2 }}>
                       <Flex align="center" gap="md" mb="md">
                         <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
                           <IconFileDescription size={20} />
                         </Box>
                         <Box>
-                          <Title order={5} style={{ color: PRIMARY_DARK }}>Doctors Report <Text span c={PRIMARY_COLOR}>*</Text></Title>
+                          <Title order={5} style={{ color: PRIMARY_DARK }}>Doctor's Report <Text span c={PRIMARY_COLOR}>*</Text></Title>
                           <Text c="dimmed" size="sm">Upload a medical report or documentation</Text>
                         </Box>
                       </Flex>
@@ -1241,26 +1097,11 @@ export default function UnifiedRegisterPage() {
                         leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
                         description="Accepted formats: JPG, PNG, PDF (max 10MB)"
                         variant="filled"
-                        styles={{
-                          input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                          description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                        }}
                       />
                     </Card>
                   )}
-
                   {specialCategory === 'criminal' && (
-                    <Card
-                      withBorder
-                      radius="lg"
-                      padding="xl"
-                      mb="lg"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{
-                        borderColor: PRIMARY_LIGHT,
-                        borderWidth: 2,
-                      }}
-                    >
+                    <Card withBorder radius="lg" padding="xl" mb="lg" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT, borderWidth: 2 }}>
                       <Flex align="center" gap="md" mb="md">
                         <Box style={{ background: PRIMARY_GRADIENT, padding: '8px', borderRadius: '8px', color: 'white' }}>
                           <IconFileDescription size={20} />
@@ -1281,14 +1122,9 @@ export default function UnifiedRegisterPage() {
                         leftSection={<IconUpload size={16} color={PRIMARY_COLOR} />}
                         description="Accepted formats: JPG, PNG, PDF (max 10MB)"
                         variant="filled"
-                        styles={{
-                          input: { borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]) },
-                          description: { color: PRIMARY_COLOR, fontWeight: 500 }
-                        }}
                       />
                     </Card>
                   )}
-
                   <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mb="lg">
                     <TextInput
                       name="firstName"
@@ -1318,7 +1154,6 @@ export default function UnifiedRegisterPage() {
                       onChange={(e) => handleInputChange('lastName', e.target.value)}
                     />
                   </SimpleGrid>
-                  
                   <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
                     <Select
                       name="gender"
@@ -1360,7 +1195,6 @@ export default function UnifiedRegisterPage() {
                       onChange={(value) => handleInputChange('weight', value)}
                     />
                   </SimpleGrid>
-                  
                   <Textarea
                     name="description"
                     label={<Text fw={600} size="sm">Additional Description</Text>}
@@ -1372,20 +1206,12 @@ export default function UnifiedRegisterPage() {
                     value={formValues.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                   />
-
-                  {/* Image Upload Section */}
                   <Card
                     withBorder
                     radius="lg"
                     padding="xl"
                     bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      borderStyle: 'dashed',
-                      borderColor: PRIMARY_LIGHT,
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      borderWidth: 2,
-                    }}
+                    style={{ borderStyle: 'dashed', borderColor: PRIMARY_LIGHT, cursor: 'pointer', borderWidth: 2 }}
                     onClick={() => document.getElementById('special-image-upload').click()}
                   >
                     <input type="file" id="special-image-upload" style={{ display: 'none' }} accept="image/*" onChange={handleImageUpload} />
@@ -1403,7 +1229,7 @@ export default function UnifiedRegisterPage() {
                       ) : (
                         <>
                           <Box style={{ background: PRIMARY_GRADIENT, padding: '20px', borderRadius: '50%', color: 'white', marginBottom: '8px' }}><IconCamera size={40} /></Box>
-                          <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Persons Photo</Text>
+                          <Text fw={700} size="lg" style={{ color: PRIMARY_DARK }}>Upload Person's Photo</Text>
                           <Text c="dimmed" size="sm" ta="center">Click or drag & drop to upload a clear recent photo</Text>
                           <Text size="xs" c={PRIMARY_COLOR} fw={600} mt="xs">Recommended: Front-facing, good lighting, recent photo</Text>
                           <Badge color="blue" variant="light" size="sm" mt="xs">Max 5MB • JPG, PNG, WebP</Badge>
@@ -1414,15 +1240,9 @@ export default function UnifiedRegisterPage() {
                 </Card>
               </Box>
 
-              {/* Last Seen Information - Step 2 (same for all types) */}
+              {/* Step 2 - Last Seen Information (with optimized map) */}
               <Box style={{ display: activeStep === 2 ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconMap size={24} /></Box>
                     <Box>
@@ -1430,6 +1250,7 @@ export default function UnifiedRegisterPage() {
                       <Text c="dimmed" size="sm">Where and when was the {regType.toLowerCase()} last seen?</Text>
                     </Box>
                   </Flex>
+
                   <TextInput
                     name="location"
                     label={<Text fw={600} size="sm">Last Seen Location <Text span c={PRIMARY_COLOR}>*</Text></Text>}
@@ -1441,29 +1262,46 @@ export default function UnifiedRegisterPage() {
                     value={formValues.location}
                     onChange={(e) => handleInputChange('location', e.target.value)}
                   />
-                  <Card
-                    withBorder
-                    radius="lg"
-                    padding={0}
-                    mb="lg"
-                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      height: isMobile ? 200 : 300,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      borderColor: PRIMARY_LIGHT,
-                    }}
-                    onClick={() => notifications.show({ title: 'Map Integration', message: 'Interactive map feature would open here', color: 'blue' })}
-                  >
-                    <Flex direction="column" align="center" justify="center" gap="md" style={{ height: '100%', background: PRIMARY_GRADIENT, padding: '20px' }}>
-                      <IconMap size={isMobile ? 40 : 60} color="white" />
-                      <Text c="white" fw={700} size={isMobile ? 'md' : 'lg'}>Interactive Location Map</Text>
-                      <Text c="white" size="sm" ta="center" opacity={0.9}>Click to select exact location on map<br /><Text span size="xs">(GPS coordinates will be captured)</Text></Text>
-                      <Badge color="white" variant="filled" size="lg" style={{ color: PRIMARY_COLOR, fontWeight: 700 }}>CLICK TO OPEN MAP</Badge>
-                    </Flex>
+
+                  {/* Interactive Map (optimized) */}
+                  <Card withBorder radius="lg" padding={0} mb="lg" style={{ overflow: 'hidden' }}>
+                    <LocationPicker
+                      onLocationSelect={(lat, lng, address) => {
+                        handleInputChange('location', address);
+                        handleInputChange('latitude', lat.toString());
+                        handleInputChange('longitude', lng.toString());
+                        setMapCenter([lat, lng]);
+                      }}
+                      initialPosition={mapCenter}
+                    />
                   </Card>
+
+                  {/* Optional Geolocation Button */}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    leftSection={<IconMapPin size={14} />}
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            const { latitude, longitude } = pos.coords;
+                            setMapCenter([latitude, longitude]);
+                            // Optionally reverse geocode here
+                          },
+                          (err) => {
+                            notifications.show({ title: 'Location Error', message: err.message, color: 'red' });
+                          }
+                        );
+                      } else {
+                        notifications.show({ title: 'Geolocation not supported', color: 'yellow' });
+                      }
+                    }}
+                    mb="md"
+                  >
+                    Use my current location
+                  </Button>
+
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
                     <TextInput
                       name="lastSeenDate"
@@ -1489,6 +1327,7 @@ export default function UnifiedRegisterPage() {
                       onChange={(e) => handleInputChange('lastSeenTime', e.target.value)}
                     />
                   </SimpleGrid>
+
                   <Alert
                     icon={<IconInfoCircle size={18} color={PRIMARY_COLOR} />}
                     title="Accuracy Matters"
@@ -1506,15 +1345,9 @@ export default function UnifiedRegisterPage() {
                 </Card>
               </Box>
 
-              {/* Contact Information - Step 3 (same for all types) */}
+              {/* Step 3 - Contact Information */}
               <Box style={{ display: activeStep === 3 ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconMessageCircle size={24} /></Box>
                     <Box>
@@ -1523,99 +1356,46 @@ export default function UnifiedRegisterPage() {
                     </Box>
                   </Flex>
                   <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md" mb="lg">
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Flex align="center" gap="md">
-                        <Avatar color={PRIMARY_COLOR} radius="xl" style={{ background: PRIMARY_GRADIENT }}>
-                          <IconUser size={20} />
-                        </Avatar>
+                        <Avatar color={PRIMARY_COLOR} radius="xl" style={{ background: PRIMARY_GRADIENT }}><IconUser size={20} /></Avatar>
                         <Box>
                           <Text size="xs" c="dimmed" fw={600}>Name</Text>
                           <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.firstName} {currentUser?.lastName}</Text>
                         </Box>
                       </Flex>
                     </Card>
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Flex align="center" gap="md">
-                        <Avatar color="green" radius="xl" style={{ background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)' }}>
-                          <IconMail size={20} />
-                        </Avatar>
+                        <Avatar color="green" radius="xl" style={{ background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)' }}><IconMail size={20} /></Avatar>
                         <Box>
                           <Text size="xs" c="dimmed" fw={600}>Email</Text>
                           <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.email}</Text>
                         </Box>
                       </Flex>
                     </Card>
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Flex align="center" gap="md">
-                        <Avatar color="red" radius="xl" style={{ background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)' }}>
-                          <IconPhone size={20} />
-                        </Avatar>
+                        <Avatar color="red" radius="xl" style={{ background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)' }}><IconPhone size={20} /></Avatar>
                         <Box>
                           <Text size="xs" c="dimmed" fw={600}>Phone</Text>
                           <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.phone}</Text>
                         </Box>
                       </Flex>
                     </Card>
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Flex align="center" gap="md">
-                        <Avatar color="grape" radius="xl" style={{ background: 'linear-gradient(135deg, #cc66ff 0%, #9933ff 100%)' }}>
-                          <IconWorld size={20} />
-                        </Avatar>
+                        <Avatar color="grape" radius="xl" style={{ background: 'linear-gradient(135deg, #cc66ff 0%, #9933ff 100%)' }}><IconWorld size={20} /></Avatar>
                         <Box>
                           <Text size="xs" c="dimmed" fw={600}>Role</Text>
-                          <Badge
-                            color="blue"
-                            variant="light"
-                            size="sm"
-                            style={{
-                              background: `${PRIMARY_COLOR}15`,
-                              color: PRIMARY_COLOR,
-                              fontWeight: 700,
-                              border: `1px solid ${PRIMARY_COLOR}30`,
-                            }}
-                          >
+                          <Badge color="blue" variant="light" size="sm" style={{ background: `${PRIMARY_COLOR}15`, color: PRIMARY_COLOR, fontWeight: 700, border: `1px solid ${PRIMARY_COLOR}30` }}>
                             {currentUser?.role || 'User'}
                           </Badge>
                         </Box>
                       </Flex>
                     </Card>
                   </SimpleGrid>
-                  <Card
-                    withBorder
-                    padding="lg"
-                    radius="lg"
-                    mb="md"
-                    bg={getBg(
-                      colorScheme,
-                      'linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%)',
-                      `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`
-                    )}
-                    style={{ borderColor: '#0088cc', borderWidth: 2 }}
-                  >
+                  <Card withBorder padding="lg" radius="lg" mb="md" bg={getBg(colorScheme, 'linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%)', `linear-gradient(135deg, ${theme.colors.dark[5]} 0%, ${theme.colors.dark[7]} 100%)`)} style={{ borderColor: '#0088cc', borderWidth: 2 }}>
                     <Flex align="center" gap="md" mb="md">
                       <IconBrandTelegram size={28} color="#0088cc" />
                       <Box>
@@ -1662,38 +1442,20 @@ export default function UnifiedRegisterPage() {
                     color="blue"
                     variant="light"
                     radius="md"
-                    style={{
-                      borderColor: PRIMARY_COLOR,
-                      background: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]),
-                    }}
+                    style={{ borderColor: PRIMARY_COLOR, background: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]) }}
                   >
                     <Stack gap="xs">
-                      <Text size="sm">
-                        <IconShieldCheck size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
-                        Your contact information is protected with end-to-end encryption
-                      </Text>
-                      <Text size="sm">
-                        <IconEyeOff size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
-                        Only verified users with relevant information can see your contact details
-                      </Text>
-                      <Text size="sm">
-                        <IconInfoCircle size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} />
-                        We never share your personal data with third parties or advertisers
-                      </Text>
+                      <Text size="sm"><IconShieldCheck size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} /> Your contact information is protected with end-to-end encryption</Text>
+                      <Text size="sm"><IconEyeOff size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} /> Only verified users with relevant information can see your contact details</Text>
+                      <Text size="sm"><IconInfoCircle size={16} style={{ marginRight: 8, verticalAlign: 'middle', color: PRIMARY_COLOR }} /> We never share your personal data with third parties or advertisers</Text>
                     </Stack>
                   </Alert>
                 </Card>
               </Box>
 
-              {/* Review & Submit - Step 4 (same for all types) */}
+              {/* Step 4 - Review & Submit */}
               <Box style={{ display: activeStep === 4 ? 'block' : 'none' }}>
-                <Card
-                  withBorder
-                  radius="lg"
-                  padding="xl"
-                  bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])}
-                  style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}
-                >
+                <Card withBorder radius="lg" padding="xl" bg={getBg(colorScheme, '#f8fbff', theme.colors.dark[6])} style={{ borderLeft: `4px solid ${PRIMARY_COLOR}` }}>
                   <Flex align="center" gap="md" mb="lg">
                     <Box style={gradientIconBox}><IconCheck size={24} /></Box>
                     <Box>
@@ -1701,87 +1463,34 @@ export default function UnifiedRegisterPage() {
                       <Text c="dimmed" size="sm">Please review all information before final submission</Text>
                     </Box>
                   </Flex>
-                  <Text size="sm" c="dimmed" mb="xl" ta="center">Youre almost done! Take a moment to verify all details are correct.</Text>
+                  <Text size="sm" c="dimmed" mb="xl" ta="center">You're almost done! Take a moment to verify all details are correct.</Text>
                   <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg" mb="xl">
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Text size="sm" c="dimmed" mb="xs">Report Type</Text>
-                      <Badge
-                        size="lg"
-                        style={{ background: PRIMARY_GRADIENT, color: 'white', fontWeight: 700, padding: '8px 16px' }}
-                        leftSection={regType === 'Person' ? <IconUserPlus size={16} /> : regType === 'Vehicle' ? <IconCar size={16} /> : <IconAlertTriangle size={16} />}
-                      >
+                      <Badge size="lg" style={{ background: PRIMARY_GRADIENT, color: 'white', fontWeight: 700, padding: '8px 16px' }} leftSection={regType === 'Person' ? <IconUserPlus size={16} /> : regType === 'Vehicle' ? <IconCar size={16} /> : <IconAlertTriangle size={16} />}>
                         Missing {regType === 'Special' ? 'Special Case' : regType}
                       </Badge>
                     </Card>
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Text size="sm" c="dimmed" mb="xs">Reporter</Text>
                       <Text fw={700} style={{ color: PRIMARY_DARK }}>{currentUser?.firstName} {currentUser?.lastName}</Text>
                       <Text size="xs" c="dimmed">{currentUser?.email}</Text>
                     </Card>
-                    <Card
-                      withBorder
-                      padding="lg"
-                      radius="md"
-                      bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                      style={{ borderColor: PRIMARY_LIGHT }}
-                    >
+                    <Card withBorder padding="lg" radius="md" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: PRIMARY_LIGHT }}>
                       <Text size="sm" c="dimmed" mb="xs">Report Status</Text>
-                      <Badge
-                        color="green"
-                        variant="light"
-                        size="lg"
-                        style={{
-                          background: getBg(colorScheme, '#d4edda', theme.colors.dark[5]),
-                          color: getBg(colorScheme, '#155724', theme.colors.green[3]),
-                          fontWeight: 700,
-                        }}
-                      >
+                      <Badge color="green" variant="light" size="lg" style={{ background: getBg(colorScheme, '#d4edda', theme.colors.dark[5]), color: getBg(colorScheme, '#155724', theme.colors.green[3]), fontWeight: 700 }}>
                         Ready to Submit
                       </Badge>
                     </Card>
                   </SimpleGrid>
-                  <Card
-                    withBorder
-                    padding="lg"
-                    radius="md"
-                    mb="xl"
-                    bg={getBg(colorScheme, 'white', theme.colors.dark[7])}
-                    style={{
-                      borderColor: '#40c057',
-                      borderWidth: 2,
-                      boxShadow: '0 4px 20px rgba(64, 192, 87, 0.1)',
-                    }}
-                  >
+                  <Card withBorder padding="lg" radius="md" mb="xl" bg={getBg(colorScheme, 'white', theme.colors.dark[7])} style={{ borderColor: '#40c057', borderWidth: 2, boxShadow: '0 4px 20px rgba(64, 192, 87, 0.1)' }}>
                     <Flex align="center" gap="md">
                       <IconCheck color="#40c057" size={24} />
                       <Box style={{ flex: 1 }}>
                         <Text fw={700} style={{ color: getBg(colorScheme, '#155724', theme.colors.green[3]) }}>Final Confirmation</Text>
                         <Text size="sm" c="dimmed">I confirm that all information provided is accurate to the best of my knowledge</Text>
                       </Box>
-                      <Checkbox
-                        size="lg"
-                        color="green"
-                        defaultChecked
-                        styles={{
-                          input: {
-                            borderColor: '#40c057',
-                            backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]),
-                            ':checked': { backgroundColor: '#40c057', borderColor: '#40c057' },
-                          },
-                        }}
-                      />
+                      <Checkbox size="lg" color="green" defaultChecked styles={{ input: { borderColor: '#40c057', backgroundColor: getBg(colorScheme, 'white', theme.colors.dark[7]), ':checked': { backgroundColor: '#40c057', borderColor: '#40c057' } } }} />
                     </Flex>
                   </Card>
                   <Button
@@ -1801,22 +1510,11 @@ export default function UnifiedRegisterPage() {
                       fontWeight: 800,
                       letterSpacing: '0.5px',
                     }}
-                    rightSection={
-                      !isSubmitting && (
-                        <Box
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.2)',
-                            padding: '8px',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <IconArrowRight size={22} />
-                        </Box>
-                      )
-                    }
+                    rightSection={!isSubmitting && (
+                      <Box style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '8px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <IconArrowRight size={22} />
+                      </Box>
+                    )}
                   >
                     {isSubmitting ? (
                       <Flex align="center" justify="center" gap="sm">
@@ -1847,11 +1545,7 @@ export default function UnifiedRegisterPage() {
                   leftSection={<IconChevronLeft size={18} />}
                   onClick={() => setActiveStep(prev => Math.max(0, prev - 1))}
                   disabled={activeStep === 0 || isSubmitting}
-                  style={{
-                    padding: '12px 24px',
-                    border: `1px solid ${getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])}`,
-                    fontWeight: 600,
-                  }}
+                  style={{ padding: '12px 24px', border: `1px solid ${getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])}`, fontWeight: 600 }}
                 >
                   Previous Step
                 </Button>
@@ -1873,39 +1567,16 @@ export default function UnifiedRegisterPage() {
                       setDoctorReport(null);
                       setCriminalRecord(null);
                       setFormValues({
-                        firstName: '',
-                        middleName: '',
-                        lastName: '',
-                        gender: '',
-                        age: '',
-                        height: '',
-                        weight: '',
-                        description: '',
-                        specialCase: '',
-                        brand: '',
-                        model: '',
-                        submodel: '',
-                        color: '',
-                        vehicleDescription: '',
-                        plateType: '',
-                        region: '',
-                        code: '',
-                        plateNumber: '',
-                        specialCategory: '',
-                        location: '',
-                        lastSeenDate: '',
-                        lastSeenTime: '',
-                        telegramUsername: '',
-                        additionalContactInfo: '',
+                        firstName: '', middleName: '', lastName: '', gender: '', age: '', height: '', weight: '',
+                        description: '', specialCase: '', brand: '', model: '', submodel: '', color: '',
+                        vehicleDescription: '', plateType: '', region: '', code: '', plateNumber: '',
+                        specialCategory: '', location: '', lastSeenDate: '', lastSeenTime: '',
+                        telegramUsername: '', additionalContactInfo: '', latitude: '', longitude: ''
                       });
                       notifications.show({ title: 'Form Reset', message: 'All form data has been cleared', color: 'blue', icon: <IconRefresh size={16} /> });
                     }}
                     disabled={isSubmitting}
-                    style={{
-                      padding: '12px 24px',
-                      borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]),
-                      fontWeight: 600,
-                    }}
+                    style={{ padding: '12px 24px', borderColor: getBg(colorScheme, '#f0f5ff', theme.colors.dark[5]), fontWeight: 600 }}
                   >
                     Reset Form
                   </Button>
@@ -1916,12 +1587,7 @@ export default function UnifiedRegisterPage() {
                       rightSection={<IconChevronRight size={18} />}
                       onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))}
                       disabled={isSubmitting}
-                      style={{
-                        padding: '12px 30px',
-                        background: PRIMARY_GRADIENT,
-                        border: 'none',
-                        fontWeight: 700,
-                      }}
+                      style={{ padding: '12px 30px', background: PRIMARY_GRADIENT, border: 'none', fontWeight: 700 }}
                     >
                       Continue to {steps[activeStep + 1]?.label}
                     </Button>
@@ -1933,9 +1599,7 @@ export default function UnifiedRegisterPage() {
               <Text size="xs" c="dimmed" ta="center">
                 <IconInfoCircle size={12} style={{ marginRight: 6, verticalAlign: 'middle' }} />
                 Need assistance? Contact support@findr.com | Your data is protected with 256-bit SSL encryption<br />
-                <Text span size="xs" c={PRIMARY_COLOR} fw={600}>
-                  Report ID will be generated upon successful submission
-                </Text>
+                <Text span size="xs" c={PRIMARY_COLOR} fw={600}>Report ID will be generated upon successful submission</Text>
               </Text>
             </Stack>
           </form>
@@ -1962,12 +1626,7 @@ export default function UnifiedRegisterPage() {
       >
         <Stack gap="md">
           <Flex align="center" gap="md">
-            <Avatar
-              size="lg"
-              radius="xl"
-              src={currentUser?.avatar}
-              style={{ background: PRIMARY_GRADIENT, border: `3px solid ${getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])}` }}
-            >
+            <Avatar size="lg" radius="xl" src={currentUser?.avatar} style={{ background: PRIMARY_GRADIENT, border: `3px solid ${getBg(colorScheme, '#f0f5ff', theme.colors.dark[5])}` }}>
               {currentUser?.firstName?.[0]}{currentUser?.lastName?.[0]}
             </Avatar>
             <Box>
@@ -1998,17 +1657,7 @@ export default function UnifiedRegisterPage() {
               </Badge>
             </Box>
           </SimpleGrid>
-          <Alert
-            icon={<IconLock size={16} color={PRIMARY_COLOR} />}
-            title="Security Status"
-            color="blue"
-            variant="light"
-            radius="md"
-            style={{
-              borderColor: PRIMARY_LIGHT,
-              backgroundColor: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]),
-            }}
-          >
+          <Alert icon={<IconLock size={16} color={PRIMARY_COLOR} />} title="Security Status" color="blue" variant="light" radius="md" style={{ borderColor: PRIMARY_LIGHT, backgroundColor: getBg(colorScheme, `${PRIMARY_COLOR}08`, theme.colors.dark[6]) }}>
             <Text size="xs">
               Your account is protected with:<br />
               • Two-factor authentication available<br />
@@ -2016,19 +1665,7 @@ export default function UnifiedRegisterPage() {
               • Regular security audits
             </Text>
           </Alert>
-          <Button
-            variant="light"
-            color="blue"
-            fullWidth
-            mt="md"
-            onClick={() => router.push('/profile')}
-            rightSection={<IconExternalLink size={16} />}
-            style={{
-              background: getBg(colorScheme, `${PRIMARY_COLOR}10`, theme.colors.dark[6]),
-              border: `1px solid ${PRIMARY_COLOR}30`,
-              fontWeight: 600,
-            }}
-          >
+          <Button variant="light" color="blue" fullWidth mt="md" onClick={() => router.push('/profile')} rightSection={<IconExternalLink size={16} />} style={{ background: getBg(colorScheme, `${PRIMARY_COLOR}10`, theme.colors.dark[6]), border: `1px solid ${PRIMARY_COLOR}30`, fontWeight: 600 }}>
             Update Profile & Settings
           </Button>
         </Stack>
