@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Box,
@@ -48,8 +48,30 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
-import { getAlertById } from "../../../../../data/alertsData";
 import MainFooter from "../../../../../components/MainFooter.jsx";
+import { notifications } from "@mantine/notifications";
+
+// Leaflet imports
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default icon paths (required for webpack)
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// API Endpoints
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
+const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
+const SIGHTINGS_API = `${API_BASE_URL}/sightings`;
 
 // Helper to get dynamic background/color values
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
@@ -63,8 +85,13 @@ export default function SingleDetectionDetailPage() {
   const [alertData, setAlertData] = useState(null);
   const [detectionData, setDetectionData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isFalseAlert, setIsFalseAlert] = useState(false);
+  
+  const mapRef = useRef(null);
+  const leafletMap = useRef(null);
+  const markerRef = useRef(null);
 
   // Dynamic colors
   const mainBg = getBg(colorScheme, 'white', theme.colors.dark[7]);
@@ -76,28 +103,161 @@ export default function SingleDetectionDetailPage() {
     ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
     : 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)';
   const mapBorder = getBg(colorScheme, '#bfdbfe', theme.colors.blue[8]);
-  const backButtonBg = '#399afc'; // keep accent
+  const backButtonBg = '#399afc';
   const detectionMetadataHeaderBg = getBg(colorScheme, '#f8f9fa', theme.colors.dark[5]);
   const detectionMetadataText = getTextColor(colorScheme, '#212529', theme.colors.gray[3]);
 
+  // Fetch data from APIs
   useEffect(() => {
-    if (params?.id && params?.detection_id) {
-      setTimeout(() => {
-        const data = getAlertById(params.id);
-        setAlertData(data);
-        
-        // Find the specific detection from history
-        if (data?.detectionHistory) {
-          const detection = data.detectionHistory.find(
-            d => d.id === params.detection_id
-          );
-          setDetectionData(detection || data.detectionHistory[0]);
-        }
-        
+    const fetchData = async () => {
+      const caseId = params?.id;
+      const detectionId = params?.detection_id;
+
+      if (!caseId || !detectionId) {
+        setError('Missing case or detection ID');
         setLoading(false);
-      }, 300);
-    }
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        // 1. Fetch the sighting by detection_id
+        const sightingRes = await fetch(`${SIGHTINGS_API}/${detectionId}`);
+        if (!sightingRes.ok) {
+          throw new Error('Sighting not found');
+        }
+        const sighting = await sightingRes.json();
+
+        // 2. Determine which type of case it belongs to (person or vehicle)
+        let caseData = null;
+        if (sighting.type === 'Person') {
+          const personRes = await fetch(`${MISSING_PERSONS_API}/${caseId}`);
+          if (personRes.ok) {
+            caseData = await personRes.json();
+          }
+        } else if (sighting.type === 'Vehicle') {
+          const vehicleRes = await fetch(`${MISSING_VEHICLES_API}/${caseId}`);
+          if (vehicleRes.ok) {
+            caseData = await vehicleRes.json();
+          }
+        } else {
+          // If sighting doesn't have type, try both APIs
+          const [personRes, vehicleRes] = await Promise.all([
+            fetch(`${MISSING_PERSONS_API}/${caseId}`),
+            fetch(`${MISSING_VEHICLES_API}/${caseId}`),
+          ]);
+          if (personRes.ok) {
+            caseData = await personRes.json();
+          } else if (vehicleRes.ok) {
+            caseData = await vehicleRes.json();
+          }
+        }
+
+        if (!caseData) {
+          throw new Error('Original case not found');
+        }
+
+        // Transform sighting to match expected structure
+        const transformedDetection = {
+          id: sighting.id,
+          name: sighting.type === 'Person' ? sighting.name : `${sighting.brand || ''} ${sighting.model || ''}`.trim() || sighting.plateNumber,
+          location: sighting.location,
+          date: sighting.date || new Date(sighting.reportDate).toLocaleDateString(),
+          time: sighting.time || new Date(sighting.reportDate).toLocaleTimeString(),
+          type: sighting.type === 'Person' ? 'Sighting' : 'Detection',
+          accuracy: '98%', // placeholder; you could compute from confidence if available
+          description: sighting.description,
+          image: sighting.imagePreview,
+          latitude: sighting.latitude,
+          longitude: sighting.longitude,
+        };
+
+        // Transform case data to match expected alert structure
+        const transformedCase = {
+          id: caseData.id,
+          code: caseData.caseId || `CASE-${caseData.id}`,
+          type: caseData.type || (caseData.firstName ? 'Person' : 'Vehicle'),
+          category: {
+            type: caseData.type || (caseData.firstName ? 'Person' : 'Vehicle'),
+            brandName: caseData.brand || `${caseData.firstName || ''} ${caseData.lastName || ''}`.trim() || 'Unknown',
+            plateNumber: caseData.plateNumber || 'N/A',
+          },
+          color: caseData.color || 'Unknown',
+          registeredLocation: caseData.location || caseData.lastSeenLocation || 'Unknown',
+          registeredDate: caseData.reportDate ? new Date(caseData.reportDate).toLocaleDateString() : 'Unknown',
+          registeredTime: caseData.reportDate ? new Date(caseData.reportDate).toLocaleTimeString() : 'Unknown',
+          capturedMedia: {
+            photos: caseData.additionalImages || (caseData.imagePreview ? [caseData.imagePreview] : []),
+          },
+          additionalImages: caseData.additionalImages || [],
+          detectionHistory: [], // not needed here
+          accuracy: '98%', // placeholder
+        };
+
+        setDetectionData(transformedDetection);
+        setAlertData(transformedCase);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching detection detail:', err);
+        setError(err.message);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load detection details',
+          color: 'red',
+          icon: <IconAlertCircle size={16} />,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [params?.id, params?.detection_id]);
+
+  // Initialize Leaflet map when detectionData is available
+  useEffect(() => {
+    if (!detectionData || !mapRef.current) return;
+
+    // Clear previous map instance
+    if (leafletMap.current) {
+      leafletMap.current.remove();
+      leafletMap.current = null;
+    }
+
+    // Use actual coordinates from detectionData, or fallback to default
+    const lat = detectionData.latitude ? parseFloat(detectionData.latitude) : 9.03;
+    const lng = detectionData.longitude ? parseFloat(detectionData.longitude) : 38.74;
+
+    // Create map
+    const map = L.map(mapRef.current).setView([lat, lng], 15);
+    leafletMap.current = map;
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Add marker
+    const marker = L.marker([lat, lng])
+      .bindPopup(`
+        <b>${detectionData.name}</b><br>
+        ${detectionData.location}<br>
+        ${detectionData.date} ${detectionData.time}<br>
+        Accuracy: ${detectionData.accuracy}
+      `)
+      .addTo(map);
+    marker.openPopup();
+    markerRef.current = marker;
+
+    // Cleanup on unmount
+    return () => {
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, [detectionData]);
 
   const handleConfirmation = (type) => {
     if (type === 'owner') {
@@ -107,44 +267,9 @@ export default function SingleDetectionDetailPage() {
       setIsOwner(false);
       setIsFalseAlert(true);
     }
-    
-    // Here you would typically send this to your backend
+    // Here you would send this to your backend
     console.log(`Confirmation: ${type}`);
   };
-
-  // Get marker positions for the map
-  const getMarkerPositions = () => {
-    const positions = [];
-
-    // Add main marker for this detection
-    if (detectionData) {
-      positions.push({
-        ...detectionData,
-        isSelected: true,
-        position: { left: "50%", top: "50%" },
-      });
-    }
-
-    // Add a few other markers from the alert's detection history
-    if (alertData?.detectionHistory) {
-      alertData.detectionHistory.slice(0, 3).forEach((detection, index) => {
-        if (detectionData && detection.id === detectionData.id) return;
-
-        positions.push({
-          ...detection,
-          isSelected: false,
-          position: {
-            left: `${30 + index * 20}%`,
-            top: `${20 + index * 25}%`,
-          },
-        });
-      });
-    }
-
-    return positions;
-  };
-
-  const markerPositions = getMarkerPositions();
 
   if (loading) {
     return (
@@ -162,10 +287,11 @@ export default function SingleDetectionDetailPage() {
     );
   }
 
-  if (!alertData || !detectionData) {
+  if (error || !alertData || !detectionData) {
     return (
       <Box style={{ padding: "40px", textAlign: "center", backgroundColor: mainBg }}>
         <Title order={2}>Detection Not Found</Title>
+        <Text c="dimmed" mt="md">{error || 'The requested detection could not be loaded.'}</Text>
         <Button onClick={() => router.push(`/alert-detail/${params.id}`)} mt="md">
           Back to Alert
         </Button>
@@ -182,7 +308,7 @@ export default function SingleDetectionDetailPage() {
         flexDirection: "column",
       }}
     >
-      {/* Header - Same as AlertDetailPage */}
+      {/* Header */}
       <Box
         bg={headerBg}
         py="sm"
@@ -195,7 +321,6 @@ export default function SingleDetectionDetailPage() {
       >
         <Container size="xl">
           <Group justify="space-between">
-            {/* Logo */}
             <Image
               src="/logo.jpg"
               alt="Logo"
@@ -205,7 +330,6 @@ export default function SingleDetectionDetailPage() {
               style={{ width: "auto", height: "50px", borderRadius: "8px" }}
             />
 
-            {/* Search Bar */}
             <TextInput
               placeholder="Search alerts by brand, code, location..."
               leftSection={<IconSearch size={16} />}
@@ -213,7 +337,6 @@ export default function SingleDetectionDetailPage() {
               radius="xl"
             />
 
-            {/* Right Side Navigation */}
             <Group gap="lg">
               <ActionIcon
                 variant="transparent"
@@ -225,7 +348,6 @@ export default function SingleDetectionDetailPage() {
                 <IconHome size={28} />
               </ActionIcon>
 
-              {/* User Menu */}
               <Menu
                 shadow="md"
                 width={320}
@@ -237,7 +359,7 @@ export default function SingleDetectionDetailPage() {
                     <Group gap="sm">
                       <Box ta="right" visibleFrom="xs">
                         <Text fw={800} size="md">
-                          Feleke
+                          User
                         </Text>
                         <Text size="xs" c="dimmed">
                           Personal account
@@ -330,22 +452,21 @@ export default function SingleDetectionDetailPage() {
         </Container>
       </Box>
 
-      {/* Main Content - WITH REAL MAP VISUALIZATION */}
+      {/* Main Content */}
       <Container size="xl" py={40} style={{ flex: 1 }}>
-        {/* Header Title */}
         <Box mb="xl">
           <Title order={1} style={{ color: detectionMetadataText }}>{detectionData.name}</Title>
         </Box>
 
         <Grid gutter="xl">
-          {/* LEFT COLUMN: Map Visualization (Full Height) */}
+          {/* LEFT COLUMN: Map */}
           <Grid.Col span={{ base: 12, md: 7 }}>
-            <Paper withBorder radius="md" style={{ height: "500px" }}> 
+            <Paper withBorder radius="md" style={{ height: "500px", overflow: "hidden" }}> 
               <Box
                 p="md"
                 style={{
                   borderBottom: `1px solid ${borderColor}`,
-                  backgroundColor: "#1e40af", // keep accent
+                  backgroundColor: "#1e40af",
                   color: "white",
                   borderTopLeftRadius: "8px",
                   borderTopRightRadius: "8px",
@@ -357,115 +478,22 @@ export default function SingleDetectionDetailPage() {
                 </Group>
               </Box>
               
-              {/* Map Visualization Area - LIKE IN AlertDetailPage */}
-              <Box 
-                style={{ 
+              {/* Leaflet map container */}
+              <div
+                ref={mapRef}
+                style={{
                   height: "calc(100% - 65px)",
-                  display: "flex",
-                  flexDirection: "column"
+                  width: "100%",
+                  borderRadius: "0 0 8px 8px",
                 }}
-              >
-                {/* Actual Map Visualization */}
-                <Box
-                  style={{
-                    flex: 1,
-                    background: lightBlueBg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    position: "relative",
-                    cursor: "pointer",
-                    padding: "20px",
-                  }}
-                >
-                  <Box
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      background: mapGradient,
-                      borderRadius: "8px",
-                      position: "relative",
-                      border: `1px solid ${mapBorder}`,
-                    }}
-                  >
-                    {/* Display markers */}
-                    {markerPositions.map((marker, index) => (
-                      <Box
-                        key={marker.id}
-                        style={{
-                          position: "absolute",
-                          left: marker.position.left,
-                          top: marker.position.top,
-                          transform: marker.isSelected
-                            ? "translate(-50%, -50%)"
-                            : "translate(-50%, -50%)",
-                          backgroundColor: marker.isSelected
-                            ? "#ef4444"
-                            : marker.status === "active"
-                              ? "#10b981"
-                              : "#6b7280",
-                          width: marker.isSelected ? "20px" : "14px",
-                          height: marker.isSelected ? "20px" : "14px",
-                          borderRadius: "50%",
-                          border: marker.isSelected
-                            ? "3px solid white"
-                            : "2px solid white",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          zIndex: marker.isSelected ? 10 : 1,
-                          transition: "all 0.2s",
-                        }}
-                        title={`${marker.location} - ${marker.time}\nClick to view details`}
-                      >
-                        {marker.isSelected ? (
-                          <IconMapPinFilled size={12} color="white" />
-                        ) : (
-                          <Text
-                            size={marker.isSelected ? "10px" : "8px"}
-                            fw={700}
-                            color="white"
-                          >
-                            {index + 1}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-
-                    {/* Selected location label */}
-                    {detectionData && (
-                      <Box
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          backgroundColor: getBg(colorScheme, 'rgba(255, 255, 255, 0.9)', 'rgba(0, 0, 0, 0.8)'),
-                          padding: "8px 16px",
-                          borderRadius: "20px",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        <Text size="sm" fw={600} color={getBg(colorScheme, '#1e40af', theme.colors.blue[2])}>
-                          {detectionData.location}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {detectionData.date} • {detectionData.time}
-                        </Text>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
+              />
             </Paper>
           </Grid.Col>
 
-          {/* RIGHT COLUMN: Beautiful Colorful Info Cards */}
+          {/* RIGHT COLUMN: Info Cards */}
           <Grid.Col span={{ base: 12, md: 5 }}>
             <Stack gap="lg">
-              {/* Accuracy Card - Colorful */}
+              {/* Accuracy Card */}
               <Paper 
                 withBorder 
                 radius="md"
@@ -501,13 +529,13 @@ export default function SingleDetectionDetailPage() {
                         borderRadius: "8px",
                       }}
                     >
-                      {detectionData.accuracy || alertData.accuracy}
+                      {detectionData.accuracy}
                     </Badge>
                   </Group>
                 </Box>
               </Paper>
 
-              {/* Category Card - Green Theme */}
+              {/* Category Card */}
               <Paper 
                 withBorder 
                 radius="md"
@@ -529,11 +557,11 @@ export default function SingleDetectionDetailPage() {
                   <Stack gap="md">
                     <Box pl="md">
                       <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
-                        Type: <span style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>{alertData.category?.type || "Car"}</span>
+                        Type: <span style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>{alertData.category?.type}</span>
                       </Text>
                       <Box pl="md" mt="xs">
                         <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
-                          Brand: <span style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>{alertData.category?.brandName || "Toyota"}</span>
+                          Brand/Name: <span style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>{alertData.category?.brandName}</span>
                         </Text>
                         <Box pl="md" mt="xs">
                           <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
@@ -549,7 +577,7 @@ export default function SingleDetectionDetailPage() {
                             }}
                           >
                             <Text size="sm" fw={800} style={{ color: "white", letterSpacing: "1px" }}>
-                              {alertData.category?.plateNumber || "A.A 2 11111"}
+                              {alertData.category?.plateNumber}
                             </Text>
                           </Box>
                         </Box>
@@ -573,7 +601,7 @@ export default function SingleDetectionDetailPage() {
                           }}
                         />
                         <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
-                          {alertData.color || "Silver"}
+                          {alertData.color}
                         </Text>
                       </Group>
                     </Box>
@@ -581,7 +609,7 @@ export default function SingleDetectionDetailPage() {
                 </Box>
               </Paper>
 
-              {/* Registered Location Card - Purple Theme */}
+              {/* Registered Location Card */}
               <Paper 
                 withBorder 
                 radius="md"
@@ -613,14 +641,14 @@ export default function SingleDetectionDetailPage() {
                         Registered Location
                       </Text>
                       <Text size="sm" style={{ color: getBg(colorScheme, "#6b7280", theme.colors.gray[3]) }} mt="4px">
-                        {alertData.registeredLocation || "Address Abebe, Mexico Itoswerit at"}
+                        {alertData.registeredLocation}
                       </Text>
                     </Box>
                   </Group>
                 </Box>
               </Paper>
 
-              {/* Registered Date Card - Orange Theme */}
+              {/* Registered Date Card */}
               <Paper 
                 withBorder 
                 radius="md"
@@ -657,7 +685,7 @@ export default function SingleDetectionDetailPage() {
                             Date
                           </Badge>
                           <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
-                            {alertData.registeredDate || "10/11/2023"}
+                            {alertData.registeredDate}
                           </Text>
                         </Group>
                         <Group gap="xs">
@@ -665,7 +693,7 @@ export default function SingleDetectionDetailPage() {
                             Time
                           </Badge>
                           <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
-                            {alertData.registeredTime || "8:11 PM"}
+                            {alertData.registeredTime}
                           </Text>
                         </Group>
                       </Stack>
@@ -674,7 +702,7 @@ export default function SingleDetectionDetailPage() {
                 </Box>
               </Paper>
 
-              {/* Captured Media Card - Pink Theme */}
+              {/* Captured Media Card */}
               <Paper 
                 withBorder 
                 radius="md"
@@ -712,13 +740,13 @@ export default function SingleDetectionDetailPage() {
                       </Box>
                     </Group>
                     <Badge color="pink" variant="light">
-                      {alertData.capturedMedia?.photos?.length || alertData.additionalImages?.length || 0} items
+                      {alertData.capturedMedia?.photos?.length || 0} items
                     </Badge>
                   </Group>
 
-                  {alertData.capturedMedia?.photos?.length > 0 || alertData.additionalImages?.length > 0 ? (
+                  {alertData.capturedMedia?.photos?.length > 0 ? (
                     <SimpleGrid cols={2} spacing="sm">
-                      {(alertData.capturedMedia?.photos || alertData.additionalImages || []).slice(0, 4).map((img, index) => (
+                      {alertData.capturedMedia.photos.slice(0, 4).map((img, index) => (
                         <Box
                           key={index}
                           style={{
@@ -769,7 +797,7 @@ export default function SingleDetectionDetailPage() {
                 </Box>
               </Paper>
 
-              {/* Confirmation Card - Red/Green Theme */}
+              {/* Confirmation Card */}
               <Paper 
                 withBorder 
                 radius="md"
@@ -790,7 +818,6 @@ export default function SingleDetectionDetailPage() {
                   </Text>
                   
                   <Stack gap="md">
-                    {/* Yes Option */}
                     <Card
                       withBorder
                       style={{
@@ -833,7 +860,6 @@ export default function SingleDetectionDetailPage() {
                       </Group>
                     </Card>
 
-                    {/* No Option */}
                     <Card
                       withBorder
                       style={{
@@ -876,7 +902,6 @@ export default function SingleDetectionDetailPage() {
                       </Group>
                     </Card>
 
-                    {/* Submit Button */}
                     <Button
                       fullWidth
                       size="lg"
@@ -937,6 +962,12 @@ export default function SingleDetectionDetailPage() {
                 </Badge>
               </Stack>
             </SimpleGrid>
+            {detectionData.description && (
+              <Box mt="md">
+                <Text size="sm" c="dimmed">Description</Text>
+                <Text>{detectionData.description}</Text>
+              </Box>
+            )}
           </Box>
         </Paper>
 

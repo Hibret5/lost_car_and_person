@@ -54,6 +54,9 @@ import {
   IconHistory,
   IconSettings,
   IconLogout,
+  IconBike,
+  IconTruck,
+  IconBattery,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -77,6 +80,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
 const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
+const SIGHTINGS_API = `${API_BASE_URL}/sightings`; // <-- NEW
 
 // ---------- Helper Functions ----------
 const determineVehicleType = (vehicle) => {
@@ -103,13 +107,9 @@ const getVehicleIcon = (type, size = 24) => {
   }
 };
 
-// Helper to transform a raw vehicle/person into the format your detail page expects
-// Now includes lat/lng for each detection (randomly generated around a default center if not provided)
+// Transform a raw vehicle/person into the base alert object
 const transformAlert = (item, type) => {
-  // Default center (e.g., Addis Ababa)
-  const defaultCenter = { lat: 9.03, lng: 38.74 };
-  
-  const base = {
+  return {
     id: item.id,
     code: item.caseId || `CASE-${item.id}`,
     brand: type === 'person'
@@ -126,43 +126,11 @@ const transformAlert = (item, type) => {
     mapLocation: item.lastSeenLocation || 'Unknown',
     reportDate: item.reportDate,
     duration: calculateDuration(item.reportDate),
-    // Detection history – now includes lat/lng
-    detectionHistory: (item.detections || []).map((d, idx) => ({
-      id: d.id || `det-${idx}`,
-      name: `Detection ${idx + 1}`,
-      location: d.location || 'Unknown',
-      date: d.date ? new Date(d.date).toLocaleDateString() : (item.lastSeenDate ? new Date(item.lastSeenDate).toLocaleDateString() : 'Unknown'),
-      time: d.time || (item.lastSeenTime || '00:00'),
-      accuracy: d.accuracy || '85%',
-      type: d.source || (type === 'person' ? 'Suggestion' : 'CCTV'),
-      status: d.status || item.status || 'active',
-      startDate: d.date,
-      startTime: d.time,
-      // If lat/lng provided, use them; otherwise generate random around default center
-      lat: d.lat || defaultCenter.lat + (Math.random() - 0.5) * 0.1,
-      lng: d.lng || defaultCenter.lng + (Math.random() - 0.5) * 0.1,
-    })),
-    // Add dummy history if none exists (so map still has something)
-    ...(item.detections?.length === 0 && {
-      detectionHistory: Array.from({ length: 5 }, (_, i) => ({
-        id: `dummy-${i}`,
-        name: `Suggestion ${i + 1}`,
-        location: item.lastSeenLocation || 'Downtown',
-        date: new Date(item.reportDate || Date.now()).toLocaleDateString(),
-        time: `${10 + i}:00`,
-        accuracy: `${70 + i}%`,
-        type: 'Suggestion',
-        status: 'active',
-        startDate: item.reportDate,
-        startTime: `${10 + i}:00`,
-        lat: defaultCenter.lat + (Math.random() - 0.5) * 0.2,
-        lng: defaultCenter.lng + (Math.random() - 0.5) * 0.2,
-      }))
-    }),
+    // Detection history will be populated separately from sightings
+    detectionHistory: [],
     cctvInfo: item.cctvInfo || { confidence: 'N/A' },
     title: type === 'person' ? 'Missing Person Alert' : 'Missing Vehicle Alert',
   };
-  return base;
 };
 
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
@@ -174,6 +142,7 @@ export default function AlertDetailPage() {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
   const [alertData, setAlertData] = useState(null);
+  const [detectionHistory, setDetectionHistory] = useState([]); // <-- separate state for sightings
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activePage, setActivePage] = useState(1);
@@ -199,52 +168,85 @@ export default function AlertDetailPage() {
   const selectedRowBorder = '#3b82f6';
 
   useEffect(() => {
-    const fetchAlert = async () => {
+    const fetchAlertAndSightings = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        let response = await fetch(`${MISSING_VEHICLES_API}/${params.id}`);
+        const alertId = params?.id;
+        if (!alertId) throw new Error('No alert ID provided');
+
+        // 1. Fetch the main alert (vehicle or person)
+        let alert = null;
+        let response = await fetch(`${MISSING_VEHICLES_API}/${alertId}`);
         if (response.ok) {
           const vehicle = await response.json();
-          const transformed = transformAlert(vehicle, determineVehicleType(vehicle));
-          setAlertData(transformed);
-          if (transformed.detectionHistory?.length > 0) {
-            setSelectedDetection(transformed.detectionHistory[0]);
+          alert = transformAlert(vehicle, determineVehicleType(vehicle));
+        } else {
+          response = await fetch(`${MISSING_PERSONS_API}/${alertId}`);
+          if (response.ok) {
+            const person = await response.json();
+            alert = transformAlert(person, 'person');
+          } else {
+            throw new Error('Alert not found');
           }
-          setLoading(false);
-          return;
         }
 
-        response = await fetch(`${MISSING_PERSONS_API}/${params.id}`);
-        if (response.ok) {
-          const person = await response.json();
-          const transformed = transformAlert(person, 'person');
-          setAlertData(transformed);
-          if (transformed.detectionHistory?.length > 0) {
-            setSelectedDetection(transformed.detectionHistory[0]);
+        // 2. Fetch sightings linked to this alert
+        // We assume sightings have an `originalCaseId` field matching the alert's `caseId` or the raw ID.
+        // Try both: first with alert's caseId (if exists), then with raw id.
+        const caseId = alert.code; // e.g., CASE-123
+        let sightingsUrl = `${SIGHTINGS_API}?originalCaseId=${caseId}`;
+        let sightingsRes = await fetch(sightingsUrl);
+        let sightings = [];
+        if (sightingsRes.ok) {
+          sightings = await sightingsRes.json();
+        } else {
+          // Fallback: try with raw id
+          sightingsUrl = `${SIGHTINGS_API}?originalCaseId=${alertId}`;
+          sightingsRes = await fetch(sightingsUrl);
+          if (sightingsRes.ok) {
+            sightings = await sightingsRes.json();
           }
-          setLoading(false);
-          return;
         }
 
-        setError('Alert not found');
+        // 3. Transform sightings into detection objects
+        const detections = sightings.map((s, idx) => ({
+          id: s.id,
+          name: s.type === 'Person' ? s.name : s.plateNumber || `Sighting ${idx + 1}`,
+          location: s.location || 'Unknown',
+          date: s.date ? new Date(s.date).toLocaleDateString() : (s.reportDate ? new Date(s.reportDate).toLocaleDateString() : 'Unknown'),
+          time: s.time || (s.reportDate ? new Date(s.reportDate).toLocaleTimeString() : '00:00'),
+          accuracy: s.confidence || '85%', // placeholder; you could add confidence field to sightings
+          type: s.type === 'Person' ? 'Suggestion' : 'CCTV',
+          status: s.status || 'active',
+          startDate: s.date || s.reportDate,
+          startTime: s.time || (s.reportDate ? new Date(s.reportDate).toLocaleTimeString() : '00:00'),
+          lat: s.latitude || 9.03 + (Math.random() - 0.5) * 0.1, // fallback random if missing
+          lng: s.longitude || 38.74 + (Math.random() - 0.5) * 0.1,
+          description: s.description,
+        }));
+
+        setAlertData(alert);
+        setDetectionHistory(detections);
+        if (detections.length > 0) {
+          setSelectedDetection(detections[0]);
+        }
+
       } catch (err) {
-        console.error('Error fetching alert:', err);
-        setError('Failed to load alert details');
+        console.error('Error fetching data:', err);
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    if (params?.id) {
-      fetchAlert();
-    }
+    fetchAlertAndSightings();
   }, [params?.id]);
 
-  // Initialize Leaflet map when alertData is available
+  // Initialize Leaflet map when alertData or detectionHistory changes
   useEffect(() => {
-    if (!alertData || !mapRef.current) return;
+    if (!mapRef.current) return;
 
     // Clear previous map instance
     if (leafletMap.current) {
@@ -266,7 +268,7 @@ export default function AlertDetailPage() {
     markersRef.current = [];
 
     // Add markers for each detection
-    alertData.detectionHistory.forEach((detection) => {
+    detectionHistory.forEach((detection) => {
       if (detection.lat && detection.lng) {
         const marker = L.marker([detection.lat, detection.lng])
           .bindPopup(`
@@ -296,7 +298,7 @@ export default function AlertDetailPage() {
         leafletMap.current = null;
       }
     };
-  }, [alertData]);
+  }, [detectionHistory]);
 
   // Fly to selected detection when it changes
   useEffect(() => {
@@ -343,13 +345,12 @@ export default function AlertDetailPage() {
     );
   }
 
-  const detectionHistoryData = alertData.detectionHistory || [];
   const startIndex = (activePage - 1) * itemsPerPage;
-  const paginatedData = detectionHistoryData.slice(
+  const paginatedData = detectionHistory.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
-  const totalPages = Math.ceil(detectionHistoryData.length / itemsPerPage);
+  const totalPages = Math.ceil(detectionHistory.length / itemsPerPage);
 
   const handleDetectionClick = (detection) => {
     setSelectedDetection(detection);
@@ -375,7 +376,7 @@ export default function AlertDetailPage() {
         flexDirection: "column",
       }}
     >
-      {/* Header (unchanged, but using Container fluid) */}
+      {/* Header */}
       <Box
         bg={headerBg}
         py="sm"
@@ -558,9 +559,9 @@ export default function AlertDetailPage() {
           <Paper p="md" withBorder radius="md" ta="center">
             <Group justify="center" mb="xs">
               <IconEye size={20} />
-              <Text size="sm" c="dimmed">Total Detections</Text>
+              <Text size="sm" c="dimmed">Total Sightings</Text>
             </Group>
-            <Title order={2}>{detectionHistoryData.length || 0}</Title>
+            <Title order={2}>{detectionHistory.length || 0}</Title>
           </Paper>
           <Paper p="md" withBorder radius="md" ta="center">
             <Group justify="center" mb="xs">
@@ -608,7 +609,7 @@ export default function AlertDetailPage() {
                 <Group>
                   <IconMap size={20} />
                   <Text fw={600}>
-                    Detection Map -{" "}
+                    Sighting Map -{" "}
                     {selectedDetection ? selectedDetection.location : alertData.location}
                   </Text>
                 </Group>
@@ -632,7 +633,7 @@ export default function AlertDetailPage() {
             </Paper>
           </Grid.Col>
 
-          {/* Table Section (unchanged) */}
+          {/* Table Section */}
           <Grid.Col span={12}>
             <Paper
               withBorder
@@ -657,14 +658,14 @@ export default function AlertDetailPage() {
                 <Group justify="space-between" wrap="wrap" gap="xs">
                   <Group>
                     <IconTable size={20} />
-                    <Text fw={600}>Alerts History</Text>
+                    <Text fw={600}>Sightings History</Text>
                   </Group>
                   <Group>
                     <Badge color="white" variant="filled" size="lg">
-                      {detectionHistoryData.filter(a => a.status === "active").length} Active
+                      {detectionHistory.filter(a => a.status === "active").length} Active
                     </Badge>
                     <Badge color="white" variant="filled" size="lg">
-                      {detectionHistoryData.length} Total
+                      {detectionHistory.length} Total
                     </Badge>
                   </Group>
                 </Group>
@@ -675,7 +676,7 @@ export default function AlertDetailPage() {
                   <Table striped highlightOnHover style={{ minWidth: 800 }}>
                     <Table.Thead style={{ backgroundColor: tableHeaderBg }}>
                       <Table.Tr>
-                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Alert</Table.Th>
+                        <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Sighting</Table.Th>
                         <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Location</Table.Th>
                         <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Date</Table.Th>
                         <Table.Th style={{ textAlign: "center", fontWeight: 700, color: tableHeaderText }}>Time</Table.Th>
@@ -687,9 +688,7 @@ export default function AlertDetailPage() {
                     </Table.Thead>
                     <Table.Tbody>
                       {paginatedData.map((detection) => {
-                        const accuracy =
-                          detection.accuracy ||
-                          (detection.type === "Suggestion" ? "--" : `${Math.floor(Math.random() * 30) + 50}%`);
+                        const accuracy = detection.accuracy || "--";
                         const isSelected = selectedDetection?.id === detection.id;
 
                         return (
@@ -717,11 +716,11 @@ export default function AlertDetailPage() {
                             <Table.Td style={{ textAlign: "center" }}>
                               <Group justify="center" gap="xs">
                                 <IconCalendar size={14} color="#3b82f6" />
-                                <Text>{detection.date || detection.startDate}</Text>
+                                <Text>{detection.date}</Text>
                               </Group>
                             </Table.Td>
                             <Table.Td style={{ textAlign: "center" }}>
-                              {detection.time || detection.startTime}
+                              {detection.time}
                             </Table.Td>
                             <Table.Td style={{ textAlign: "center" }}>
                               {accuracy === "--" ? (
@@ -803,7 +802,7 @@ export default function AlertDetailPage() {
                 }}
               >
                 <Text size="sm" c={paginationText} fw={500}>
-                  Page {activePage} of {totalPages} • {detectionHistoryData.length} total alerts
+                  Page {activePage} of {totalPages} • {detectionHistory.length} total sightings
                   {selectedDetection && ` • Selected: ${selectedDetection.name}`}
                 </Text>
                 <Pagination
