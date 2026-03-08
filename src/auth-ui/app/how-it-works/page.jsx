@@ -763,6 +763,16 @@ export default function HowItWorksPage() {
               </Button>
               <Button 
                 size="xl" 
+                color="white" 
+                radius="xl" 
+                onClick={() => router.push(user ? '/report-sighting' : '/signup')}
+                variant="outline"
+                style={{ marginLeft: 10 }}
+              >
+                {user ? 'Report a Sighting' : 'Sign Up First'}
+              </Button>
+              <Button 
+                size="xl" 
                 variant="outline" 
                 color="white" 
                 radius="xl" 
