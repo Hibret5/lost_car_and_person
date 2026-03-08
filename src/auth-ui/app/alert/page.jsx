@@ -23,6 +23,8 @@ import {
   useMantineTheme,
   useMantineColorScheme,
   Loader,
+  Checkbox,
+  Modal,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -62,6 +64,7 @@ import { useRef, useState, useEffect } from "react";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
 const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
 const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
+const SIGHTINGS_API = `${API_BASE_URL}/sightings`; // NEW: sightings endpoint
 
 // Helper to get dynamic background/color values
 const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
@@ -75,6 +78,7 @@ export default function AlertPage() {
   const [filteredAlerts, setFilteredAlerts] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [persons, setPersons] = useState([]);
+  const [sightings, setSightings] = useState([]); // NEW: store all sightings
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, resolved: 0, active: 0 });
   const theme = useMantineTheme();
@@ -83,13 +87,17 @@ export default function AlertPage() {
   // State for logged-in username
   const [username, setUsername] = useState("User");
 
+  // State for delete confirmation modal (optional)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteAlertInfo, setDeleteAlertInfo] = useState(null);
+  const [deleteSightingsToo, setDeleteSightingsToo] = useState(false);
+
   // Fetch user data from localStorage on mount
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const user = JSON.parse(storedUser);
-        // Adjust the property names based on your stored user object
         setUsername(user.name || user.username || user.firstName || "User");
       }
     } catch (error) {
@@ -97,119 +105,141 @@ export default function AlertPage() {
     }
   }, []);
 
-  // Fetch real data from JSON Server
+  // Fetch real data from JSON Server (including sightings)
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
         setLoading(true);
         
-        // Fetch vehicles from database
-        const vehiclesResponse = await fetch(MISSING_VEHICLES_API);
+        // Fetch vehicles, persons, and sightings in parallel
+        const [vehiclesResponse, personsResponse, sightingsResponse] = await Promise.all([
+          fetch(MISSING_VEHICLES_API),
+          fetch(MISSING_PERSONS_API),
+          fetch(SIGHTINGS_API),
+        ]);
+        
         const vehiclesData = await vehiclesResponse.json();
-        
-        // Fetch persons from database (if you want to show person alerts too)
-        const personsResponse = await fetch(MISSING_PERSONS_API);
         const personsData = await personsResponse.json();
+        const sightingsData = await sightingsResponse.json();
         
-        // Transform vehicle data to match your alert format
-        const transformedVehicles = vehiclesData.map(vehicle => ({
-          id: vehicle.id,
-          code: vehicle.caseId || `CASE-${vehicle.id}`,
-          brand: `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.submodel || ''}`.trim(),
-          type: determineVehicleType(vehicle),
-          status: vehicle.status?.toLowerCase() || 'active',
-          location: vehicle.lastSeenLocation || vehicle.location || 'Unknown',
-          time: vehicle.lastSeenDate ? new Date(vehicle.lastSeenDate).toLocaleDateString() : 
-                 vehicle.reportDate ? new Date(vehicle.reportDate).toLocaleDateString() : 'Unknown',
-          imageUrl: '/default-car.jpg', // You'll need to handle images
-          details: vehicle.vehicleDescription || `${vehicle.color || ''} ${vehicle.brand || ''}`.trim(),
-          fullDescription: vehicle.vehicleDescription || 'No description provided',
-          lastSeen: vehicle.lastSeenLocation || 'Unknown',
-          mapLocation: vehicle.lastSeenLocation || 'Unknown',
-          reportDate: vehicle.reportDate,
-          duration: calculateDuration(vehicle.reportDate),
-          
-          // Detection history (if you track this)
-          detectionHistory: vehicle.detections || [],
-          
-          // Contact info from reporter
-          contactInfo: vehicle.reportedBy ? {
-            name: `${vehicle.reportedBy.firstName || ''} ${vehicle.reportedBy.lastName || ''}`.trim() || 'Unknown',
-            phone: vehicle.reportedBy.phone || 'Not provided',
-            email: vehicle.reportedBy.email || 'Not provided',
-            role: vehicle.reportedBy.role || 'Reporter'
-          } : {
-            name: 'Unknown',
-            phone: 'Not provided',
-            email: 'Not provided'
-          },
-          
-          // Technical specs
-          technicalSpecs: {
-            color: vehicle.color || 'Unknown',
-            plateNumber: vehicle.plateNumber || 'Unknown',
-            plateType: vehicle.plateType || 'Unknown',
-            region: vehicle.region || 'Unknown',
-            ...vehicle.technicalSpecs
-          },
-          
-          // Features if any
-          features: vehicle.features || [],
-          
-          // Additional images
-          additionalImages: vehicle.images || [],
-          
-          // CCTV info if any
-          cctvInfo: vehicle.cctvInfo || { confidence: 'N/A' },
-          
-          stats: {
-            totalDetections: vehicle.detections?.length || 0
+        setSightings(sightingsData);
+
+        // Create a map of sightings by originalCaseId for quick lookup
+        const sightingsByCase = {};
+        sightingsData.forEach(sighting => {
+          const caseId = sighting.originalCaseId;
+          if (caseId) {
+            if (!sightingsByCase[caseId]) sightingsByCase[caseId] = [];
+            sightingsByCase[caseId].push(sighting);
           }
-        }));
+        });
         
-        // Transform person data (if you want to show person alerts)
-        const transformedPersons = personsData.map(person => ({
-          id: person.id,
-          code: person.caseId || `CASE-${person.id}`,
-          brand: `${person.firstName || ''} ${person.middleName || ''} ${person.lastName || ''}`.trim(),
-          type: 'person',
-          status: person.status?.toLowerCase() || 'active',
-          location: person.lastSeenLocation || person.location || 'Unknown',
-          time: person.lastSeenDate ? new Date(person.lastSeenDate).toLocaleDateString() : 
-                 person.reportDate ? new Date(person.reportDate).toLocaleDateString() : 'Unknown',
-          imageUrl: '/default-person.jpg', // You'll need to handle images
-          details: `Age: ${person.age || 'Unknown'}, Gender: ${person.gender || 'Unknown'}`,
-          fullDescription: person.description || 'No description provided',
-          lastSeen: person.lastSeenLocation || 'Unknown',
-          mapLocation: person.lastSeenLocation || 'Unknown',
-          reportDate: person.reportDate,
-          duration: calculateDuration(person.reportDate),
-          
-          contactInfo: person.reportedBy ? {
-            name: `${person.reportedBy.firstName || ''} ${person.reportedBy.lastName || ''}`.trim() || 'Unknown',
-            phone: person.reportedBy.phone || 'Not provided',
-            email: person.reportedBy.email || 'Not provided',
-            role: person.reportedBy.role || 'Reporter'
-          } : {
-            name: 'Unknown',
-            phone: 'Not provided',
-            email: 'Not provided'
-          },
-          
-          technicalSpecs: {
-            age: person.age || 'Unknown',
-            gender: person.gender || 'Unknown',
-            height: person.height ? `${person.height} cm` : 'Unknown',
-            weight: person.weight ? `${person.weight} kg` : 'Unknown'
-          },
-          
-          features: person.features || [],
-          additionalImages: person.images || [],
-          
-          stats: {
-            totalDetections: person.detections?.length || 0
-          }
-        }));
+        // Transform vehicle data
+        const transformedVehicles = vehiclesData.map(vehicle => {
+          const caseId = vehicle.caseId || `CASE-${vehicle.id}`;
+          const vehicleSightings = sightingsByCase[caseId] || [];
+          return {
+            id: vehicle.id,
+            code: caseId,
+            brand: `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.submodel || ''}`.trim(),
+            type: determineVehicleType(vehicle),
+            status: vehicle.status?.toLowerCase() || 'active',
+            location: vehicle.lastSeenLocation || vehicle.location || 'Unknown',
+            time: vehicle.lastSeenDate ? new Date(vehicle.lastSeenDate).toLocaleDateString() : 
+                   vehicle.reportDate ? new Date(vehicle.reportDate).toLocaleDateString() : 'Unknown',
+            imageUrl: '/default-car.jpg', // You'll need to handle images
+            details: vehicle.vehicleDescription || `${vehicle.color || ''} ${vehicle.brand || ''}`.trim(),
+            fullDescription: vehicle.vehicleDescription || 'No description provided',
+            lastSeen: vehicle.lastSeenLocation || 'Unknown',
+            mapLocation: vehicle.lastSeenLocation || 'Unknown',
+            reportDate: vehicle.reportDate,
+            duration: calculateDuration(vehicle.reportDate),
+            
+            // NEW: attach sightings
+            detectionHistory: vehicleSightings,
+            
+            contactInfo: vehicle.reportedBy ? {
+              name: `${vehicle.reportedBy.firstName || ''} ${vehicle.reportedBy.lastName || ''}`.trim() || 'Unknown',
+              phone: vehicle.reportedBy.phone || 'Not provided',
+              email: vehicle.reportedBy.email || 'Not provided',
+              role: vehicle.reportedBy.role || 'Reporter'
+            } : {
+              name: 'Unknown',
+              phone: 'Not provided',
+              email: 'Not provided'
+            },
+            
+            technicalSpecs: {
+              color: vehicle.color || 'Unknown',
+              plateNumber: vehicle.plateNumber || 'Unknown',
+              plateType: vehicle.plateType || 'Unknown',
+              region: vehicle.region || 'Unknown',
+              ...vehicle.technicalSpecs
+            },
+            
+            features: vehicle.features || [],
+            additionalImages: vehicle.images || [],
+            
+            cctvInfo: vehicle.cctvInfo || { confidence: 'N/A' },
+            
+            // NEW: stats including total detections
+            stats: {
+              totalDetections: vehicleSightings.length
+            }
+          };
+        });
+        
+        // Transform person data
+        const transformedPersons = personsData.map(person => {
+          const caseId = person.caseId || `CASE-${person.id}`;
+          const personSightings = sightingsByCase[caseId] || [];
+          return {
+            id: person.id,
+            code: caseId,
+            brand: `${person.firstName || ''} ${person.middleName || ''} ${person.lastName || ''}`.trim(),
+            type: 'person',
+            status: person.status?.toLowerCase() || 'active',
+            location: person.lastSeenLocation || person.location || 'Unknown',
+            time: person.lastSeenDate ? new Date(person.lastSeenDate).toLocaleDateString() : 
+                   person.reportDate ? new Date(person.reportDate).toLocaleDateString() : 'Unknown',
+            imageUrl: '/default-person.jpg', // You'll need to handle images
+            details: `Age: ${person.age || 'Unknown'}, Gender: ${person.gender || 'Unknown'}`,
+            fullDescription: person.description || 'No description provided',
+            lastSeen: person.lastSeenLocation || 'Unknown',
+            mapLocation: person.lastSeenLocation || 'Unknown',
+            reportDate: person.reportDate,
+            duration: calculateDuration(person.reportDate),
+            
+            // NEW: attach sightings
+            detectionHistory: personSightings,
+            
+            contactInfo: person.reportedBy ? {
+              name: `${person.reportedBy.firstName || ''} ${person.reportedBy.lastName || ''}`.trim() || 'Unknown',
+              phone: person.reportedBy.phone || 'Not provided',
+              email: person.reportedBy.email || 'Not provided',
+              role: person.reportedBy.role || 'Reporter'
+            } : {
+              name: 'Unknown',
+              phone: 'Not provided',
+              email: 'Not provided'
+            },
+            
+            technicalSpecs: {
+              age: person.age || 'Unknown',
+              gender: person.gender || 'Unknown',
+              height: person.height ? `${person.height} cm` : 'Unknown',
+              weight: person.weight ? `${person.weight} kg` : 'Unknown'
+            },
+            
+            features: person.features || [],
+            additionalImages: person.images || [],
+            
+            // NEW: stats including total detections
+            stats: {
+              totalDetections: personSightings.length
+            }
+          };
+        });
         
         const allAlerts = [...transformedVehicles, ...transformedPersons];
         
@@ -316,68 +346,84 @@ export default function AlertPage() {
     handleCloseDetail();
   };
 
+  // MODIFIED: delete function with option to delete associated sightings
   const handleDeleteAlert = async (alertId, alertCode) => {
     const alertToDelete = filteredAlerts.find((alert) => alert.id === alertId);
+    if (!alertToDelete) return;
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete alert "${alertCode}"?\n\n` +
-        `Brand: ${alertToDelete?.brand}\n` +
-        `Location: ${alertToDelete?.location}\n\n` +
-        `This action cannot be undone!`,
-    );
+    // Open confirmation modal instead of window.confirm
+    setDeleteAlertInfo({ alertId, alertCode, alertToDelete });
+    setDeleteModalOpen(true);
+  };
 
-    if (confirmed) {
-      try {
-        // Determine which API to use
-        const isVehicle = alertToDelete.type !== 'person';
-        const apiUrl = isVehicle ? MISSING_VEHICLES_API : MISSING_PERSONS_API;
-        
-        // Delete from JSON Server
-        await fetch(`${apiUrl}/${alertId}`, {
-          method: 'DELETE',
-        });
-        
-        // Update local state
-        if (isVehicle) {
-          setVehicles((prev) => prev.filter((alert) => alert.id !== alertId));
-        } else {
-          setPersons((prev) => prev.filter((alert) => alert.id !== alertId));
-        }
-        
-        setFilteredAlerts((prevAlerts) =>
-          prevAlerts.filter((alert) => alert.id !== alertId),
-        );
+  const confirmDelete = async () => {
+    if (!deleteAlertInfo) return;
+    const { alertId, alertCode, alertToDelete } = deleteAlertInfo;
 
-        if (selectedAlert && selectedAlert.id === alertId) {
-          setSelectedAlert(null);
-        }
-
-        // Update stats
-        const newTotal = stats.total - 1;
-        const newActive = alertToDelete.status === 'active' ? stats.active - 1 : stats.active;
-        const newResolved = alertToDelete.status === 'resolved' ? stats.resolved - 1 : stats.resolved;
-        
-        setStats({
-          total: newTotal,
-          active: newActive,
-          resolved: newResolved
-        });
-
-        notifications.show({
-          title: "Alert Deleted",
-          message: `Alert "${alertCode}" has been successfully deleted from database.`,
-          color: "red",
-          icon: <IconTrash size={16} />,
-        });
-      } catch (error) {
-        console.error('Error deleting alert:', error);
-        notifications.show({
-          title: "Error",
-          message: "Failed to delete alert from database",
-          color: "red",
-          icon: <IconAlertCircle size={16} />,
-        });
+    try {
+      // Determine which API to use
+      const isVehicle = alertToDelete.type !== 'person';
+      const apiUrl = isVehicle ? MISSING_VEHICLES_API : MISSING_PERSONS_API;
+      
+      // Delete the main alert
+      await fetch(`${apiUrl}/${alertId}`, {
+        method: 'DELETE',
+      });
+      
+      // If user chose to delete associated sightings
+      if (deleteSightingsToo && alertToDelete.detectionHistory?.length > 0) {
+        // Delete each sighting
+        await Promise.all(alertToDelete.detectionHistory.map(sighting =>
+          fetch(`${SIGHTINGS_API}/${sighting.id}`, { method: 'DELETE' })
+        ));
+        // Update local sightings state
+        setSightings(prev => prev.filter(s => !alertToDelete.detectionHistory.some(d => d.id === s.id)));
       }
+      
+      // Update local state
+      if (isVehicle) {
+        setVehicles((prev) => prev.filter((alert) => alert.id !== alertId));
+      } else {
+        setPersons((prev) => prev.filter((alert) => alert.id !== alertId));
+      }
+      
+      setFilteredAlerts((prevAlerts) =>
+        prevAlerts.filter((alert) => alert.id !== alertId),
+      );
+
+      if (selectedAlert && selectedAlert.id === alertId) {
+        setSelectedAlert(null);
+      }
+
+      // Update stats
+      const newTotal = stats.total - 1;
+      const newActive = alertToDelete.status === 'active' ? stats.active - 1 : stats.active;
+      const newResolved = alertToDelete.status === 'resolved' ? stats.resolved - 1 : stats.resolved;
+      
+      setStats({
+        total: newTotal,
+        active: newActive,
+        resolved: newResolved
+      });
+
+      notifications.show({
+        title: "Alert Deleted",
+        message: `Alert "${alertCode}" has been successfully deleted${deleteSightingsToo ? ' along with its associated sightings' : ''}.`,
+        color: "red",
+        icon: <IconTrash size={16} />,
+      });
+    } catch (error) {
+      console.error('Error deleting alert:', error);
+      notifications.show({
+        title: "Error",
+        message: "Failed to delete alert from database",
+        color: "red",
+        icon: <IconAlertCircle size={16} />,
+      });
+    } finally {
+      setDeleteModalOpen(false);
+      setDeleteAlertInfo(null);
+      setDeleteSightingsToo(false);
     }
   };
 
@@ -520,6 +566,27 @@ export default function AlertPage() {
           </Group>
         </Container>
       </Box>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        opened={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Confirm Delete"
+        centered
+      >
+        <Stack>
+          <Text>Are you sure you want to delete alert "{deleteAlertInfo?.alertCode}"?</Text>
+          <Checkbox
+            label="Also delete all associated sightings"
+            checked={deleteSightingsToo}
+            onChange={(e) => setDeleteSightingsToo(e.currentTarget.checked)}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+            <Button color="red" onClick={confirmDelete}>Delete</Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* Main Content */}
       <Container size="xl" py={40}>
@@ -736,7 +803,7 @@ export default function AlertPage() {
                           <Group gap="xs">
                             <IconAlertCircle size={16} color={alert.status === "active" ? "red" : "green"} />
                             <Text size="sm" c={alert.status === "active" ? "red" : "green"}>
-                              {alert.status === "active" ? `${alert.stats?.totalDetections || 0} detections` : "Case resolved"}
+                              {alert.status === "active" ? `${alert.stats?.totalDetections || 0} sighting${alert.stats?.totalDetections !== 1 ? 's' : ''}` : "Case resolved"}
                             </Text>
                           </Group>
                         </Stack>
@@ -1005,6 +1072,47 @@ export default function AlertPage() {
                   </Paper>
                 </SimpleGrid>
 
+                {/* NEW: Sighting History Section */}
+                {selectedAlert.detectionHistory && selectedAlert.detectionHistory.length > 0 && (
+                  <Paper p="xl" withBorder radius="md" mb="xl" bg={grayLightBg}>
+                    <Text fw={700} size="xl" mb="lg">
+                      Sighting History ({selectedAlert.detectionHistory.length})
+                    </Text>
+                    <Stack gap="md">
+                      {selectedAlert.detectionHistory.map((sighting, idx) => (
+                        <Card key={idx} withBorder p="sm" radius="md">
+                          <Group gap="sm" align="flex-start">
+                            <Avatar color="blue" radius="xl">
+                              {sighting.type === 'Person' ? <IconUser size={16} /> : <IconCar size={16} />}
+                            </Avatar>
+                            <Box style={{ flex: 1 }}>
+                              <Text size="sm" fw={500}>
+                                {sighting.type === 'Person' ? sighting.name : sighting.plateNumber}
+                              </Text>
+                              <Group gap="xs" mt={4}>
+                                <IconMapPin size={12} />
+                                <Text size="xs" c="dimmed">{sighting.location}</Text>
+                              </Group>
+                              <Group gap="xs" mt={4}>
+                                <IconCalendar size={12} />
+                                <Text size="xs" c="dimmed">
+                                  {new Date(sighting.reportDate).toLocaleString()}
+                                </Text>
+                              </Group>
+                              {sighting.description && (
+                                <Text size="xs" c="dimmed" mt={4}>
+                                  {sighting.description}
+                                </Text>
+                              )}
+                            </Box>
+                            <Badge size="sm" color="green">Sighting</Badge>
+                          </Group>
+                        </Card>
+                      ))}
+                    </Stack>
+                  </Paper>
+                )}
+
                 {/* Contact Information */}
                 {selectedAlert.contactInfo && (
                   <Paper p="xl" withBorder radius="md" bg={blueLightBg} mb="xl">
@@ -1087,7 +1195,7 @@ export default function AlertPage() {
                     <SimpleGrid cols={3} spacing="lg">
                       <Box ta="center">
                         <Text size="sm" c="dimmed" mb="xs">
-                          Total Detections
+                          Total Sightings
                         </Text>
                         <Title order={2}>{selectedAlert.stats.totalDetections || 0}</Title>
                       </Box>

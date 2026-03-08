@@ -135,6 +135,79 @@
       "imagePreview": null
     }
   ],
+  "sightings": [
+    {
+      "id": "fea7",
+      "type": "Person",
+      "name": "Tesfalem Badeg",
+      "plateNumber": "",
+      "description": "additional detail",
+      "location": "ጎበና አባ ጥጉ መንገድ, Goma Tera, Somale Tera, Addis Ketema, Addis Ababa, 3658, Ethiopia",
+      "date": "2026-03-06",
+      "time": "14:22",
+      "latitude": 9.030144792173218,
+      "longitude": 38.74528706073762,
+      "imagePreview": null,
+      "reportedBy": {
+        "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
+        "firstName": "user",
+        "lastName": "user",
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "role": "user"
+      },
+      "reportDate": "2026-03-06T11:23:54.069Z",
+      "status": "pending"
+    },
+    {
+      "id": "557e",
+      "type": "Person",
+      "name": "Habteneh Alemaw",
+      "plateNumber": "",
+      "description": "wertyui",
+      "location": "Aserasement, Kolfe Keranio, Addis Ababa, 9837, Ethiopia",
+      "date": "2026-03-06",
+      "time": "14:46",
+      "latitude": 9.029234871393866,
+      "longitude": 38.71462672948838,
+      "imagePreview": null,
+      "originalCaseId": "CASE-MMBZ5VIF-8O4T",
+      "reportedBy": {
+        "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
+        "firstName": "user",
+        "lastName": "user",
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "role": "user"
+      },
+      "reportDate": "2026-03-06T11:46:30.171Z",
+      "status": "pending"
+    },
+    {
+      "id": "b0e1",
+      "type": "Person",
+      "name": "Habteneh Alemaw",
+      "plateNumber": "",
+      "description": "what color?",
+      "location": "ተሰማ አባቀማው መንገድ, Ferash Tera, Tekelehaymanot, Addis Ketema, Addis Ababa, 3658, Ethiopia",
+      "date": "2026-03-08",
+      "time": "19:05",
+      "latitude": 9.028890504852166,
+      "longitude": 38.74331027269364,
+      "imagePreview": null,
+      "originalCaseId": "CASE-MMBZ5VIF-8O4T",
+      "reportedBy": {
+        "userId": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
+        "firstName": "user",
+        "lastName": "user",
+        "email": "User1@gmail.com",
+        "phone": "+251911111111",
+        "role": "user"
+      },
+      "reportDate": "2026-03-08T16:05:20.666Z",
+      "status": "pending"
+    }
+  ],
   "users": [
     {
       "id": "97a39fa6-4d93-4b98-a4e0-204c225eb368",
