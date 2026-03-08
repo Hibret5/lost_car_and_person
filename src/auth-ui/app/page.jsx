@@ -24,6 +24,11 @@ import {
   Flex,
   Table,
   useMantineColorScheme,
+  Loader,
+  Center,
+  Alert,
+  Divider,
+  Indicator,
 } from "@mantine/core";
 import {
   IconSearch,
@@ -70,6 +75,9 @@ import {
   IconRefresh,
   IconSun,
   IconMoon,
+  IconPlus,
+  IconMap,           // <-- added for the button
+  IconMessageCircle,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -80,12 +88,45 @@ import { useMediaQuery } from "@mantine/hooks";
 import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+// Dynamically import map to avoid SSR issues
+const LocationPicker = dynamic(() => import("../components/LocationPicker"), {
+  ssr: false,
+  loading: () => (
+    <Box
+      style={{
+        height: 300,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f0f5ff",
+        borderRadius: "12px",
+      }}
+    >
+      <Loader size="lg" color="#2f80ed" />
+    </Box>
+  ),
+});
+
+// API endpoints
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
+const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
+const SIGHTINGS_API = `${API_BASE_URL}/sightings`;
+const NOTIFICATIONS_API = `${API_BASE_URL}/notifications`;
 
 export default function Dashboard() {
-  const items = [1, 2, 3, 4, 5, 6];
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [missingPersons, setMissingPersons] = useState([]);
+  const [missingVehicles, setMissingVehicles] = useState([]);
+  const [userReports, setUserReports] = useState([]);
+  const [recentSightings, setRecentSightings] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [dataLoading, setDataLoading] = useState(false);
   const theme = useMantineTheme();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -93,29 +134,18 @@ export default function Dashboard() {
 
   // Helper to get dynamic background colors
   const getBg = (light, dark) => (colorScheme === 'dark' ? dark : light);
-  const getTextColor = (light, dark) => (colorScheme === 'dark' ? dark : light);
-
-  // Mock reported cases data
-  const reportedCases = [
-    { id: 1, type: "Car", status: "Active", date: "2024-03-15", location: "Downtown", priority: "High" },
-    { id: 2, type: "Person", status: "Resolved", date: "2024-03-10", location: "North Park", priority: "Medium" },
-    { id: 3, type: "Document", status: "Active", date: "2024-03-14", location: "Airport", priority: "High" },
-    { id: 4, type: "Pet", status: "Investigation", date: "2024-03-12", location: "South Side", priority: "Medium" },
-    { id: 5, type: "Jewelry", status: "Resolved", date: "2024-03-08", location: "Mall", priority: "Low" },
-    { id: 6, type: "Electronics", status: "Active", date: "2024-03-13", location: "University", priority: "High" },
-  ];
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const userData = localStorage.getItem("currentUser");
 
       if (userData) {
         const parsedUser = JSON.parse(userData);
 
-        // ✅ Redirect admin users to admin page
+        // Redirect admin users to admin page
         if (parsedUser.role && parsedUser.role.toLowerCase() === "admin") {
           router.push("/admin");
-          return; // Stop further execution
+          return;
         }
 
         setUser(parsedUser);
@@ -135,6 +165,107 @@ export default function Dashboard() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [router]);
 
+  // Fetch missing persons and vehicles
+  useEffect(() => {
+    const fetchMissingData = async () => {
+      setDataLoading(true);
+      try {
+        const [personsRes, vehiclesRes] = await Promise.all([
+          fetch(MISSING_PERSONS_API),
+          fetch(MISSING_VEHICLES_API),
+        ]);
+
+        if (personsRes.ok) {
+          const persons = await personsRes.json();
+          setMissingPersons(persons.filter(p => p.status === 'Active'));
+        }
+        if (vehiclesRes.ok) {
+          const vehicles = await vehiclesRes.json();
+          setMissingVehicles(vehicles.filter(v => v.status === 'Active'));
+        }
+      } catch (error) {
+        console.error('Error fetching missing data:', error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchMissingData();
+  }, []);
+
+  // Fetch recent sightings
+  useEffect(() => {
+    const fetchSightings = async () => {
+      try {
+        const res = await fetch(SIGHTINGS_API);
+        if (res.ok) {
+          const data = await res.json();
+          const sorted = data.sort((a, b) => new Date(b.reportDate) - new Date(a.reportDate));
+          setRecentSightings(sorted.slice(0, 5));
+        }
+      } catch (error) {
+        console.error('Error fetching sightings:', error);
+      }
+    };
+    fetchSightings();
+  }, []);
+
+  // Fetch notifications (demo)
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch(NOTIFICATIONS_API);
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.read).length);
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        // Fallback demo data
+        const demo = [
+          { id: 1, message: "New sighting of your reported car", time: "5 min ago", read: false },
+          { id: 2, message: "Case #123 status changed to Resolved", time: "1 hour ago", read: false },
+          { id: 3, message: "Someone commented on your report", time: "yesterday", read: true },
+        ];
+        setNotifications(demo);
+        setUnreadCount(demo.filter(n => !n.read).length);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  // Fetch user's reports if logged in
+  useEffect(() => {
+    const fetchUserReports = async () => {
+      if (!user) return;
+
+      try {
+        const [personsRes, vehiclesRes] = await Promise.all([
+          fetch(MISSING_PERSONS_API),
+          fetch(MISSING_VEHICLES_API),
+        ]);
+
+        let reports = [];
+
+        if (personsRes.ok) {
+          const persons = await personsRes.json();
+          reports = reports.concat(persons.filter(p => p.reportedBy?.userId === user.id));
+        }
+        if (vehiclesRes.ok) {
+          const vehicles = await vehiclesRes.json();
+          reports = reports.concat(vehicles.filter(v => v.reportedBy?.userId === user.id));
+        }
+
+        setUserReports(reports);
+      } catch (error) {
+        console.error('Error fetching user reports:', error);
+      }
+    };
+
+    fetchUserReports();
+  }, [user]);
+
   const handleLogout = () => {
     localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("currentUser");
@@ -146,7 +277,7 @@ export default function Dashboard() {
   };
 
   const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'active': return 'blue';
       case 'resolved': return 'green';
       case 'investigation': return 'orange';
@@ -155,7 +286,7 @@ export default function Dashboard() {
   };
 
   const getPriorityColor = (priority) => {
-    switch (priority.toLowerCase()) {
+    switch (priority?.toLowerCase()) {
       case 'high': return 'red';
       case 'medium': return 'yellow';
       case 'low': return 'green';
@@ -256,34 +387,55 @@ export default function Dashboard() {
             />
 
             <Group gap={isMobile ? "xs" : "md"} wrap="nowrap">
-              {/* Notification Bell */}
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size={isMobile ? "md" : "lg"}
-                component={Link}
-                href={user ? "/alert" : "/login"}
-                style={{
-                  position: "relative",
-                  "&::after": {
-                    content: '"3"',
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    background: "#ff6b6b",
-                    color: "white",
-                    borderRadius: "50%",
-                    width: 18,
-                    height: 18,
-                    fontSize: 10,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  },
-                }}
+              {/* Notification Bell with Dropdown */}
+              <Menu
+                shadow="md"
+                width={320}
+                position="bottom-end"
+                closeOnItemClick={false}
               >
-                <IconBell size={isMobile ? 20 : 24} />
-              </ActionIcon>
+                <Menu.Target>
+                  <Indicator
+                    inline
+                    label={unreadCount}
+                    size={16}
+                    color="red"
+                    disabled={unreadCount === 0}
+                  >
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size={isMobile ? "md" : "lg"}
+                    >
+                      <IconBell size={isMobile ? 20 : 24} />
+                    </ActionIcon>
+                  </Indicator>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Box p="xs" fw={700} style={{ borderBottom: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}` }}>
+                    Notifications
+                  </Box>
+                  <ScrollArea h={250}>
+                    {notifications.length === 0 ? (
+                      <Text ta="center" c="dimmed" py="md">No notifications</Text>
+                    ) : (
+                      notifications.map((n) => (
+                        <Menu.Item key={n.id}>
+                          <Group gap="sm" wrap="nowrap">
+                            <Box>
+                              <Text size="sm" fw={n.read ? 400 : 700}>{n.message}</Text>
+                              <Text size="xs" c="dimmed">{n.time}</Text>
+                            </Box>
+                            {!n.read && <Badge size="xs" color="red" variant="filled">new</Badge>}
+                          </Group>
+                        </Menu.Item>
+                      ))
+                    )}
+                  </ScrollArea>
+                  <Menu.Divider />
+                  <Menu.Item component={Link} href="/notifications">View all</Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
 
               {/* Dark Mode Toggle */}
               <ActionIcon
@@ -708,6 +860,44 @@ export default function Dashboard() {
         </Container>
       </Box>
 
+      {/* --- QUICK ACTIONS --- */}
+      <Container size="xl" py={{ base: 30, md: 40 }}>
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg" mb="xl">
+          <Button
+            component={Link}
+            href="/register"
+            size="lg"
+            radius="md"
+            leftSection={<IconPlus size={20} />}
+            fullWidth
+            style={{
+              background: "linear-gradient(135deg, #2f80ed 0%, #1e56a0 100%)",
+              height: 80,
+              fontSize: 18,
+            }}
+          >
+            Report Missing
+          </Button>
+          <Button
+            component={Link}
+            href="/report-sighting"
+            size="lg"
+            radius="md"
+            leftSection={<IconMap size={20} />}
+            fullWidth
+            variant="outline"
+            color="blue"
+            style={{
+              height: 80,
+              fontSize: 18,
+              borderWidth: 2,
+            }}
+          >
+            Report Sighting
+          </Button>
+        </SimpleGrid>
+      </Container>
+
       {/* --- USER STATS DASHBOARD --- */}
       {user && (
         <Container size="xl" py={{ base: 30, md: 40 }}>
@@ -730,15 +920,16 @@ export default function Dashboard() {
                 color="blue"
                 size="sm"
                 rightSection={<IconRefresh size={16} />}
+                onClick={() => window.location.reload()}
               >
                 Refresh
               </Button>
             </Group>
             <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing="lg">
               {[
-                { label: "Reports Filed", value: 12, color: "blue", icon: <IconFileReport />, trend: "+2" },
-                { label: "Items Found", value: 8, color: "green", icon: <IconCheck />, trend: "+3" },
-                { label: "Active Searches", value: 4, color: "orange", icon: <IconSearch />, trend: "+1" },
+                { label: "Reports Filed", value: userReports.length, color: "blue", icon: <IconFileReport />, trend: `+${userReports.length}` },
+                { label: "Items Found", value: userReports.filter(r => r.status === 'Resolved').length, color: "green", icon: <IconCheck />, trend: "+0" },
+                { label: "Active Searches", value: userReports.filter(r => r.status === 'Active').length, color: "orange", icon: <IconSearch />, trend: "+0" },
                 { label: "Community Help", value: 27, color: "grape", icon: <IconUsers />, trend: "+5" },
               ].map((stat, index) => (
                 <Paper
@@ -780,7 +971,7 @@ export default function Dashboard() {
       )}
 
       {/* --- REPORTED CASES SECTION (For logged-in users) --- */}
-      {user && (
+      {user && userReports.length > 0 && (
         <Container size="xl" pb={{ base: 30, md: 40 }}>
           <Paper
             p={{ base: "md", md: "lg" }}
@@ -799,7 +990,7 @@ export default function Dashboard() {
                 <IconFileReport size={24} color="var(--mantine-color-blue-6)" />
                 <Box>
                   <Title order={2} size="h3">
-                    Recent Reported Cases
+                    Your Recent Reports
                   </Title>
                   <Text size="sm" c="dimmed">
                     Track and manage your reported cases
@@ -859,16 +1050,14 @@ export default function Dashboard() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {reportedCases.map((caseItem) => (
+                  {userReports.slice(0, 6).map((caseItem) => (
                     <Table.Tr key={caseItem.id}>
                       <Table.Td>
-                        <Text fw={600}>#{caseItem.id}</Text>
+                        <Text fw={600}>{caseItem.caseId || `#${caseItem.id}`}</Text>
                       </Table.Td>
                       <Table.Td>
                         <Group gap="xs">
-                          {caseItem.type === "Car" && <IconCar size={16} />}
-                          {caseItem.type === "Person" && <IconUserPerson size={16} />}
-                          {caseItem.type === "Pet" && <IconHeart size={16} />}
+                          {caseItem.type === 'Vehicle' ? <IconCar size={16} /> : <IconUserPerson size={16} />}
                           <Text>{caseItem.type}</Text>
                         </Group>
                       </Table.Td>
@@ -887,18 +1076,18 @@ export default function Dashboard() {
                           variant="light"
                           size="sm"
                         >
-                          {caseItem.priority}
+                          {caseItem.priority || 'Medium'}
                         </Badge>
                       </Table.Td>
                       <Table.Td>
                         <Group gap="xs">
                           <IconLocation size={14} />
-                          <Text size="sm">{caseItem.location}</Text>
+                          <Text size="sm" lineClamp={1}>{caseItem.location}</Text>
                         </Group>
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">
-                          {new Date(caseItem.date).toLocaleDateString('en-US', {
+                          {new Date(caseItem.reportDate || caseItem.lastSeenDate).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
@@ -938,21 +1127,23 @@ export default function Dashboard() {
               </Table>
             </ScrollArea>
 
-            <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}` }}>
-              <Text size="sm" c="dimmed">
-                Showing {reportedCases.length} of 45 cases
-              </Text>
-              <Button
-                variant="light"
-                color="blue"
-                rightSection={<IconChevronRight size={16} />}
-                component={Link}
-                href="/reported-cases"
-                radius="xl"
-              >
-                View All Cases
-              </Button>
-            </Group>
+            {userReports.length > 6 && (
+              <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: `1px solid ${getBg(theme.colors.gray[2], theme.colors.dark[5])}` }}>
+                <Text size="sm" c="dimmed">
+                  Showing 6 of {userReports.length} cases
+                </Text>
+                <Button
+                  variant="light"
+                  color="blue"
+                  rightSection={<IconChevronRight size={16} />}
+                  component={Link}
+                  href="/reported-cases"
+                  radius="xl"
+                >
+                  View All Cases
+                </Button>
+              </Group>
+            )}
           </Paper>
         </Container>
       )}
@@ -991,44 +1182,102 @@ export default function Dashboard() {
               <IconChevronRight />
             </ActionIcon>
           </Group>
-          <ScrollArea w="100%" pb="xl">
-            <Group wrap="nowrap" gap="lg">
-              {items.map((i) => (
-                <Card
-                  key={i}
-                  radius="md"
-                  w={{ base: 180, sm: 220 }}
-                  p={0}
-                  withBorder
-                  bg={getBg("white", theme.colors.dark[6])}
-                  style={{
-                    flexShrink: 0,
-                    transition: "transform 0.3s",
-                    "&:hover": {
-                      transform: "scale(1.05)",
-                    },
-                  }}
-                >
-                  <Box
-                    style={{ position: "relative", height: 140, width: "100%" }}
+          {dataLoading ? (
+            <Center py="xl">
+              <Loader color="blue" />
+            </Center>
+          ) : missingVehicles.length === 0 ? (
+            <Alert icon={<IconAlertCircle size={16} />} title="No vehicles" color="blue" variant="light">
+              No missing vehicles reported yet.
+            </Alert>
+          ) : (
+            <ScrollArea w="100%" pb="xl">
+              <Group wrap="nowrap" gap="lg">
+                {missingVehicles.slice(0, 6).map((vehicle) => (
+                  <Card
+                    key={vehicle.id}
+                    radius="md"
+                    w={{ base: 240, sm: 280 }}
+                    p={0}
+                    withBorder
+                    bg={getBg("white", theme.colors.dark[6])}
+                    style={{
+                      flexShrink: 0,
+                      transition: "transform 0.3s",
+                      "&:hover": {
+                        transform: "scale(1.05)",
+                      },
+                    }}
                   >
-                    <Image
-                      src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=500"
-                      fill
-                      alt="Car"
-                      style={{ objectFit: "cover" }}
-                      sizes="(max-width: 768px) 180px, 220px"
-                    />
-                  </Box>
-                  <Box p="xs" ta="center">
-                    <Text size="xs" c="dimmed">
-                      Car #{i}
-                    </Text>
-                  </Box>
-                </Card>
-              ))}
-            </Group>
-          </ScrollArea>
+                    <Box style={{ position: "relative", height: 160, width: "100%" }}>
+                      {vehicle.imagePreview ? (
+                        <Image
+                          src={vehicle.imagePreview}
+                          fill
+                          alt={vehicle.brand}
+                          style={{ objectFit: "cover" }}
+                          sizes="(max-width: 768px) 240px, 280px"
+                        />
+                      ) : (
+                        <Box
+                          bg="gray.2"
+                          style={{
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <IconCar size={48} color="gray" />
+                        </Box>
+                      )}
+                    </Box>
+                    <Box p="xs">
+                      <Text size="sm" fw={700} lineClamp={1}>
+                        {vehicle.brand} {vehicle.model}
+                      </Text>
+                      {vehicle.submodel && (
+                        <Text size="xs" c="dimmed" lineClamp={1}>
+                          {vehicle.submodel}
+                        </Text>
+                      )}
+                      <Group gap={4} mt={4}>
+                        <IconMapPin size={12} />
+                        <Text size="xs" lineClamp={1} style={{ flex: 1 }}>
+                          {vehicle.location || "Location unknown"}
+                        </Text>
+                      </Group>
+                      <Group gap="xs" mt={4} justify="space-between">
+                        <Badge size="xs" color="blue" variant="light">
+                          {vehicle.color || "N/A"}
+                        </Badge>
+                        <Text size="xs" fw={600} style={{ fontFamily: "monospace" }}>
+                          {vehicle.plateNumber || "No plate"}
+                        </Text>
+                      </Group>
+                      <Badge size="xs" color="red" variant="filled" fullWidth mt={6}>
+                        ACTIVE
+                      </Badge>
+
+                      {/* Report Sighting Button */}
+                      <Button
+                        component={Link}
+                        href={`/report-sighting?type=Vehicle&caseId=${vehicle.caseId || vehicle.id}&plateNumber=${encodeURIComponent(vehicle.plateNumber || '')}&brand=${encodeURIComponent(vehicle.brand)}&model=${encodeURIComponent(vehicle.model)}&location=${encodeURIComponent(vehicle.location || '')}`}
+                        size="xs"
+                        variant="light"
+                        color="blue"
+                        fullWidth
+                        mt="xs"
+                        leftSection={<IconMap size={14} />}
+                      >
+                        Report Sighting
+                      </Button>
+                    </Box>
+                  </Card>
+                ))}
+              </Group>
+            </ScrollArea>
+          )}
         </Paper>
 
         {/* People Section */}
@@ -1063,44 +1312,191 @@ export default function Dashboard() {
               <IconChevronRight />
             </ActionIcon>
           </Group>
-          <ScrollArea w="100%" pb="xl">
-            <Group wrap="nowrap" gap="lg">
-              {items.map((i) => (
-                <Card
-                  key={i}
-                  radius="md"
-                  w={{ base: 160, sm: 200 }}
-                  p={0}
-                  withBorder
-                  bg={getBg("white", theme.colors.dark[6])}
-                  style={{
-                    flexShrink: 0,
-                    transition: "transform 0.3s",
-                    "&:hover": {
-                      transform: "scale(1.05)",
-                    },
-                  }}
-                >
-                  <Box
-                    style={{ position: "relative", height: 200, width: "100%" }}
+          {dataLoading ? (
+            <Center py="xl">
+              <Loader color="blue" />
+            </Center>
+          ) : missingPersons.length === 0 ? (
+            <Alert icon={<IconAlertCircle size={16} />} title="No persons" color="blue" variant="light">
+              No missing persons reported yet.
+            </Alert>
+          ) : (
+            <ScrollArea w="100%" pb="xl">
+              <Group wrap="nowrap" gap="lg">
+                {missingPersons.slice(0, 6).map((person) => (
+                  <Card
+                    key={person.id}
+                    radius="md"
+                    w={{ base: 220, sm: 260 }}
+                    p={0}
+                    withBorder
+                    bg={getBg("white", theme.colors.dark[6])}
+                    style={{
+                      flexShrink: 0,
+                      transition: "transform 0.3s",
+                      "&:hover": {
+                        transform: "scale(1.05)",
+                      },
+                    }}
                   >
-                    <Image
-                      src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=500"
-                      fill
-                      alt="Person"
-                      style={{ objectFit: "cover" }}
-                      sizes="(max-width: 768px) 160px, 200px"
-                    />
-                  </Box>
-                  <Box p="xs" ta="center">
-                    <Text size="xs" c="dimmed">
-                      Person #{i}
-                    </Text>
-                  </Box>
+                    <Box style={{ position: "relative", height: 200, width: "100%" }}>
+                      {person.imagePreview ? (
+                        <Image
+                          src={person.imagePreview}
+                          fill
+                          alt={`${person.firstName} ${person.lastName}`}
+                          style={{ objectFit: "cover" }}
+                          sizes="(max-width: 768px) 220px, 260px"
+                        />
+                      ) : (
+                        <Box
+                          bg="gray.2"
+                          style={{
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <IconUserPerson size={48} color="gray" />
+                        </Box>
+                      )}
+                    </Box>
+                    <Box p="xs">
+                      <Text size="sm" fw={700} lineClamp={1}>
+                        {person.firstName} {person.lastName}
+                      </Text>
+                      <Group gap="xs" mt={2}>
+                        <Badge size="xs" color="pink" variant="light">
+                          {person.gender || "Unknown"}
+                        </Badge>
+                        <Badge size="xs" color="cyan" variant="light">
+                          Age {person.age || "?"}
+                        </Badge>
+                      </Group>
+                      <Group gap={4} mt={4}>
+                        <IconMapPin size={12} />
+                        <Text size="xs" lineClamp={1} style={{ flex: 1 }}>
+                          {person.location || "Location unknown"}
+                        </Text>
+                      </Group>
+                      {person.description && (
+                        <Text size="xs" c="dimmed" lineClamp={2} mt={4}>
+                          {person.description}
+                        </Text>
+                      )}
+                      <Badge size="xs" color="red" variant="filled" fullWidth mt={6}>
+                        ACTIVE
+                      </Badge>
+
+                      {/* Report Sighting Button */}
+                      <Button
+                        component={Link}
+                        href={`/report-sighting?type=Person&caseId=${person.caseId || person.id}&name=${encodeURIComponent(person.firstName + ' ' + person.lastName)}&location=${encodeURIComponent(person.location || '')}`}
+                        size="xs"
+                        variant="light"
+                        color="blue"
+                        fullWidth
+                        mt="xs"
+                        leftSection={<IconMap size={14} />}
+                      >
+                        Report Sighting
+                      </Button>
+                    </Box>
+                  </Card>
+                ))}
+              </Group>
+            </ScrollArea>
+          )}
+        </Paper>
+
+        {/* Interactive Map Section */}
+        <Paper
+          mb={{ base: 40, md: 60 }}
+          p={{ base: "md", md: "lg" }}
+          withBorder
+          radius="lg"
+          style={{
+            background: getBg(
+              "linear-gradient(to bottom, white, #f8f9fa)",
+              `linear-gradient(to bottom, ${theme.colors.dark[6]}, ${theme.colors.dark[7]})`
+            ),
+          }}
+        >
+          <Flex align="center" gap="sm" mb="lg">
+            <IconMap size={24} color="var(--mantine-color-blue-6)" />
+            <Title order={3}>Nearby Missing Items</Title>
+          </Flex>
+          <Box style={{ height: 400, borderRadius: "12px", overflow: "hidden" }}>
+            <LocationPicker
+              onLocationSelect={() => {}} // Read-only mode for dashboard
+              initialPosition={[9.03, 38.74]}
+              markers={[
+                ...missingPersons.map(p => ({
+                  lat: p.latitude || 9.03,
+                  lng: p.longitude || 38.74,
+                  title: `${p.firstName} ${p.lastName}`,
+                  type: 'person',
+                })),
+                ...missingVehicles.map(v => ({
+                  lat: v.latitude || 9.03,
+                  lng: v.longitude || 38.74,
+                  title: `${v.brand} ${v.model}`,
+                  type: 'vehicle',
+                })),
+              ]}
+            />
+          </Box>
+        </Paper>
+
+        {/* Recent Sightings Feed */}
+        <Paper
+          mb={{ base: 40, md: 60 }}
+          p={{ base: "md", md: "lg" }}
+          withBorder
+          radius="lg"
+          style={{
+            background: getBg(
+              "linear-gradient(to bottom, white, #f8f9fa)",
+              `linear-gradient(to bottom, ${theme.colors.dark[6]}, ${theme.colors.dark[7]})`
+            ),
+          }}
+        >
+          <Flex align="center" gap="sm" mb="lg">
+            <IconMessageCircle size={24} color="var(--mantine-color-blue-6)" />
+            <Title order={3}>Recent Sightings</Title>
+          </Flex>
+          {recentSightings.length === 0 ? (
+            <Text c="dimmed" ta="center" py="xl">No recent sightings</Text>
+          ) : (
+            <Stack gap="md">
+              {recentSightings.map((sighting) => (
+                <Card key={sighting.id} withBorder p="sm" radius="md">
+                  <Group gap="sm" align="flex-start">
+                    <Avatar color="blue" radius="xl">
+                      {sighting.type === 'Person' ? <IconUserPerson size={16} /> : <IconCar size={16} />}
+                    </Avatar>
+                    <Box style={{ flex: 1 }}>
+                      <Text size="sm" fw={500}>
+                        {sighting.type === 'Person' ? sighting.name : sighting.plateNumber}
+                      </Text>
+                      <Group gap="xs" mt={4}>
+                        <IconMapPin size={12} />
+                        <Text size="xs" c="dimmed" lineClamp={1}>{sighting.location}</Text>
+                      </Group>
+                      <Group gap="xs" mt={4}>
+                        <IconClock size={12} />
+                        <Text size="xs" c="dimmed">
+                          {new Date(sighting.reportDate).toLocaleString()}
+                        </Text>
+                      </Group>
+                    </Box>
+                    <Badge size="sm" color="green">New</Badge>
+                  </Group>
                 </Card>
               ))}
-            </Group>
-          </ScrollArea>
+            </Stack>
+          )}
         </Paper>
 
         {/* Call to Action for Non-logged Users */}
@@ -1417,7 +1813,7 @@ export default function Dashboard() {
             </Text>
           </motion.div>
 
-          {/* Enhanced Reviews Carousel */}
+          {/* Reviews Carousel */}
           <Box px={{ base: 0, md: 20 }} mb={60}>
             <Carousel
               slideSize={{ base: "100%", sm: "50%", md: "33.333%" }}
@@ -1572,40 +1968,40 @@ export default function Dashboard() {
             <Grid.Col span={{ base: 6, sm: 3 }}>
               <Stack align="center" gap={5}>
                 <Title order={1} c="blue.6" size={42}>
-                  2,467
+                  {missingPersons.length + missingVehicles.length}
                 </Title>
                 <Text size="sm" fw={700} ta="center">
-                  People Found
+                  Active Reports
                 </Text>
               </Stack>
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3 }}>
               <Stack align="center" gap={5}>
                 <Title order={1} c="blue.6" size={42}>
-                  1,534
+                  {missingPersons.length}
                 </Title>
                 <Text size="sm" fw={700} ta="center">
-                  Vehicles Recovered
+                  Missing People
                 </Text>
               </Stack>
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3 }}>
               <Stack align="center" gap={5}>
                 <Title order={1} c="blue.6" size={42}>
-                  98.3%
+                  {missingVehicles.length}
                 </Title>
                 <Text size="sm" fw={700} ta="center">
-                  Success Rate
+                  Missing Vehicles
                 </Text>
               </Stack>
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3 }}>
               <Stack align="center" gap={5}>
                 <Title order={1} c="blue.6" size={42}>
-                  42
+                  {user ? userReports.filter(r => r.status === 'Resolved').length : '0'}
                 </Title>
                 <Text size="sm" fw={700} ta="center">
-                  Countries
+                  Your Resolved
                 </Text>
               </Stack>
             </Grid.Col>
