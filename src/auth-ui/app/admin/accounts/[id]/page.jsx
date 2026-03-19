@@ -12,7 +12,7 @@ import {
 export default function AccountManagement() {
   const [viewMode, setViewMode] = useState('person'); // toggle between 'person' and 'vehicle'
 
-  // Mock data tailored to each Figma screenshot
+  // Mock data tailored to each view
   const vehicleData = {
     title: "Toyota Corolla",
     subtitle: "Sedan 2013",
@@ -27,8 +27,6 @@ export default function AccountManagement() {
       { time: '2:55 PM', info: '9°00\'00" N, 38°44\'39" E.' },
       { time: '3:10 PM', info: '9°02\'12.1" N, 38°45\'05.1" E.' },
       { time: '3:11 PM', info: '9°00\'22.2" N, 38°45\'24.0" E.' },
-      { time: '4:00 PM', info: '' },
-      { time: '5:20 PM', info: '' },
     ]
   };
 
@@ -47,7 +45,6 @@ export default function AccountManagement() {
       { time: '3:10 PM', info: 'Delete' },
       { time: '3:11 PM', info: 'save' },
       { time: '4:00 PM', info: 'subscribe' },
-      { time: '5:20 PM', info: 'logged out' },
     ]
   };
 
@@ -79,7 +76,7 @@ export default function AccountManagement() {
       <Grid gutter="xl">
         {/* LEFT PANEL: DETAILS */}
         <Grid.Col span={{ base: 12, md: 7 }}>
-          <Paper p="xl" radius="lg" shadow="xs">
+          <Paper p="xl" radius="lg" shadow="xs" withBorder>
             <Group mb="xl" align="center">
               <Avatar 
                 src={active.avatar} 
@@ -93,7 +90,7 @@ export default function AccountManagement() {
               </Box>
             </Group>
 
-            {/* PERSON VIEW FORM (3-column layout for names) */}
+            {/* PERSON VIEW FORM */}
             {viewMode === 'person' ? (
               <Stack gap="md">
                 <SimpleGrid cols={3}>
@@ -115,10 +112,10 @@ export default function AccountManagement() {
                 </SimpleGrid>
               </Stack>
             ) : (
-              /* VEHICLE VIEW FORM (2-column layout) */
+              /* VEHICLE VIEW FORM */
               <SimpleGrid cols={2} spacing="md">
                 <TextInput label="Color" defaultValue="Silver" radius="md" />
-                <TextInput label="Description" defaultValue="A sark blue with a scrach..." radius="md" />
+                <TextInput label="Description" defaultValue="A dark blue with a scratch..." radius="md" />
                 <TextInput label="Plate number" defaultValue="AA 2 1XXXX" radius="md" />
                 <TextInput label="Phone number" defaultValue="+2519xxxxxxxxx" radius="md" />
                 <TextInput label="Last seen location" defaultValue="Addis Abeba, Mexico" radius="md" />
@@ -156,10 +153,10 @@ export default function AccountManagement() {
                         <Table.Th c="black">Time <IconSelector size={14} /></Table.Th>
                         <Table.Th c="black">{active.tableHeader} <IconSelector size={14} /></Table.Th>
                         <Table.Th>
-                            <Group justify="flex-end" gap="xs">
-                                <IconFilter size={16} />
-                                <IconDotsVertical size={16} />
-                            </Group>
+                          <Group justify="flex-end" gap="xs">
+                            <IconFilter size={16} />
+                            <IconDotsVertical size={16} />
+                          </Group>
                         </Table.Th>
                       </Table.Tr>
                     </Table.Thead>
@@ -170,19 +167,7 @@ export default function AccountManagement() {
                           <Table.Td fw={600} size="xs">{log.info}</Table.Td>
                           <Table.Td align="right">
                             <ActionIcon variant="white" color="blue" size="sm" radius="md">
-                                <IconChevronRight size={14} />
-                            </ActionIcon>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                      {/* Fill empty rows to match Figma height */}
-                      {[...Array(4)].map((_, i) => (
-                        <Table.Tr key={`empty-${i}`}>
-                           <Table.Td>----</Table.Td>
-                           <Table.Td size="xs">urael , khalid ..</Table.Td>
-                           <Table.Td align="right">
-                            <ActionIcon variant="white" color="blue" size="sm" radius="md">
-                                <IconChevronRight size={14} />
+                              <IconChevronRight size={14} />
                             </ActionIcon>
                           </Table.Td>
                         </Table.Tr>
