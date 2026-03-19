@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { 
-  Grid, Paper, Text, Group, Box, Title, TextInput, ActionIcon, Avatar, SimpleGrid, Stack, UnstyledButton 
+  Grid, Paper, Text, Group, Box, Title, TextInput, ActionIcon, Avatar, SimpleGrid, Stack, UnstyledButton,
+  useMantineTheme, useMantineColorScheme
 } from '@mantine/core';
 import { 
   IconSearch, IconSettings, IconBell, IconUsers, IconShoppingCart, IconCar, 
@@ -12,6 +13,10 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid 
 } from 'recharts';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 // --- MOCK DATA ---
 const weeklyData = [
@@ -39,19 +44,40 @@ const subscriptionData = [
 
 export default function FullWidthDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
+  const primaryText = getBg(colorScheme, '#2B3674', theme.colors.gray[3]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const inputBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[5]);
+  const inputText = getBg(colorScheme, 'black', theme.colors.gray[3]);
+  const chartLabelColor = getBg(colorScheme, '#A3AED0', theme.colors.gray[5]);
+  const gridStroke = getBg(colorScheme, '#E9EDF7', theme.colors.dark[4]);
+  const tooltipBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const tooltipText = getBg(colorScheme, 'black', theme.colors.gray[3]);
 
   return (
-    <Box bg="#F4F7FE" style={{ minHeight: '100vh' }} p="xl">
+    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
       
       {/* HEADER SECTION */}
       <Group justify="space-between" mb="xl">
-        <Title order={2} fw={700} c="#2B3674">Overview</Title>
-        <Group bg="white" p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Title order={2} fw={700} c={primaryText}>Overview</Title>
+        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <TextInput 
             variant="unstyled" 
             placeholder="Search for something" 
             leftSection={<IconSearch size={18} color="gray" />} 
-            styles={{ input: { backgroundColor: '#F4F7FE', borderRadius: '20px', height: '35px', paddingLeft: '40px' } }}
+            styles={{
+              input: {
+                backgroundColor: inputBg,
+                borderRadius: '20px',
+                height: '35px',
+                paddingLeft: '40px',
+                color: inputText,
+              }
+            }}
           />
           <ActionIcon variant="transparent" color="gray"><IconSettings size={20} /></ActionIcon>
           <ActionIcon variant="transparent" color="red"><IconBell size={20} /></ActionIcon>
@@ -76,20 +102,49 @@ export default function FullWidthDashboard() {
       <Grid gutter="lg" mb="xl">
         {/* WEEKLY REPORT */}
         <Grid.Col span={{ base: 12, md: 8 }}>
-          <Paper p="xl" radius="lg" shadow="xs" withBorder>
+          <Paper
+            p="xl"
+            radius="lg"
+            shadow="xs"
+            withBorder
+            bg={getBg(colorScheme, 'white', theme.colors.dark[6])}
+          >
             <Group justify="space-between" mb="xl">
-              <Title order={4} c="#2B3674">Weekly Report</Title>
+              <Title order={4} c={primaryText}>Weekly Report</Title>
               <Group gap="lg">
-                <Group gap={5}><Box w={8} h={8} bg="#4318FF" style={{borderRadius: '50%'}} /><Text size="xs" c="dimmed">Subscription</Text></Group>
-                <Group gap={5}><Box w={8} h={8} bg="#6AD2FF" style={{borderRadius: '50%'}} /><Text size="xs" c="dimmed">Registration</Text></Group>
+                <Group gap={5}>
+                  <Box w={8} h={8} bg="#4318FF" style={{borderRadius: '50%'}} />
+                  <Text size="xs" c="dimmed">Subscription</Text>
+                </Group>
+                <Group gap={5}>
+                  <Box w={8} h={8} bg="#6AD2FF" style={{borderRadius: '50%'}} />
+                  <Text size="xs" c="dimmed">Registration</Text>
+                </Group>
               </Group>
             </Group>
             <Box h={300}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={weeklyData}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#A3AED0'}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#A3AED0'}} />
-                  <Tooltip cursor={{fill: 'transparent'}} />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: chartLabelColor }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: chartLabelColor }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'transparent' }}
+                    contentStyle={{
+                      backgroundColor: tooltipBg,
+                      color: tooltipText,
+                      borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[4]),
+                    }}
+                    labelStyle={{ color: tooltipText }}
+                  />
                   <Bar dataKey="Subscription" fill="#4318FF" radius={[10, 10, 10, 10]} barSize={12} />
                   <Bar dataKey="Registration" fill="#6AD2FF" radius={[10, 10, 10, 10]} barSize={12} />
                 </BarChart>
@@ -100,15 +155,28 @@ export default function FullWidthDashboard() {
 
         {/* REPORT STATISTICS */}
         <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper p="xl" radius="lg" shadow="xs" withBorder>
-            <Title order={4} mb="xl" c="#2B3674">Report Statistics</Title>
+          <Paper
+            p="xl"
+            radius="lg"
+            shadow="xs"
+            withBorder
+            bg={getBg(colorScheme, 'white', theme.colors.dark[6])}
+          >
+            <Title order={4} mb="xl" c={primaryText}>Report Statistics</Title>
             <Box h={200}>
               <ResponsiveContainer>
                 <PieChart>
                   <Pie data={pieData} innerRadius={60} outerRadius={80} dataKey="value">
                     {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: tooltipBg,
+                      color: tooltipText,
+                      borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[4]),
+                    }}
+                    labelStyle={{ color: tooltipText }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </Box>
@@ -116,7 +184,10 @@ export default function FullWidthDashboard() {
               {pieData.map((e) => (
                 <Group key={e.name} gap={5}>
                   <Box w={8} h={8} bg={e.color} style={{borderRadius: '50%'}} />
-                  <Box><Text size="xs" c="dimmed">{e.name}</Text><Text size="sm" fw={700}>{e.value}%</Text></Box>
+                  <Box>
+                    <Text size="xs" c="dimmed">{e.name}</Text>
+                    <Text size="sm" fw={700}>{e.value}%</Text>
+                  </Box>
                 </Group>
               ))}
             </SimpleGrid>
@@ -128,25 +199,47 @@ export default function FullWidthDashboard() {
       <Grid gutter="lg">
         {/* RECENT SUBSCRIPTION */}
         <Grid.Col span={{ base: 12, md: 5 }}>
-          <Paper p="xl" radius="lg" shadow="xs" withBorder>
-            <Title order={4} mb="lg" c="#2B3674">Recent subscription</Title>
+          <Paper
+            p="xl"
+            radius="lg"
+            shadow="xs"
+            withBorder
+            bg={getBg(colorScheme, 'white', theme.colors.dark[6])}
+          >
+            <Title order={4} mb="lg" c={primaryText}>Recent subscription</Title>
             <Group gap="xl">
               {subscriptionData.map((sub) => (
                 <Stack key={sub.id} align="center" gap={5}>
                   <Avatar radius="xl" size="lg" src={sub.avatar} />
-                  <Text fw={700} size="sm">{sub.name}</Text>
+                  <Text fw={700} size="sm" c={getBg(colorScheme, 'black', theme.colors.gray[3])}>
+                    {sub.name}
+                  </Text>
                   <Text size="xs" c="blue">{sub.type}</Text>
                 </Stack>
               ))}
-              <ActionIcon variant="light" radius="xl" size="lg"><IconChevronRight size={18}/></ActionIcon>
+              <ActionIcon
+                variant="light"
+                radius="xl"
+                size="lg"
+                bg={getBg(colorScheme, 'white', theme.colors.dark[5])}
+                c={getBg(colorScheme, 'black', theme.colors.gray[3])}
+              >
+                <IconChevronRight size={18} />
+              </ActionIcon>
             </Group>
           </Paper>
         </Grid.Col>
 
         {/* REPORT HISTORY */}
         <Grid.Col span={{ base: 12, md: 7 }}>
-          <Paper p="xl" radius="lg" shadow="xs" withBorder>
-            <Title order={4} mb="lg" c="#2B3674">Report History</Title>
+          <Paper
+            p="xl"
+            radius="lg"
+            shadow="xs"
+            withBorder
+            bg={getBg(colorScheme, 'white', theme.colors.dark[6])}
+          >
+            <Title order={4} mb="lg" c={primaryText}>Report History</Title>
             <Box h={200}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={weeklyData}>
@@ -156,9 +249,37 @@ export default function FullWidthDashboard() {
                       <stop offset="95%" stopColor="#4318FF" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E9EDF7" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#A3AED0'}} />
-                  <Area type="monotone" dataKey="Subscription" stroke="#4318FF" strokeWidth={4} fill="url(#colorSub)" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke={gridStroke}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: chartLabelColor }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: chartLabelColor }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: tooltipBg,
+                      color: tooltipText,
+                      borderColor: getBg(colorScheme, '#e5e7eb', theme.colors.dark[4]),
+                    }}
+                    labelStyle={{ color: tooltipText }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Subscription"
+                    stroke="#4318FF"
+                    strokeWidth={4}
+                    fill="url(#colorSub)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </Box>
@@ -172,9 +293,22 @@ export default function FullWidthDashboard() {
 // --- HELPER COMPONENT ---
 
 function StatCard({ label, value, color, icon, darkText = false }) {
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Determine text color: if darkText true, use black/dark gray; else white.
+  const textColor = darkText
+    ? getBg(colorScheme, 'black', theme.colors.gray[3])
+    : 'white';
+
+  // Button overlay background: light uses rgba(0,0,0,0.1), dark uses rgba(255,255,255,0.1)
+  const overlayBg = colorScheme === 'dark'
+    ? 'rgba(255, 255, 255, 0.1)'
+    : 'rgba(0, 0, 0, 0.1)';
+
   return (
     <Paper radius="md" shadow="md" style={{ overflow: 'hidden' }}>
-      <Box p="md" bg={color} c={darkText ? 'black' : 'white'}>
+      <Box p="md" bg={color} c={textColor}>
         <Group justify="space-between" align="center">
           <Box>
             <Text fw={800} style={{ fontSize: '32px', lineHeight: 1 }}>{value}</Text>
@@ -183,10 +317,10 @@ function StatCard({ label, value, color, icon, darkText = false }) {
           <Box style={{ opacity: 0.3 }}>{icon && React.cloneElement(icon, { size: 40 })}</Box>
         </Group>
       </Box>
-      <UnstyledButton w="100%" py={5} bg="rgba(0,0,0,0.1)">
+      <UnstyledButton w="100%" py={5} bg={overlayBg}>
         <Group justify="center" gap={5}>
-          <Text size="xs" fw={700} c={darkText ? 'black' : 'white'}>More info</Text>
-          <IconChevronRight size={12} stroke={3} color={darkText ? 'black' : 'white'} />
+          <Text size="xs" fw={700} c={textColor}>More info</Text>
+          <IconChevronRight size={12} stroke={3} color={textColor} />
         </Group>
       </UnstyledButton>
     </Paper>

@@ -1,18 +1,29 @@
 "use client";
 
 import React, { useState } from 'react';
-import { AppShell, Box, Stack, UnstyledButton, Group, Text, ScrollArea, Image, ActionIcon, Tooltip } from '@mantine/core';
+import { AppShell, Box, Stack, UnstyledButton, Group, Text, ScrollArea, ActionIcon, Tooltip, useMantineTheme, useMantineColorScheme } from '@mantine/core';
 import { 
   IconLayoutDashboard, IconUsers, IconDatabase, IconFileCheck, 
   IconCoin, IconBell, IconMessageDots, IconSettings, IconHistory, IconLogout,
   IconChevronLeft, IconMenu2
 } from '@tabler/icons-react';
 import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image'; // corrected import
 
 export default function AdminLayout({ children }) {
-  const [collapsed, setCollapsed] = useState(false); // State to toggle sidebar
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
+  // Sidebar gradient – light mode uses original blue; dark mode uses a darker blue variant
+  const sidebarGradient = colorScheme === 'dark'
+    ? `linear-gradient(180deg, ${theme.colors.blue[8]} 0%, ${theme.colors.blue[9]} 100%)`
+    : `linear-gradient(180deg, ${theme.colors.blue[5]} 0%, ${theme.colors.blue[7]} 100%)`;
+
+  // Main content background – light: #F4F7FE, dark: dark[7]
+  const mainBg = colorScheme === 'dark' ? theme.colors.dark[7] : '#F4F7FE';
 
   const menuItems = [
     { icon: <IconLayoutDashboard size={22} />, label: 'Dashboard', path: '/admin' },
@@ -29,20 +40,20 @@ export default function AdminLayout({ children }) {
   return (
     <AppShell
       navbar={{ 
-        width: collapsed ? 80 : 280, // Dynamic width
+        width: collapsed ? 80 : 280,
         breakpoint: 'sm' 
       }}
       padding="0"
-      transitionDuration={300} // Smooth sliding animation
+      transitionDuration={300}
       transitionTimingFunction="ease"
     >
       <AppShell.Navbar 
         p="md" 
         style={{ 
-          background: 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)', 
+          background: sidebarGradient,
           borderRight: 'none',
           zIndex: 100,
-          transition: 'width 0.3s ease' // Animation for the navbar itself
+          transition: 'width 0.3s ease'
         }}
       >
         <Stack justify="space-between" h="100%">
@@ -53,8 +64,9 @@ export default function AdminLayout({ children }) {
                 <Image 
                   src="/logo.jpg" 
                   alt="Logo" 
-                  w={120} 
-                  fallbackSrc="https://placehold.co/120x40?text=GFH+LOGO"
+                  width={120}
+                  height={40}
+                  style={{ width: 'auto', height: '40px' }}
                 />
               )}
               <ActionIcon 
@@ -88,13 +100,13 @@ export default function AdminLayout({ children }) {
               icon={<IconLogout size={22} />} 
               label="Logout" 
               collapsed={collapsed}
-              onClick={() => router.push('/')} 
+              onClick={() => router.push('/login')} 
             />
           </Stack>
         </Stack>
       </AppShell.Navbar>
 
-      <AppShell.Main bg="#F4F7FE" style={{ minHeight: '100vh' }}>
+      <AppShell.Main bg={mainBg} style={{ minHeight: '100vh' }}>
         {children}
       </AppShell.Main>
     </AppShell>
@@ -102,6 +114,14 @@ export default function AdminLayout({ children }) {
 }
 
 function AdminNavItem({ icon, label, active, onClick, collapsed }) {
+  const { colorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
+
+  // Determine active background color – slightly lighter/darker depending on mode
+  const activeBg = colorScheme === 'dark'
+    ? theme.colors.blue[7] + '40' // semi-transparent blue
+    : 'rgba(255, 255, 255, 0.2)';
+
   const content = (
     <UnstyledButton 
       onClick={onClick}
@@ -109,7 +129,7 @@ function AdminNavItem({ icon, label, active, onClick, collapsed }) {
       w="100%" 
       style={{ 
         borderRadius: '8px',
-        backgroundColor: active ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+        backgroundColor: active ? activeBg : 'transparent',
         transition: 'all 0.2s ease',
         position: 'relative',
         display: 'flex',

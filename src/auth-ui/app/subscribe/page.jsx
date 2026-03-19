@@ -14,7 +14,7 @@ import {
   ThemeIcon,
   useMantineTheme,
   ActionIcon,
-  Alert,
+  Paper,
 } from "@mantine/core";
 import {
   IconCheck,
@@ -26,50 +26,80 @@ import {
   IconCircle,
   IconCircleFilled,
   IconX,
+  IconChevronRight,
+  IconSparkles,
+  IconGift,
+  IconArrowUp,
 } from "@tabler/icons-react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMediaQuery } from "@mantine/hooks";
 import MainFooter from "../../components/MainFooter.jsx";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function SubscriptionPage() {
   const router = useRouter();
   const theme = useMantineTheme();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const isTablet = useMediaQuery("(max-width: 1024px)");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState("annual");
-  const [reportCount, setReportCount] = useState(0);
   const [activeIndex, setActiveIndex] = useState(1);
+  const [isHovering, setIsHovering] = useState(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [cardHeights, setCardHeights] = useState([]);
+  const cardRefs = useRef([]);
+
+  const primaryColor = "#0034D1";
+  const primaryLight = "#3358FF";
+  const primaryDark = "#0029A6";
+  const accentColor = "#FFD700";
+  const accentLight = "#FFF4CC";
+
+  // Optimized spacing scale
+  const spacing = {
+    xs: isMobile ? 4 : 8,
+    sm: isMobile ? 8 : 12,
+    md: isMobile ? 12 : 16,
+    lg: isMobile ? 16 : 24,
+    xl: isMobile ? 24 : 32,
+    xxl: isMobile ? 32 : 40,
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleClose = () => {
-    router.back(); // Goes back to previous page
+    router.back();
   };
 
   useEffect(() => {
     const checkAuth = () => {
       const userData = localStorage.getItem("currentUser");
-      const reports = localStorage.getItem("userReports");
-
+      
       if (userData) {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
-        setReportCount(parsedUser.reportCount || 0);
-      }
-
-      if (reports) {
-        const parsedReports = JSON.parse(reports);
-        setReportCount(parsedReports.length);
+        
+        const registrationCount = parseInt(localStorage.getItem("registrationCount") || "0");
+        
+        if (registrationCount === 0) {
+          router.push("/register-person");
+          return;
+        }
       }
 
       setLoading(false);
     };
 
     checkAuth();
-  }, []);
+  }, [router]);
 
   const plans = [
     {
@@ -81,18 +111,15 @@ export default function SubscriptionPage() {
       badge: "Basic Plan",
       badgeColor: "blue",
       features: [
-        { text: "Free for every home you front with Deebot", included: true },
-        { text: "Free for teleworking with client testing", included: true },
         { text: "2 Providers", included: true },
         { text: "Client billing", included: true },
         { text: "Free staging", included: true },
         { text: "Code licence", included: true },
         { text: "White labelling", included: true },
-        { text: "Data powered protection", included: true },
-        { text: "Priority support", included: false },
-        { text: "Advanced analytics", included: false },
+        { text: "Data protection", included: true },
       ],
-      color: "linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)",
+      color: `linear-gradient(135deg, ${primaryDark} 0%, ${primaryColor} 100%)`,
+      hoverColor: `linear-gradient(135deg, ${primaryDark} 0%, ${primaryLight} 100%)`,
     },
     {
       id: "annual",
@@ -101,25 +128,20 @@ export default function SubscriptionPage() {
       originalPrice: "400.00",
       currency: "birr",
       period: "month",
-      badge: "10% OFF",
+      badge: "SAVE 10%",
       badgeColor: "green",
       description: "0.00 birr when you have not yet to receive an invoice",
       features: [
         { text: "Everything in Monthly plan", included: true },
         { text: "Referral program", included: true },
-        { text: "Web styling customization", included: true },
+        { text: "Web customization", included: true },
         { text: "Marketing tools", included: true },
-        { text: "Data licensing", included: true },
-        { text: "Code licence", included: true },
-        { text: "White labelling", included: true },
-        { text: "Data powered protection", included: true },
         { text: "Priority support 24/7", included: true },
-        { text: "Advanced analytics dashboard", included: true },
-        { text: "API access", included: true },
-        { text: "Custom integrations", included: true },
+        { text: "Advanced analytics", included: true },
       ],
       popular: true,
-      color: "linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%)",
+      color: `linear-gradient(135deg, #001F6E 0%, ${primaryColor} 100%)`,
+      hoverColor: `linear-gradient(135deg, #001F6E 0%, ${primaryLight} 100%)`,
     },
     {
       id: "enterprise",
@@ -127,25 +149,49 @@ export default function SubscriptionPage() {
       price: "Custom",
       currency: "",
       period: "",
-      badge: "Custom",
+      badge: "Premium",
       badgeColor: "violet",
       features: [
         { text: "Everything in Annual plan", included: true },
         { text: "Unlimited providers", included: true },
         { text: "Dedicated account manager", included: true },
         { text: "Custom SLA agreements", included: true },
-        { text: "On-premise deployment", included: true },
-        { text: "Custom security protocols", included: true },
-        { text: "Training & onboarding", included: true },
         { text: "Enterprise-grade support", included: true },
         { text: "Custom development", included: true },
-        { text: "Brand customization", included: true },
-        { text: "Volume discounts", included: true },
-        { text: "Multi-team management", included: true },
       ],
-      color: "linear-gradient(135deg, #3730a3 0%, #6366f1 100%)",
+      color: `linear-gradient(135deg, #1C1C84 0%, ${primaryLight} 100%)`,
+      hoverColor: `linear-gradient(135deg, #1C1C84 0%, #4D72FF 100%)`,
     },
   ];
+
+  // Calculate max card height based on content
+  useEffect(() => {
+    const updateCardHeights = () => {
+      const heights = cardRefs.current.map(ref => {
+        if (!ref) return 0;
+        return ref.offsetHeight;
+      });
+      setCardHeights(heights);
+    };
+
+    // Update heights on mount and when window resizes
+    updateCardHeights();
+    window.addEventListener('resize', updateCardHeights);
+    
+    // Also update after a short delay to ensure content is rendered
+    const timeoutId = setTimeout(updateCardHeights, 100);
+    
+    return () => {
+      window.removeEventListener('resize', updateCardHeights);
+      clearTimeout(timeoutId);
+    };
+  }, [isMobile, isTablet]);
+
+  const getMaxCardHeight = () => {
+    return cardHeights.length > 0 
+      ? Math.max(...cardHeights) + (isMobile ? 60 : 80)
+      : isMobile ? 600 : 650;
+  };
 
   const handleDotClick = (index) => {
     setActiveIndex(index);
@@ -158,14 +204,12 @@ export default function SubscriptionPage() {
     if (selectedPlanData.id === "enterprise") {
       router.push("/contact?plan=enterprise");
     } else {
-      // Redirect to the new payment page with plan details
-       router.push(
-      `/subscribe/payment?plan=${selectedPlanData.id}&name=${encodeURIComponent(selectedPlanData.name)}`,
-    );
+      router.push(
+        `/subscribe/payment?plan=${selectedPlanData.id}&name=${encodeURIComponent(selectedPlanData.name)}`,
+      );
     }
   };
 
-  // FIXED: Proper positioning without causing horizontal scroll
   const getCardTransform = (index) => {
     const offset = index - activeIndex;
 
@@ -177,30 +221,49 @@ export default function SubscriptionPage() {
       };
     }
 
-    // Desktop - using viewport units for safe positioning
-    const translatePercentage = offset * 80; // Reduced from 110 to 80
+    if (isTablet) {
+      const translatePercentage = offset * 85;
+      if (offset === 0) {
+        return {
+          transform: `translateX(${translatePercentage}%) scale(1.05)`,
+          zIndex: 30,
+          opacity: 1,
+          boxShadow: `0 25px 50px -12px ${primaryColor}40`,
+        };
+      } else if (Math.abs(offset) === 1) {
+        return {
+          transform: `translateX(${translatePercentage}%) scale(0.92)`,
+          zIndex: 20,
+          opacity: 0.85,
+        };
+      } else {
+        return {
+          transform: `translateX(${translatePercentage}%) scale(0.8)`,
+          zIndex: 10,
+          opacity: 0.3,
+        };
+      }
+    }
 
+    const translatePercentage = offset * 75;
     if (offset === 0) {
-      // Active card - center, bigger
       return {
-        transform: `translateX(${translatePercentage}%) scale(1.1)`,
+        transform: `translateX(${translatePercentage}%) scale(1.08)`,
         zIndex: 30,
         opacity: 1,
-        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+        boxShadow: `0 30px 60px -15px ${primaryColor}50`,
       };
     } else if (Math.abs(offset) === 1) {
-      // Adjacent cards - smaller
       return {
-        transform: `translateX(${translatePercentage}%) scale(0.9)`,
+        transform: `translateX(${translatePercentage}%) scale(0.95)`,
         zIndex: 20,
-        opacity: 0.8,
+        opacity: 0.9,
       };
     } else {
-      // Far cards - hidden
       return {
-        transform: `translateX(${translatePercentage}%) scale(0.7)`,
+        transform: `translateX(${translatePercentage}%) scale(0.85)`,
         zIndex: 10,
-        opacity: 0.3,
+        opacity: 0.4,
       };
     }
   };
@@ -216,11 +279,16 @@ export default function SubscriptionPage() {
 
     if (plan.originalPrice) {
       return (
-        <Stack gap={0}>
-          <Text size="sm" c="white" td="line-through" opacity={0.8}>
-            {plan.originalPrice} {plan.currency}/{plan.period}
-          </Text>
-          <Group gap={4} align="center">
+        <Stack gap={spacing.xs} align="flex-start">
+          <Badge
+            color="green"
+            variant="light"
+            size="sm"
+            leftSection={<IconSparkles size={12} />}
+          >
+            Save {plan.originalPrice - plan.price} birr/month
+          </Badge>
+          <Group gap={spacing.xs} align="center">
             <Title order={2} fw={800} c="white">
               {plan.price}
             </Title>
@@ -233,7 +301,7 @@ export default function SubscriptionPage() {
     }
 
     return (
-      <Group gap={4} align="center">
+      <Group gap={spacing.xs} align="center">
         <Title order={2} fw={800} c="white">
           {plan.price}
         </Title>
@@ -252,127 +320,152 @@ export default function SubscriptionPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          background: `linear-gradient(135deg, ${primaryColor}15 0%, white 100%)`,
         }}
       >
-        <Text size="lg">Loading subscription plans...</Text>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Stack align="center" gap={spacing.md}>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            >
+              <IconCrown size={48} color={primaryColor} />
+            </motion.div>
+            <Text size="lg" fw={500} c={primaryColor}>
+              Loading subscription plans...
+            </Text>
+          </Stack>
+        </motion.div>
       </Box>
     );
   }
 
   return (
     <Box bg="white" style={{ minHeight: "100vh", overflowX: "hidden" }}>
-      {" "}
-      {/* ADDED overflowX: "hidden" */}
-      {/* Header */}
+      {/* Animated Background Elements */}
       <Box
-        bg="white"
-        py={{ base: "xs", md: "sm" }}
         style={{
-          borderBottom: "1px solid #E9ECEF",
-          position: "sticky",
+          position: "fixed",
           top: 0,
-          zIndex: 100,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          background: `radial-gradient(circle at 20% 50%, ${primaryColor}08 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, ${accentColor}05 0%, transparent 50%)`,
         }}
-      >
-        <Container size="xl" style={{ overflowX: "hidden" }}>
-          <Group justify="space-between">
-            <Link href="/" style={{ flexShrink: 0 }}>
-              <Image
-                src="/logo.jpg"
-                alt="Logo"
-                width={120}
-                height={40}
-                style={{
-                  width: "auto",
-                  height: "40px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                }}
-              />
-            </Link>
+      />
+
+      {/* Close Button */}
+      <Container size="xl" style={{ paddingTop: 20, position: "relative", zIndex: 10 }}>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Group justify="flex-end">
+            <ActionIcon
+              variant="light"
+              size={30}
+              radius="md"
+              onClick={handleClose}
+              style={{
+                cursor: "pointer",
+                border: `2px solid ${primaryColor}`,
+                background: `${primaryColor}10`,
+                marginTop: 5,
+              }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <IconX size={20} stroke={2.5} color={primaryColor} />
+            </ActionIcon>
           </Group>
-        </Container>
-      </Box>
-      {/* ADD THIS: Close Button Section - Below Navbar */}
-      <Container size="xl" style={{ marginTop: 20 }}>
-        <Group justify="flex-end">
-          <ActionIcon
-            variant="light"
-            color="blue"
-            size={55}
-            radius="xs" // Very rectangular
-            onClick={handleClose}
-            style={{
-              cursor: "pointer",
-              border: "2px solid #2f80ed",
-            }}
-          >
-            <IconX size={30} stroke={4} color="#2f80ed" />
-          </ActionIcon>
-        </Group>
+        </motion.div>
       </Container>
+
       {/* Main Content */}
       <Container
         size="xl"
-        py={{ base: 30, md: 50 }}
-        style={{ overflowX: "hidden" }}
+        pt={{ base: spacing.sm, md: spacing.lg }}
+        pb={{ base: spacing.xl, md: spacing.xxl }}
+        style={{ position: "relative", zIndex: 1 }}
       >
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.6 }}
         >
-          {/* Report Warning Banner */}
-          {reportCount >= 1 && (
-            <Alert
-              icon={<IconAlertCircle size={24} />}
-              title={`This is your ${reportCount > 1 ? `${reportCount}th` : "second"} missing item report`}
-              color="orange"
-              variant="filled"
-              mb="xl"
-              radius="md"
-            >
-              <Text c="white">
-                Premium subscribers get priority handling for missing item
-                reports.
-              </Text>
-            </Alert>
-          )}
-
-          <Stack gap={40} align="center">
+          <Stack gap={spacing.xxl} align="center">
             {/* Page Header */}
-            <Stack gap="md" align="center" maw={800} mx="auto">
-              <Title order={1} size={{ base: 48, md: 48 }} fw={900} ta="center">
-                Choose Your Plan
-              </Title>
-              <Text size={{ base: "md", md: "lg" }} c="dimmed" ta="center">
-                Select the perfect plan for your needs
-              </Text>
+            <Stack gap={spacing.md} align="center" maw={1600} mx="auto">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Title
+                  order={1}
+                  size={{ base: 100, md: 20 }}
+                  fw={1600}
+                  ta="center"
+                  style={{
+                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryLight} 100%)`,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    marginBottom: spacing.xs,
+                  }}
+                >
+                  Choose Your Perfect Plan
+                </Title>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <Text 
+                  size={{ base: "md", md: "lg" }} 
+                  c="dimmed" 
+                  ta="center"
+                  style={{ marginTop: spacing.xs }}
+                >
+                  Select the plan that best fits your needs.
+                </Text>
+              </motion.div>
             </Stack>
 
-            {/* MAIN FIX: Carousel Container with proper constraints */}
+            {/* Dynamic Carousel Container */}
             <Box
               style={{
                 position: "relative",
                 width: "100%",
-                maxWidth: "1200px", // Constrained max width
-                height: isMobile ? "650px" : "600px",
-                margin: "0 auto 20px auto",
-                overflow: "hidden", // Keep hidden here for carousel effect
+                maxWidth: "1400px",
+                height: `${getMaxCardHeight()}px`,
+                margin: `0 auto ${spacing.xl}px auto`,
+                overflow: "visible",
+                transition: "height 0.3s ease-in-out",
               }}
             >
-              {/* Cards Wrapper - This prevents horizontal scroll */}
+              {/* Cards Wrapper */}
               <Box
                 style={{
                   position: "absolute",
-                  width: "100vw", // Full viewport width
+                  width: "100vw",
                   height: "100%",
                   left: "50%",
                   top: "50%",
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                {/* Cards Container - Centered within wrapper */}
+                {/* Cards Container */}
                 <Box
                   style={{
                     position: "relative",
@@ -386,17 +479,23 @@ export default function SubscriptionPage() {
                   {plans.map((plan, index) => (
                     <motion.div
                       key={plan.id}
+                      ref={el => cardRefs.current[index] = el}
                       initial={false}
                       animate={getCardTransform(index)}
                       transition={{
                         type: "spring",
-                        stiffness: 300,
-                        damping: 30,
+                        stiffness: 280,
+                        damping: 25,
+                        mass: 0.8,
                       }}
+                      whileHover={index === activeIndex ? { scale: 1.12 } : {}}
+                      onMouseEnter={() => setIsHovering(index)}
+                      onMouseLeave={() => setIsHovering(null)}
                       style={{
                         position: "absolute",
-                        width: isMobile ? "85%" : "300px", // Reduced width
-                        height: isMobile ? "500px" : "480px",
+                        width: isMobile ? "85%" : isTablet ? "320px" : "380px",
+                        minHeight: "550px",
+                        height: "auto",
                         cursor: "pointer",
                       }}
                       onClick={() => {
@@ -407,137 +506,311 @@ export default function SubscriptionPage() {
                       <Card
                         withBorder
                         radius="lg"
-                        p="xl"
+                        p={isMobile ? "lg" : "xl"}
                         h="100%"
                         style={{
-                          background: plan.color,
-                          border: `2px solid ${theme.colors.blue[7]}`,
-                          transition: "all 0.3s ease",
+                          background: isHovering === index ? plan.hoverColor : plan.color,
+                          border: `2px solid ${index === activeIndex ? accentColor : primaryColor}40`,
+                          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                           display: "flex",
                           flexDirection: "column",
+                          overflow: "hidden",
+                          height: "auto",
                         }}
                       >
+                        {/* Popular Badge */}
                         {plan.popular && index === activeIndex && (
-                          <Badge
-                            color="yellow"
-                            size="lg"
-                            variant="filled"
-                            style={{
-                              position: "absolute",
-                              top: -12,
-                              left: "50%",
-                              transform: "translateX(-50%)",
-                              zIndex: 5,
-                            }}
+                          <motion.div
+                            initial={{ y: -20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2 }}
                           >
-                            <Group gap={4}>
-                              <IconStar size={14} />
-                              RECOMMENDED
-                            </Group>
-                          </Badge>
+                            <Badge
+                              color="yellow"
+                              size="lg"
+                              variant="filled"
+                              style={{
+                                position: "absolute",
+                                top: "-12px",
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                zIndex: 5,
+                                boxShadow: `0 4px 12px ${accentColor}40`,
+                              }}
+                            >
+                              <Group gap={spacing.xs}>
+                                <IconStar size={14} />
+                                MOST POPULAR
+                              </Group>
+                            </Badge>
+                          </motion.div>
                         )}
 
-                        <Stack gap="md" style={{ flex: 1 }}>
+                        {/* Plan Header Ribbon */}
+                        <Box
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            right: 0,
+                            width: "80px",
+                            height: "80px",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <Box
+                            style={{
+                              position: "absolute",
+                              top: -15,
+                              right: -15,
+                              width: "60px",
+                              height: "60px",
+                              background: accentColor,
+                              transform: "rotate(45deg)",
+                            }}
+                          />
+                          <IconCrown
+                            size={20}
+                            color="#000"
+                            style={{
+                              position: "absolute",
+                              top: 10,
+                              right: 10,
+                              zIndex: 2,
+                            }}
+                          />
+                        </Box>
+
+                        <Stack 
+                          gap={spacing.lg} 
+                          style={{ 
+                            flex: 1,
+                            height: "auto",
+                            minHeight: "500px",
+                            paddingTop: spacing.sm,
+                            paddingBottom: spacing.md
+                          }}
+                        >
                           {/* Plan Header */}
-                          <Stack gap="xs">
+                          <Stack gap={spacing.xs} style={{ flexShrink: 0 }}>
                             <Group justify="space-between" align="flex-start">
-                              <Title order={3} c="white">
+                              <Title 
+                                order={3} 
+                                c="white" 
+                                fw={800} 
+                                size={isMobile ? "h3" : "h2"}
+                                style={{ marginBottom: spacing.xs }}
+                              >
                                 {plan.name}
                               </Title>
-                              <Badge
-                                color={plan.badgeColor}
-                                variant="filled"
-                                size="lg"
+                              <motion.div
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
                               >
-                                {plan.badge}
-                              </Badge>
+                                <Badge
+                                  color={plan.badgeColor}
+                                  variant="filled"
+                                  size="lg"
+                                  radius="sm"
+                                  style={{
+                                    boxShadow: `0 4px 12px ${primaryColor}40`,
+                                  }}
+                                >
+                                  {plan.badge}
+                                </Badge>
+                              </motion.div>
                             </Group>
 
                             {plan.description && (
-                              <Text size="sm" c="white" opacity={0.9}>
-                                {plan.description}
-                              </Text>
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                style={{ marginTop: spacing.xs }}
+                              >
+                                <Paper
+                                  p="xs"
+                                  radius="sm"
+                                  style={{
+                                    background: `${accentColor}20`,
+                                    border: `1px solid ${accentColor}40`,
+                                  }}
+                                >
+                                  <Group gap={spacing.xs} align="flex-start">
+                                    <IconGift size={16} color={accentColor} style={{ marginTop: "2px" }} />
+                                    <Text size="sm" c="white" opacity={0.95} style={{ lineHeight: 1.3 }}>
+                                      {plan.description}
+                                    </Text>
+                                  </Group>
+                                </Paper>
+                              </motion.div>
                             )}
                           </Stack>
 
-                          {/* Price */}
-                          <Box>
-                            {getPlanPriceDisplay(plan)}
-                            {plan.id !== "enterprise" && (
-                              <Text size="sm" c="white" opacity={0.8} mt={4}>
-                                Billed{" "}
-                                {plan.id === "annual" ? "annually" : "monthly"}
-                              </Text>
-                            )}
-                          </Box>
-
-                          <Divider my="xs" color="rgba(255,255,255,0.3)" />
-
-                          {/* Features */}
-                          <Stack
-                            gap="xs"
-                            style={{ flex: 1, overflowY: "auto" }}
+                          {/* Price Section */}
+                          <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            transition={{ type: "spring", stiffness: 300 }}
+                            style={{ 
+                              flexShrink: 0,
+                              marginTop: spacing.xs,
+                              marginBottom: spacing.xs
+                            }}
                           >
-                            <Text fw={600} c="white" size="md">
+                            <Box
+                              p="md"
+                              style={{
+                                background: "rgba(255, 255, 255, 0.1)",
+                                borderRadius: "12px",
+                                backdropFilter: "blur(10px)",
+                                height: "100%",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
+                                minHeight: "90px",
+                              }}
+                            >
+                              {getPlanPriceDisplay(plan)}
+                              {plan.id !== "enterprise" && (
+                                <Text 
+                                  size="md" 
+                                  c="white" 
+                                  opacity={0.9} 
+                                  mt={spacing.xs}
+                                >
+                                  Billed {plan.id === "annual" ? "annually" : "monthly"}
+                                </Text>
+                              )}
+                            </Box>
+                          </motion.div>
+
+                          <Divider
+                            my={spacing.xs}
+                            color="rgba(255, 255, 255, 0.3)"
+                            style={{
+                              borderStyle: "dashed",
+                              flexShrink: 0,
+                            }}
+                          />
+
+                          {/* Features Section - Flexible Height */}
+                          <Box
+                            style={{
+                              flex: 1,
+                              minHeight: "200px",
+                              height: "auto",
+                              paddingRight: "4px",
+                              marginBottom: spacing.md,
+                              marginTop: spacing.xs,
+                              overflow: "visible",
+                            }}
+                          >
+                            <Text 
+                              fw={700} 
+                              c="white" 
+                              size="md" 
+                              mb={spacing.md}
+                              style={{ 
+                                marginTop: spacing.xs,
+                                flexShrink: 0 
+                              }}
+                            >
                               Included Features:
                             </Text>
-                            <Stack gap={6}>
-                              {plan.features.slice(0, 8).map((feature, idx) => (
-                                <Group key={idx} gap="xs" wrap="nowrap">
-                                  <ThemeIcon
-                                    color={feature.included ? "green" : "red"}
-                                    size={20}
-                                    radius="xl"
-                                    variant={
-                                      feature.included ? "filled" : "outline"
-                                    }
+                            <Stack gap={spacing.sm} style={{ height: "auto" }}>
+                              {plan.features.map((feature, idx) => (
+                                <motion.div
+                                  key={idx}
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: idx * 0.05 }}
+                                  whileHover={{ x: 5 }}
+                                  style={{ flexShrink: 0 }}
+                                >
+                                  <Group 
+                                    gap={spacing.sm} 
+                                    wrap="nowrap" 
+                                    align="flex-start" 
+                                    style={{ 
+                                      minHeight: "36px",
+                                    }}
                                   >
-                                    <IconCheck size={12} />
-                                  </ThemeIcon>
-                                  <Text
-                                    size="sm"
-                                    c="white"
-                                    opacity={feature.included ? 1 : 0.6}
-                                    style={{ lineHeight: 1.3 }}
-                                  >
-                                    {feature.text}
-                                  </Text>
-                                </Group>
+                                    <ThemeIcon
+                                      color={feature.included ? "green" : "red"}
+                                      size={20}
+                                      radius="xl"
+                                      variant={feature.included ? "filled" : "outline"}
+                                      style={{
+                                        boxShadow: feature.included
+                                          ? `0 4px 12px ${primaryColor}40`
+                                          : "none",
+                                        flexShrink: 0,
+                                        marginTop: 2,
+                                      }}
+                                    >
+                                      <IconCheck size={12} />
+                                    </ThemeIcon>
+                                    <Text
+                                      size="sm"
+                                      c="white"
+                                      opacity={feature.included ? 1 : 0.6}
+                                      style={{
+                                        lineHeight: 1.4,
+                                        flex: 1,
+                                        wordBreak: "break-word",
+                                      }}
+                                    >
+                                      {feature.text}
+                                    </Text>
+                                  </Group>
+                                </motion.div>
                               ))}
                             </Stack>
-                          </Stack>
+                          </Box>
 
-                          {/* Action Button */}
-                          <Button
-                            color={index === activeIndex ? "yellow" : "white"}
-                            variant="filled"
-                            size="lg"
-                            radius="md"
-                            fullWidth
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUpgrade();
-                            }}
-                            disabled={
-                              plan.id === "monthly" &&
-                              user?.subscription === "monthly"
-                            }
-                            style={{
-                              fontWeight: 700,
-                              color:
-                                index === activeIndex
-                                  ? theme.colors.dark[9]
-                                  : theme.colors.blue[7],
+                          {/* Action Button - Fixed at bottom */}
+                          <motion.div
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.98 }}
+                            style={{ 
                               marginTop: "auto",
+                              marginBottom: spacing.xs,
+                              flexShrink: 0
                             }}
                           >
-                            {plan.id === "monthly" &&
-                            user?.subscription === "monthly"
-                              ? "Current Plan"
-                              : plan.id === "enterprise"
-                                ? "Contact Sales"
-                                : "Select Plan"}
-                          </Button>
+                            <Button
+                              color={index === activeIndex ? "yellow" : "white"}
+                              variant="filled"
+                              size="lg"
+                              radius="md"
+                              fullWidth
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpgrade();
+                              }}
+                              disabled={
+                                plan.id === "monthly" &&
+                                user?.subscription === "monthly"
+                              }
+                              style={{
+                                fontWeight: 800,
+                                fontSize: isMobile ? "16px" : "18px",
+                                height: "56px",
+                                color: index === activeIndex ? "#000" : primaryColor,
+                                boxShadow: `0 8px 24px ${index === activeIndex ? accentColor + "40" : primaryColor + "40"}`,
+                              }}
+                              rightSection={
+                                !(plan.id === "monthly" && user?.subscription === "monthly") && (
+                                  <IconChevronRight size={20} />
+                                )
+                              }
+                            >
+                              {plan.id === "monthly" &&
+                              user?.subscription === "monthly"
+                                ? "Current Plan"
+                                : plan.id === "enterprise"
+                                  ? "Contact Sales"
+                                  : "Get Started"}
+                            </Button>
+                          </motion.div>
                         </Stack>
                       </Card>
                     </motion.div>
@@ -549,57 +822,174 @@ export default function SubscriptionPage() {
             {/* Navigation Dots */}
             <Group
               justify="center"
-              mt={isMobile ? "xl" : "lg"}
+              mt={isMobile ? spacing.xl : spacing.lg}
+              mb={spacing.md}
               style={{ position: "relative", zIndex: 40 }}
+              gap={spacing.xs}
             >
               {plans.map((_, index) => (
-                <ActionIcon
+                <motion.div
                   key={index}
-                  variant="transparent"
-                  onClick={() => handleDotClick(index)}
-                  style={{ cursor: "pointer" }}
-                  size="lg"
+                  whileHover={{ scale: 1.2 }}
+                  whileTap={{ scale: 0.9 }}
                 >
-                  {index === activeIndex ? (
-                    <IconCircleFilled size={20} color={theme.colors.blue[6]} />
-                  ) : (
-                    <IconCircle size={20} color={theme.colors.gray[4]} />
-                  )}
-                </ActionIcon>
+                  <ActionIcon
+                    variant="transparent"
+                    onClick={() => handleDotClick(index)}
+                    style={{ cursor: "pointer" }}
+                    size="lg"
+                  >
+                    {index === activeIndex ? (
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <IconCircleFilled size={24} color={primaryColor} />
+                      </motion.div>
+                    ) : (
+                      <IconCircle size={20} color={`${primaryColor}40`} />
+                    )}
+                  </ActionIcon>
+                </motion.div>
               ))}
             </Group>
 
-            {/* Mobile Instructions */}
+            {/* Mobile Swipe Hint */}
             {isMobile && (
-              <Text size="sm" c="dimmed" ta="center" mt="md">
-                Swipe left or right to view plans
-              </Text>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                style={{ width: "100%" }}
+              >
+                <Paper
+                  p="md"
+                  radius="lg"
+                  style={{
+                    background: `${primaryColor}08`,
+                    border: `1px dashed ${primaryColor}30`,
+                    marginTop: spacing.sm,
+                  }}
+                >
+                  <Group gap={spacing.xs} justify="center">
+                    <Text size="sm" c={primaryColor} fw={600}>
+                      ← Swipe to view plans →
+                    </Text>
+                  </Group>
+                </Paper>
+              </motion.div>
             )}
 
-            {/* Selected Plan Info */}
-            <Box
-              mt="xl"
-              p="lg"
-              style={{
-                background: theme.colors.blue[0],
-                borderRadius: theme.radius.lg,
-                width: "100%",
+            {/* Selected Plan Summary */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.6 }}
+              style={{ 
+                width: "100%", 
                 maxWidth: "600px",
+                marginTop: spacing.lg
               }}
             >
-              <Group justify="center" gap="md">
-                <IconCrown size={24} color={theme.colors.blue[6]} />
-                <Text fw={600} size="lg">
-                  Selected:{" "}
-                  <Text span c="blue">
-                    {plans.find((p) => p.id === selectedPlan)?.name} Plan
-                  </Text>
-                </Text>
-              </Group>
-            </Box>
+              <Paper
+                p="lg"
+                radius="lg"
+                style={{
+                  background: `linear-gradient(135deg, ${primaryColor}15 0%, ${accentLight} 100%)`,
+                  border: `2px solid ${primaryColor}30`,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <Box
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: "3px",
+                    background: `linear-gradient(90deg, ${primaryColor}, ${accentColor}, ${primaryColor})`,
+                    backgroundSize: "200% 100%",
+                    animation: "shimmer 3s infinite linear",
+                  }}
+                />
+                
+                <Group justify="center" gap={spacing.md}>
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    <IconCrown size={28} color={primaryColor} />
+                  </motion.div>
+                  <Stack gap={spacing.xs}>
+                    <Text fw={700} size="lg">
+                      Selected Plan:{" "}
+                      <Text span c={primaryColor}>
+                        {plans.find((p) => p.id === selectedPlan)?.name}
+                      </Text>
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      Click "Get Started" to proceed with your selection
+                    </Text>
+                  </Stack>
+                </Group>
+              </Paper>
+            </motion.div>
           </Stack>
         </motion.div>
       </Container>
+
+      {/* Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            style={{
+              position: "fixed",
+              bottom: 30,
+              right: 30,
+              zIndex: 1000,
+            }}
+          >
+            <ActionIcon
+              size={60}
+              radius="xl"
+              variant="filled"
+              color={primaryColor}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              style={{
+                boxShadow: `0 8px 32px ${primaryColor}40`,
+              }}
+            >
+              <IconArrowUp size={30} />
+            </ActionIcon>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CSS Animations */}
+      <style jsx global>{`
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        
+        html {
+          scroll-behavior: smooth;
+        }
+        
+        .plan-card {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .plan-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 20px 40px rgba(0, 52, 209, 0.15);
+        }
+      `}</style>
+
       <MainFooter />
     </Box>
   );

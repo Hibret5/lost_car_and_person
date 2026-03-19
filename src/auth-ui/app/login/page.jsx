@@ -12,6 +12,8 @@ import {
   rem,
   PasswordInput,
   Alert,
+  useMantineTheme,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { IconCheck, IconX, IconAlertCircle } from '@tabler/icons-react';
 import Image from 'next/image';
@@ -24,6 +26,9 @@ import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SocialLoginIcons from '../../components/SocialLoginIcons';
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 /* ---------------- Validation schemas ---------------- */
 // Password login schema
@@ -50,9 +55,16 @@ export default function LoginPage() {
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const [userExists, setUserExists] = useState(null);
   const router = useRouter();
-  
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+
   const isMobile = useMediaQuery('(max-width: 576px)');
   const isTablet = useMediaQuery('(max-width: 768px)');
+
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, '#EAF2FF', theme.colors.dark[7]);
+  const paperBg = getBg(colorScheme, '#dbeafe', theme.colors.blue[9]);
+  const textColor = getBg(colorScheme, undefined, theme.colors.gray[3]); // use default in light, gray[3] in dark
 
   const currentSchema = type === 'email' ? passwordLoginSchema : phoneLoginSchema;
 
@@ -224,9 +236,14 @@ export default function LoginPage() {
           }),
         });
 
-        // Redirect to dashboard or home page
+        // Redirect based on user role
         setTimeout(() => {
-          router.push('/');
+          // Check if the user has an admin role (case-insensitive)
+          if (user.role && user.role.toLowerCase() === 'admin') {
+            router.push('/admin'); // redirect to admin dashboard
+          } else {
+            router.push('/'); // redirect to user dashboard (current home page)
+          }
         }, 1000);
         
       } else {
@@ -278,7 +295,7 @@ export default function LoginPage() {
     <Box
       style={{
         minHeight: '100vh',
-        backgroundColor: '#EAF2FF',
+        backgroundColor: mainBg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -286,7 +303,7 @@ export default function LoginPage() {
       }}
     >
       <Container size={isMobile ? 'sm' : isTablet ? 500 : 500}>
-        <Paper radius="lg" p={isMobile ? 'md' : 'xl'} shadow="md" bg="#dbeafe">
+        <Paper radius="lg" p={isMobile ? 'md' : 'xl'} shadow="md" bg={paperBg}>
           <Box ta="center" mb="sm">
             <Image
               src="/logo.jpg"
@@ -298,15 +315,15 @@ export default function LoginPage() {
             />
           </Box>
 
-          <Title ta="center" fw={700}>
+          <Title ta="center" fw={700} c={textColor}>
             WELCOME !!
           </Title>
 
-          <Title ta="center" order={4} mb="md">
+          <Title ta="center" order={4} mb="md" c={textColor}>
             Login
           </Title>
 
-          <Text ta="center" mb="sm">
+          <Text ta="center" mb="sm" c="dimmed">
             {type === 'email'
               ? 'Please enter your email and password'
               : 'Please enter your phone number and password'}
@@ -394,8 +411,8 @@ export default function LoginPage() {
             </Text>
           </Box>
 
-          <Text ta="center" mt="xs">
-            Dont have an account?{' '}
+          <Text ta="center" mt="xs" c="dimmed">
+            Don't have an account?{' '}
             <Link href="/signup" style={{ color: '#228be6', textDecoration: 'none' }}>
               Sign up
             </Link>

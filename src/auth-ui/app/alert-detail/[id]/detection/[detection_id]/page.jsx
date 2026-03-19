@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Box,
@@ -23,6 +23,8 @@ import {
   Checkbox,
   Image as MantineImage,
   Grid,
+  useMantineTheme,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -46,36 +48,216 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
-import { getAlertById } from "../../../../../data/alertsData";
 import MainFooter from "../../../../../components/MainFooter.jsx";
+import { notifications } from "@mantine/notifications";
+
+// Leaflet imports
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet default icon paths (required for webpack)
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// API Endpoints
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const MISSING_PERSONS_API = `${API_BASE_URL}/missingPersons`;
+const MISSING_VEHICLES_API = `${API_BASE_URL}/missingVehicles`;
+const SIGHTINGS_API = `${API_BASE_URL}/sightings`;
+
+// Helper to get dynamic background/color values
+const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
 
 export default function SingleDetectionDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
   const [alertData, setAlertData] = useState(null);
   const [detectionData, setDetectionData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [isFalseAlert, setIsFalseAlert] = useState(false);
+  
+  const mapRef = useRef(null);
+  const leafletMap = useRef(null);
+  const markerRef = useRef(null);
 
+  // Dynamic colors
+  const mainBg = getBg(colorScheme, 'white', theme.colors.dark[7]);
+  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const borderColor = getBg(colorScheme, '#E9ECEF', theme.colors.dark[5]);
+  const paperBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
+  const lightBlueBg = getBg(colorScheme, '#f0f9ff', theme.colors.blue[9] + '40');
+  const mapGradient = colorScheme === 'dark'
+    ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
+    : 'linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)';
+  const mapBorder = getBg(colorScheme, '#bfdbfe', theme.colors.blue[8]);
+  const backButtonBg = '#399afc';
+  const detectionMetadataHeaderBg = getBg(colorScheme, '#f8f9fa', theme.colors.dark[5]);
+  const detectionMetadataText = getTextColor(colorScheme, '#212529', theme.colors.gray[3]);
+
+  // Fetch data from APIs
   useEffect(() => {
-    if (params?.id && params?.detection_id) {
-      setTimeout(() => {
-        const data = getAlertById(params.id);
-        setAlertData(data);
-        
-        // Find the specific detection from history
-        if (data?.detectionHistory) {
-          const detection = data.detectionHistory.find(
-            d => d.id === params.detection_id
-          );
-          setDetectionData(detection || data.detectionHistory[0]);
-        }
-        
+    const fetchData = async () => {
+      const caseId = params?.id;
+      const detectionId = params?.detection_id;
+
+      if (!caseId || !detectionId) {
+        setError('Missing case or detection ID');
         setLoading(false);
-      }, 300);
-    }
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        // 1. Fetch the sighting by detection_id
+        const sightingRes = await fetch(`${SIGHTINGS_API}/${detectionId}`);
+        if (!sightingRes.ok) {
+          throw new Error('Sighting not found');
+        }
+        const sighting = await sightingRes.json();
+
+        // 2. Determine which type of case it belongs to (person or vehicle)
+        let caseData = null;
+        if (sighting.type === 'Person') {
+          const personRes = await fetch(`${MISSING_PERSONS_API}/${caseId}`);
+          if (personRes.ok) {
+            caseData = await personRes.json();
+          }
+        } else if (sighting.type === 'Vehicle') {
+          const vehicleRes = await fetch(`${MISSING_VEHICLES_API}/${caseId}`);
+          if (vehicleRes.ok) {
+            caseData = await vehicleRes.json();
+          }
+        } else {
+          // If sighting doesn't have type, try both APIs
+          const [personRes, vehicleRes] = await Promise.all([
+            fetch(`${MISSING_PERSONS_API}/${caseId}`),
+            fetch(`${MISSING_VEHICLES_API}/${caseId}`),
+          ]);
+          if (personRes.ok) {
+            caseData = await personRes.json();
+          } else if (vehicleRes.ok) {
+            caseData = await vehicleRes.json();
+          }
+        }
+
+        if (!caseData) {
+          throw new Error('Original case not found');
+        }
+
+        // Transform sighting to match expected structure
+        const transformedDetection = {
+          id: sighting.id,
+          name: sighting.type === 'Person' ? sighting.name : `${sighting.brand || ''} ${sighting.model || ''}`.trim() || sighting.plateNumber,
+          location: sighting.location,
+          date: sighting.date || new Date(sighting.reportDate).toLocaleDateString(),
+          time: sighting.time || new Date(sighting.reportDate).toLocaleTimeString(),
+          type: sighting.type === 'Person' ? 'Sighting' : 'Detection',
+          accuracy: '98%', // placeholder; you could compute from confidence if available
+          description: sighting.description,
+          image: sighting.imagePreview,
+          latitude: sighting.latitude,
+          longitude: sighting.longitude,
+        };
+
+        // Transform case data to match expected alert structure
+        const transformedCase = {
+          id: caseData.id,
+          code: caseData.caseId || `CASE-${caseData.id}`,
+          type: caseData.type || (caseData.firstName ? 'Person' : 'Vehicle'),
+          category: {
+            type: caseData.type || (caseData.firstName ? 'Person' : 'Vehicle'),
+            brandName: caseData.brand || `${caseData.firstName || ''} ${caseData.lastName || ''}`.trim() || 'Unknown',
+            plateNumber: caseData.plateNumber || 'N/A',
+          },
+          color: caseData.color || 'Unknown',
+          registeredLocation: caseData.location || caseData.lastSeenLocation || 'Unknown',
+          registeredDate: caseData.reportDate ? new Date(caseData.reportDate).toLocaleDateString() : 'Unknown',
+          registeredTime: caseData.reportDate ? new Date(caseData.reportDate).toLocaleTimeString() : 'Unknown',
+          capturedMedia: {
+            photos: caseData.additionalImages || (caseData.imagePreview ? [caseData.imagePreview] : []),
+          },
+          additionalImages: caseData.additionalImages || [],
+          detectionHistory: [], // not needed here
+          accuracy: '98%', // placeholder
+        };
+
+        setDetectionData(transformedDetection);
+        setAlertData(transformedCase);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching detection detail:', err);
+        setError(err.message);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load detection details',
+          color: 'red',
+          icon: <IconAlertCircle size={16} />,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [params?.id, params?.detection_id]);
+
+  // Initialize Leaflet map when detectionData is available
+  useEffect(() => {
+    if (!detectionData || !mapRef.current) return;
+
+    // Clear previous map instance
+    if (leafletMap.current) {
+      leafletMap.current.remove();
+      leafletMap.current = null;
+    }
+
+    // Use actual coordinates from detectionData, or fallback to default
+    const lat = detectionData.latitude ? parseFloat(detectionData.latitude) : 9.03;
+    const lng = detectionData.longitude ? parseFloat(detectionData.longitude) : 38.74;
+
+    // Create map
+    const map = L.map(mapRef.current).setView([lat, lng], 15);
+    leafletMap.current = map;
+
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Add marker
+    const marker = L.marker([lat, lng])
+      .bindPopup(`
+        <b>${detectionData.name}</b><br>
+        ${detectionData.location}<br>
+        ${detectionData.date} ${detectionData.time}<br>
+        Accuracy: ${detectionData.accuracy}
+      `)
+      .addTo(map);
+    marker.openPopup();
+    markerRef.current = marker;
+
+    // Cleanup on unmount
+    return () => {
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, [detectionData]);
 
   const handleConfirmation = (type) => {
     if (type === 'owner') {
@@ -85,44 +267,9 @@ export default function SingleDetectionDetailPage() {
       setIsOwner(false);
       setIsFalseAlert(true);
     }
-    
-    // Here you would typically send this to your backend
+    // Here you would send this to your backend
     console.log(`Confirmation: ${type}`);
   };
-
-  // Get marker positions for the map
-  const getMarkerPositions = () => {
-    const positions = [];
-
-    // Add main marker for this detection
-    if (detectionData) {
-      positions.push({
-        ...detectionData,
-        isSelected: true,
-        position: { left: "50%", top: "50%" },
-      });
-    }
-
-    // Add a few other markers from the alert's detection history
-    if (alertData?.detectionHistory) {
-      alertData.detectionHistory.slice(0, 3).forEach((detection, index) => {
-        if (detectionData && detection.id === detectionData.id) return;
-
-        positions.push({
-          ...detection,
-          isSelected: false,
-          position: {
-            left: `${30 + index * 20}%`,
-            top: `${20 + index * 25}%`,
-          },
-        });
-      });
-    }
-
-    return positions;
-  };
-
-  const markerPositions = getMarkerPositions();
 
   if (loading) {
     return (
@@ -132,6 +279,7 @@ export default function SingleDetectionDetailPage() {
           justifyContent: "center",
           alignItems: "center",
           height: "100vh",
+          backgroundColor: mainBg,
         }}
       >
         <Loader size="lg" />
@@ -139,10 +287,11 @@ export default function SingleDetectionDetailPage() {
     );
   }
 
-  if (!alertData || !detectionData) {
+  if (error || !alertData || !detectionData) {
     return (
-      <Box style={{ padding: "40px", textAlign: "center" }}>
+      <Box style={{ padding: "40px", textAlign: "center", backgroundColor: mainBg }}>
         <Title order={2}>Detection Not Found</Title>
+        <Text c="dimmed" mt="md">{error || 'The requested detection could not be loaded.'}</Text>
         <Button onClick={() => router.push(`/alert-detail/${params.id}`)} mt="md">
           Back to Alert
         </Button>
@@ -154,17 +303,17 @@ export default function SingleDetectionDetailPage() {
     <Box
       style={{
         minHeight: "100vh",
-        backgroundColor: "white",
+        backgroundColor: mainBg,
         display: "flex",
         flexDirection: "column",
       }}
     >
-      {/* Header - Same as AlertDetailPage */}
+      {/* Header */}
       <Box
-        bg="white"
+        bg={headerBg}
         py="sm"
         style={{
-          borderBottom: "1px solid #E9ECEF",
+          borderBottom: `1px solid ${borderColor}`,
           position: "sticky",
           top: 0,
           zIndex: 100,
@@ -172,7 +321,6 @@ export default function SingleDetectionDetailPage() {
       >
         <Container size="xl">
           <Group justify="space-between">
-            {/* Logo */}
             <Image
               src="/logo.jpg"
               alt="Logo"
@@ -182,7 +330,6 @@ export default function SingleDetectionDetailPage() {
               style={{ width: "auto", height: "50px", borderRadius: "8px" }}
             />
 
-            {/* Search Bar */}
             <TextInput
               placeholder="Search alerts by brand, code, location..."
               leftSection={<IconSearch size={16} />}
@@ -190,7 +337,6 @@ export default function SingleDetectionDetailPage() {
               radius="xl"
             />
 
-            {/* Right Side Navigation */}
             <Group gap="lg">
               <ActionIcon
                 variant="transparent"
@@ -202,7 +348,6 @@ export default function SingleDetectionDetailPage() {
                 <IconHome size={28} />
               </ActionIcon>
 
-              {/* User Menu */}
               <Menu
                 shadow="md"
                 width={320}
@@ -214,7 +359,7 @@ export default function SingleDetectionDetailPage() {
                     <Group gap="sm">
                       <Box ta="right" visibleFrom="xs">
                         <Text fw={800} size="md">
-                          Feleke
+                          User
                         </Text>
                         <Text size="xs" c="dimmed">
                           Personal account
@@ -289,14 +434,14 @@ export default function SingleDetectionDetailPage() {
               onClick={() => router.push(`/alert-detail/${params.id}`)}
               size="md"
               style={{
-                backgroundColor: "#399afc",
+                backgroundColor: backButtonBg,
                 padding: "10px"
               }}
             >
               
             </Button>
             <Box style={{ marginLeft: "16px" }}>
-              <Text fw={800} size="xl" style={{ color: "#212529" }}>
+              <Text fw={800} size="xl" style={{ color: detectionMetadataText }}>
                 Detection Detail
               </Text>
               <Text size="sm" c="dimmed">
@@ -307,21 +452,20 @@ export default function SingleDetectionDetailPage() {
         </Container>
       </Box>
 
-      {/* Main Content - WITH REAL MAP VISUALIZATION */}
+      {/* Main Content */}
       <Container size="xl" py={40} style={{ flex: 1 }}>
-        {/* Header Title */}
         <Box mb="xl">
-          <Title order={1} style={{ color: "#212529" }}>{detectionData.name}</Title>
+          <Title order={1} style={{ color: detectionMetadataText }}>{detectionData.name}</Title>
         </Box>
 
         <Grid gutter="xl">
-          {/* LEFT COLUMN: Map Visualization (Full Height) */}
+          {/* LEFT COLUMN: Map */}
           <Grid.Col span={{ base: 12, md: 7 }}>
-            <Paper withBorder radius="md" style={{ height: "500px" }}> 
+            <Paper withBorder radius="md" style={{ height: "500px", overflow: "hidden" }}> 
               <Box
                 p="md"
                 style={{
-                  borderBottom: "1px solid #eee",
+                  borderBottom: `1px solid ${borderColor}`,
                   backgroundColor: "#1e40af",
                   color: "white",
                   borderTopLeftRadius: "8px",
@@ -334,551 +478,462 @@ export default function SingleDetectionDetailPage() {
                 </Group>
               </Box>
               
-              {/* Map Visualization Area - LIKE IN AlertDetailPage */}
-              <Box 
-                style={{ 
+              {/* Leaflet map container */}
+              <div
+                ref={mapRef}
+                style={{
                   height: "calc(100% - 65px)",
-                  display: "flex",
-                  flexDirection: "column"
+                  width: "100%",
+                  borderRadius: "0 0 8px 8px",
                 }}
-              >
-                {/* Actual Map Visualization */}
-                <Box
-                  style={{
-                    flex: 1,
-                    background: "#f0f9ff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    position: "relative",
-                    cursor: "pointer",
-                    padding: "20px",
-                  }}
-                >
-                  <Box
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      background: "linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%)",
-                      borderRadius: "8px",
-                      position: "relative",
-                      border: "1px solid #bfdbfe",
-                    }}
-                  >
-                    {/* Display markers */}
-                    {markerPositions.map((marker, index) => (
-                      <Box
-                        key={marker.id}
-                        style={{
-                          position: "absolute",
-                          left: marker.position.left,
-                          top: marker.position.top,
-                          transform: marker.isSelected
-                            ? "translate(-50%, -50%)"
-                            : "translate(-50%, -50%)",
-                          backgroundColor: marker.isSelected
-                            ? "#ef4444"
-                            : marker.status === "active"
-                              ? "#10b981"
-                              : "#6b7280",
-                          width: marker.isSelected ? "20px" : "14px",
-                          height: marker.isSelected ? "20px" : "14px",
-                          borderRadius: "50%",
-                          border: marker.isSelected
-                            ? "3px solid white"
-                            : "2px solid white",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          zIndex: marker.isSelected ? 10 : 1,
-                          transition: "all 0.2s",
-                        }}
-                        title={`${marker.location} - ${marker.time}\nClick to view details`}
-                      >
-                        {marker.isSelected ? (
-                          <IconMapPinFilled size={12} color="white" />
-                        ) : (
-                          <Text
-                            size={marker.isSelected ? "10px" : "8px"}
-                            fw={700}
-                            color="white"
-                          >
-                            {index + 1}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-
-                    {/* Selected location label */}
-                    {detectionData && (
-                      <Box
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          backgroundColor: "rgba(255, 255, 255, 0.9)",
-                          padding: "8px 16px",
-                          borderRadius: "20px",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        <Text size="sm" fw={600} color="#1e40af">
-                          {detectionData.location}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {detectionData.date} • {detectionData.time}
-                        </Text>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-
-                {/* Map Addresses List Below Map */}
-                
-              </Box>
+              />
             </Paper>
           </Grid.Col>
 
-          {/* RIGHT COLUMN: Accuracy at top, then other info */}
-          {/* RIGHT COLUMN: Beautiful Colorful Info Cards */}
-<Grid.Col span={{ base: 12, md: 5 }}>
-  <Stack gap="lg">
-    {/* Accuracy Card - Colorful */}
-    <Paper 
-      withBorder 
-      radius="md"
-      style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        overflow: "hidden",
-        borderLeft: "4px solid #3b82f6",
-      }}
-    >
-      <Box
-        p="md"
-        style={{
-          background: "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)",
-        }}
-      >
-        <Group justify="space-between" align="center">
-          <Box>
-            <Text fw={700} size="lg" style={{ color: "#0369a1" }}>
-              🎯 Accuracy
-            </Text>
-            <Text size="sm" c="dimmed">
-              Detection confidence
-            </Text>
-          </Box>
-          <Badge
-            size="xl"
-            variant="filled"
-            color="blue"
-            style={{ 
-              fontWeight: 800,
-              fontSize: "16px",
-              padding: "8px 12px",
-              borderRadius: "8px",
-            }}
-          >
-            {detectionData.accuracy || alertData.accuracy}
-          </Badge>
-        </Group>
-      </Box>
-    </Paper>
-
-    {/* Category Card - Green Theme */}
-    <Paper 
-      withBorder 
-      radius="md"
-      style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        overflow: "hidden",
-        borderLeft: "4px solid #10b981",
-      }}
-    >
-      <Box
-        p="md"
-        style={{
-          background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-        }}
-      >
-        <Text fw={700} size="lg" style={{ color: "#047857", marginBottom: "12px" }}>
-          🚗 Category
-        </Text>
-        <Stack gap="md">
-          <Box pl="md">
-            <Text size="sm" fw={600} style={{ color: "#065f46" }}>
-              Type: <span style={{ color: "#374151" }}>{alertData.category?.type || "Car"}</span>
-            </Text>
-            <Box pl="md" mt="xs">
-              <Text size="sm" fw={600} style={{ color: "#065f46" }}>
-                Brand: <span style={{ color: "#374151" }}>{alertData.category?.brandName || "Toyota"}</span>
-              </Text>
-              <Box pl="md" mt="xs">
-                <Text size="sm" fw={600} style={{ color: "#065f46" }}>
-                  Plate:
-                </Text>
-                <Box 
-                  p="xs" 
-                  mt="xs" 
-                  style={{ 
-                    backgroundColor: "#10b981", 
-                    borderRadius: "6px",
-                    display: "inline-block",
-                  }}
-                >
-                  <Text size="sm" fw={800} style={{ color: "white", letterSpacing: "1px" }}>
-                    {alertData.category?.plateNumber || "A.A 2 11111"}
-                  </Text>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-          <Box pl="md">
-            <Text size="sm" fw={600} style={{ color: "#065f46" }}>
-              Color:
-            </Text>
-            <Group gap="xs" mt="xs">
-              <Box
+          {/* RIGHT COLUMN: Info Cards */}
+          <Grid.Col span={{ base: 12, md: 5 }}>
+            <Stack gap="lg">
+              {/* Accuracy Card */}
+              <Paper 
+                withBorder 
+                radius="md"
                 style={{
-                  width: "20px",
-                  height: "20px",
-                  backgroundColor: alertData.color === "Silver" ? "#d1d5db" : 
-                                 alertData.color === "White" ? "#ffffff" :
-                                 alertData.color === "Black" ? "#000000" :
-                                 alertData.color === "Red" ? "#ef4444" : "#d1d5db",
-                  borderRadius: "4px",
-                  border: "1px solid #9ca3af",
-                }}
-              />
-              <Text size="sm" fw={600} style={{ color: "#374151" }}>
-                {alertData.color || "Silver"}
-              </Text>
-            </Group>
-          </Box>
-        </Stack>
-      </Box>
-    </Paper>
-
-    {/* Registered Location Card - Purple Theme */}
-    <Paper 
-      withBorder 
-      radius="md"
-      style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        overflow: "hidden",
-        borderLeft: "4px solid #8b5cf6",
-      }}
-    >
-      <Box
-        p="md"
-        style={{
-          background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
-        }}
-      >
-        <Group align="flex-start">
-          <Box
-            style={{
-              backgroundColor: "#8b5cf6",
-              padding: "8px",
-              borderRadius: "8px",
-              color: "white",
-            }}
-          >
-            <IconMapPin size={20} />
-          </Box>
-          <Box style={{ flex: 1 }}>
-            <Text fw={700} size="lg" style={{ color: "#7c3aed" }}>
-              Registered Location
-            </Text>
-            <Text size="sm" style={{ color: "#6b7280", marginTop: "4px" }}>
-              {alertData.registeredLocation || "Address Abebe, Mexico Itoswerit at"}
-            </Text>
-          </Box>
-        </Group>
-      </Box>
-    </Paper>
-
-    {/* Registered Date Card - Orange Theme */}
-    <Paper 
-      withBorder 
-      radius="md"
-      style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        overflow: "hidden",
-        borderLeft: "4px solid #f59e0b",
-      }}
-    >
-      <Box
-        p="md"
-        style={{
-          background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)",
-        }}
-      >
-        <Group align="flex-start">
-          <Box
-            style={{
-              backgroundColor: "#f59e0b",
-              padding: "8px",
-              borderRadius: "8px",
-              color: "white",
-            }}
-          >
-            <IconCalendar size={20} />
-          </Box>
-          <Box style={{ flex: 1 }}>
-            <Text fw={700} size="lg" style={{ color: "#d97706" }}>
-              Registered Date
-            </Text>
-            <Stack gap="xs" mt="xs">
-              <Group gap="xs">
-                <Badge color="orange" variant="light" size="sm">
-                  Date
-                </Badge>
-                <Text size="sm" fw={600} style={{ color: "#374151" }}>
-                  {alertData.registeredDate || "10/11/2023"}
-                </Text>
-              </Group>
-              <Group gap="xs">
-                <Badge color="orange" variant="light" size="sm">
-                  Time
-                </Badge>
-                <Text size="sm" fw={600} style={{ color: "#374151" }}>
-                  {alertData.registeredTime || "8:11 PM"}
-                </Text>
-              </Group>
-            </Stack>
-          </Box>
-        </Group>
-      </Box>
-    </Paper>
-
-    {/* Captured Media Card - Pink Theme */}
-    <Paper 
-      withBorder 
-      radius="md"
-      style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        overflow: "hidden",
-        borderLeft: "4px solid #ec4899",
-      }}
-    >
-      <Box
-        p="md"
-        style={{
-          background: "linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)",
-        }}
-      >
-        <Group justify="space-between" align="center" mb="md">
-          <Group>
-            <Box
-              style={{
-                backgroundColor: "#ec4899",
-                padding: "8px",
-                borderRadius: "8px",
-                color: "white",
-              }}
-            >
-              <IconCamera size={20} />
-            </Box>
-            <Box>
-              <Text fw={700} size="lg" style={{ color: "#db2777" }}>
-                Captured Media
-              </Text>
-              <Text size="sm" c="dimmed">
-                Photos & Videos
-              </Text>
-            </Box>
-          </Group>
-          <Badge color="pink" variant="light">
-            {alertData.capturedMedia?.photos?.length || alertData.additionalImages?.length || 0} items
-          </Badge>
-        </Group>
-
-        {alertData.capturedMedia?.photos?.length > 0 || alertData.additionalImages?.length > 0 ? (
-          <SimpleGrid cols={2} spacing="sm">
-            {(alertData.capturedMedia?.photos || alertData.additionalImages || []).slice(0, 4).map((img, index) => (
-              <Box
-                key={index}
-                style={{
-                  aspectRatio: "1/1",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
                   overflow: "hidden",
-                  borderRadius: "8px",
-                  border: "2px solid #fbcfe8",
-                  position: "relative",
+                  borderLeft: "4px solid #3b82f6",
                 }}
               >
-                <MantineImage
-                  src={img}
-                  alt={`Evidence ${index + 1}`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
                 <Box
+                  p="md"
                   style={{
-                    position: "absolute",
-                    bottom: "0",
-                    left: "0",
-                    right: "0",
-                    background: "rgba(236, 72, 153, 0.8)",
-                    padding: "4px",
-                    textAlign: "center",
+                    background: getBg(colorScheme, "linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)", "linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)"),
                   }}
                 >
-                  <Text size="10px" fw={700} color="white">
-                    Photo {index + 1}
-                  </Text>
+                  <Group justify="space-between" align="center">
+                    <Box>
+                      <Text fw={700} size="lg" style={{ color: getBg(colorScheme, "#0369a1", theme.colors.blue[2]) }}>
+                        🎯 Accuracy
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        Detection confidence
+                      </Text>
+                    </Box>
+                    <Badge
+                      size="xl"
+                      variant="filled"
+                      color="blue"
+                      style={{ 
+                        fontWeight: 800,
+                        fontSize: "16px",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      {detectionData.accuracy}
+                    </Badge>
+                  </Group>
                 </Box>
-              </Box>
-            ))}
-          </SimpleGrid>
-        ) : (
-          <Box 
-            style={{ 
-              textAlign: "center", 
-              padding: "20px",
-              border: "2px dashed #fbcfe8",
-              borderRadius: "8px",
-              backgroundColor: "rgba(252, 231, 243, 0.5)",
-            }}
-          >
-            <IconPhoto size={48} color="#f472b6" />
-            <Text mt="md" c="dimmed">No photos or videos available</Text>
-          </Box>
-        )}
-      </Box>
-    </Paper>
+              </Paper>
 
-    {/* Confirmation Card - Red/Green Theme */}
-    <Paper 
-      withBorder 
-      radius="md"
-      style={{
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-        overflow: "hidden",
-        borderLeft: "4px solid #ef4444",
-      }}
-    >
-      <Box
-        p="md"
-        style={{
-          background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
-        }}
-      >
-        <Text fw={700} size="lg" style={{ color: "#dc2626", marginBottom: "16px" }}>
-          ❓ Is this your car?
-        </Text>
-        
-        <Stack gap="md">
-          {/* Yes Option */}
-          <Card
-            withBorder
-            style={{
-              cursor: "pointer",
-              backgroundColor: isOwner ? "#dcfce7" : "white",
-              borderColor: isOwner ? "#22c55e" : "#e5e7eb",
-              borderLeft: isOwner ? "4px solid #22c55e" : "4px solid #e5e7eb",
-              transition: "all 0.2s",
-            }}
-            onClick={() => handleConfirmation('owner')}
-          >
-            <Group justify="space-between">
-              <Group>
-                <Checkbox 
-                  checked={isOwner}
-                  onChange={() => handleConfirmation('owner')}
-                  color="green"
-                  size="lg"
-                />
-                <Box>
-                  <Text fw={700} style={{ color: isOwner ? "#166534" : "#374151" }}>
-                    ✅ Yes, it is my car
+              {/* Category Card */}
+              <Paper 
+                withBorder 
+                radius="md"
+                style={{
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                  overflow: "hidden",
+                  borderLeft: "4px solid #10b981",
+                }}
+              >
+                <Box
+                  p="md"
+                  style={{
+                    background: getBg(colorScheme, "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)", "linear-gradient(135deg, #14532d 0%, #166534 100%)"),
+                  }}
+                >
+                  <Text fw={700} size="lg" style={{ color: getBg(colorScheme, "#047857", theme.colors.green[2]) }} mb="12px">
+                    🚗 Category
                   </Text>
-                  <Text size="sm" c="dimmed">
-                    Confirm ownership of this vehicle
-                  </Text>
+                  <Stack gap="md">
+                    <Box pl="md">
+                      <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
+                        Type: <span style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>{alertData.category?.type}</span>
+                      </Text>
+                      <Box pl="md" mt="xs">
+                        <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
+                          Brand/Name: <span style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>{alertData.category?.brandName}</span>
+                        </Text>
+                        <Box pl="md" mt="xs">
+                          <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
+                            Plate:
+                          </Text>
+                          <Box 
+                            p="xs" 
+                            mt="xs" 
+                            style={{ 
+                              backgroundColor: "#10b981", 
+                              borderRadius: "6px",
+                              display: "inline-block",
+                            }}
+                          >
+                            <Text size="sm" fw={800} style={{ color: "white", letterSpacing: "1px" }}>
+                              {alertData.category?.plateNumber}
+                            </Text>
+                          </Box>
+                        </Box>
+                      </Box>
+                    </Box>
+                    <Box pl="md">
+                      <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#065f46", theme.colors.green[2]) }}>
+                        Color:
+                      </Text>
+                      <Group gap="xs" mt="xs">
+                        <Box
+                          style={{
+                            width: "20px",
+                            height: "20px",
+                            backgroundColor: alertData.color === "Silver" ? "#d1d5db" : 
+                                           alertData.color === "White" ? "#ffffff" :
+                                           alertData.color === "Black" ? "#000000" :
+                                           alertData.color === "Red" ? "#ef4444" : "#d1d5db",
+                            borderRadius: "4px",
+                            border: "1px solid #9ca3af",
+                          }}
+                        />
+                        <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
+                          {alertData.color}
+                        </Text>
+                      </Group>
+                    </Box>
+                  </Stack>
                 </Box>
-              </Group>
-              {isOwner && (
-                <Badge color="green" variant="filled" size="lg">
-                  Selected
-                </Badge>
-              )}
-            </Group>
-          </Card>
+              </Paper>
 
-          {/* No Option */}
-          <Card
-            withBorder
-            style={{
-              cursor: "pointer",
-              backgroundColor: isFalseAlert ? "#fee2e2" : "white",
-              borderColor: isFalseAlert ? "#ef4444" : "#e5e7eb",
-              borderLeft: isFalseAlert ? "4px solid #ef4444" : "4px solid #e5e7eb",
-              transition: "all 0.2s",
-            }}
-            onClick={() => handleConfirmation('false')}
-          >
-            <Group justify="space-between">
-              <Group>
-                <Checkbox 
-                  checked={isFalseAlert}
-                  onChange={() => handleConfirmation('false')}
-                  color="red"
-                  size="lg"
-                />
-                <Box>
-                  <Text fw={700} style={{ color: isFalseAlert ? "#dc2626" : "#374151" }}>
-                    ❌ No, false alert
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    Report this as incorrect detection
-                  </Text>
+              {/* Registered Location Card */}
+              <Paper 
+                withBorder 
+                radius="md"
+                style={{
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                  overflow: "hidden",
+                  borderLeft: "4px solid #8b5cf6",
+                }}
+              >
+                <Box
+                  p="md"
+                  style={{
+                    background: getBg(colorScheme, "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)", "linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%)"),
+                  }}
+                >
+                  <Group align="flex-start">
+                    <Box
+                      style={{
+                        backgroundColor: "#8b5cf6",
+                        padding: "8px",
+                        borderRadius: "8px",
+                        color: "white",
+                      }}
+                    >
+                      <IconMapPin size={20} />
+                    </Box>
+                    <Box style={{ flex: 1 }}>
+                      <Text fw={700} size="lg" style={{ color: getBg(colorScheme, "#7c3aed", theme.colors.violet[2]) }}>
+                        Registered Location
+                      </Text>
+                      <Text size="sm" style={{ color: getBg(colorScheme, "#6b7280", theme.colors.gray[3]) }} mt="4px">
+                        {alertData.registeredLocation}
+                      </Text>
+                    </Box>
+                  </Group>
                 </Box>
-              </Group>
-              {isFalseAlert && (
-                <Badge color="red" variant="filled" size="lg">
-                  Selected
-                </Badge>
-              )}
-            </Group>
-          </Card>
+              </Paper>
 
-          {/* Submit Button */}
-          <Button
-            fullWidth
-            size="lg"
-            color={isOwner ? "green" : isFalseAlert ? "red" : "blue"}
-            leftSection={<IconCheck size={20} />}
-            mt="md"
-            disabled={!isOwner && !isFalseAlert}
-            style={{
-              fontWeight: 700,
-              fontSize: "16px",
-              padding: "12px",
-              borderRadius: "8px",
-            }}
-          >
-            {isOwner ? "✅ Confirm Ownership" : 
-             isFalseAlert ? "❌ Report False Alert" : 
-             "Select an option above"}
-          </Button>
-        </Stack>
-      </Box>
-    </Paper>
-  </Stack>
-</Grid.Col>
+              {/* Registered Date Card */}
+              <Paper 
+                withBorder 
+                radius="md"
+                style={{
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                  overflow: "hidden",
+                  borderLeft: "4px solid #f59e0b",
+                }}
+              >
+                <Box
+                  p="md"
+                  style={{
+                    background: getBg(colorScheme, "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)", "linear-gradient(135deg, #92400e 0%, #b45309 100%)"),
+                  }}
+                >
+                  <Group align="flex-start">
+                    <Box
+                      style={{
+                        backgroundColor: "#f59e0b",
+                        padding: "8px",
+                        borderRadius: "8px",
+                        color: "white",
+                      }}
+                    >
+                      <IconCalendar size={20} />
+                    </Box>
+                    <Box style={{ flex: 1 }}>
+                      <Text fw={700} size="lg" style={{ color: getBg(colorScheme, "#d97706", theme.colors.orange[2]) }}>
+                        Registered Date
+                      </Text>
+                      <Stack gap="xs" mt="xs">
+                        <Group gap="xs">
+                          <Badge color="orange" variant="light" size="sm">
+                            Date
+                          </Badge>
+                          <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
+                            {alertData.registeredDate}
+                          </Text>
+                        </Group>
+                        <Group gap="xs">
+                          <Badge color="orange" variant="light" size="sm">
+                            Time
+                          </Badge>
+                          <Text size="sm" fw={600} style={{ color: getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
+                            {alertData.registeredTime}
+                          </Text>
+                        </Group>
+                      </Stack>
+                    </Box>
+                  </Group>
+                </Box>
+              </Paper>
+
+              {/* Captured Media Card */}
+              <Paper 
+                withBorder 
+                radius="md"
+                style={{
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                  overflow: "hidden",
+                  borderLeft: "4px solid #ec4899",
+                }}
+              >
+                <Box
+                  p="md"
+                  style={{
+                    background: getBg(colorScheme, "linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)", "linear-gradient(135deg, #831843 0%, #9d174d 100%)"),
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <Group>
+                      <Box
+                        style={{
+                          backgroundColor: "#ec4899",
+                          padding: "8px",
+                          borderRadius: "8px",
+                          color: "white",
+                        }}
+                      >
+                        <IconCamera size={20} />
+                      </Box>
+                      <Box>
+                        <Text fw={700} size="lg" style={{ color: getBg(colorScheme, "#db2777", theme.colors.pink[2]) }}>
+                          Captured Media
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          Photos & Videos
+                        </Text>
+                      </Box>
+                    </Group>
+                    <Badge color="pink" variant="light">
+                      {alertData.capturedMedia?.photos?.length || 0} items
+                    </Badge>
+                  </Group>
+
+                  {alertData.capturedMedia?.photos?.length > 0 ? (
+                    <SimpleGrid cols={2} spacing="sm">
+                      {alertData.capturedMedia.photos.slice(0, 4).map((img, index) => (
+                        <Box
+                          key={index}
+                          style={{
+                            aspectRatio: "1/1",
+                            overflow: "hidden",
+                            borderRadius: "8px",
+                            border: `2px solid ${getBg(colorScheme, '#fbcfe8', theme.colors.pink[7])}`,
+                            position: "relative",
+                          }}
+                        >
+                          <MantineImage
+                            src={img}
+                            alt={`Evidence ${index + 1}`}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                          <Box
+                            style={{
+                              position: "absolute",
+                              bottom: "0",
+                              left: "0",
+                              right: "0",
+                              background: "rgba(236, 72, 153, 0.8)",
+                              padding: "4px",
+                              textAlign: "center",
+                            }}
+                          >
+                            <Text size="10px" fw={700} color="white">
+                              Photo {index + 1}
+                            </Text>
+                          </Box>
+                        </Box>
+                      ))}
+                    </SimpleGrid>
+                  ) : (
+                    <Box 
+                      style={{ 
+                        textAlign: "center", 
+                        padding: "20px",
+                        border: `2px dashed ${getBg(colorScheme, '#fbcfe8', theme.colors.pink[7])}`,
+                        borderRadius: "8px",
+                        backgroundColor: getBg(colorScheme, 'rgba(252, 231, 243, 0.5)', 'rgba(157, 23, 77, 0.2)'),
+                      }}
+                    >
+                      <IconPhoto size={48} color={getBg(colorScheme, '#f472b6', theme.colors.pink[5])} />
+                      <Text mt="md" c="dimmed">No photos or videos available</Text>
+                    </Box>
+                  )}
+                </Box>
+              </Paper>
+
+              {/* Confirmation Card */}
+              <Paper 
+                withBorder 
+                radius="md"
+                style={{
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                  overflow: "hidden",
+                  borderLeft: "4px solid #ef4444",
+                }}
+              >
+                <Box
+                  p="md"
+                  style={{
+                    background: getBg(colorScheme, "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)", "linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)"),
+                  }}
+                >
+                  <Text fw={700} size="lg" style={{ color: getBg(colorScheme, "#dc2626", theme.colors.red[2]) }} mb="16px">
+                    ❓ Is this your car?
+                  </Text>
+                  
+                  <Stack gap="md">
+                    <Card
+                      withBorder
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: isOwner 
+                          ? getBg(colorScheme, "#dcfce7", theme.colors.green[9]) 
+                          : getBg(colorScheme, "white", theme.colors.dark[6]),
+                        borderColor: isOwner 
+                          ? "#22c55e" 
+                          : getBg(colorScheme, "#e5e7eb", theme.colors.dark[4]),
+                        borderLeft: isOwner 
+                          ? "4px solid #22c55e" 
+                          : `4px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[4])}`,
+                        transition: "all 0.2s",
+                      }}
+                      onClick={() => handleConfirmation('owner')}
+                    >
+                      <Group justify="space-between">
+                        <Group>
+                          <Checkbox 
+                            checked={isOwner}
+                            onChange={() => handleConfirmation('owner')}
+                            color="green"
+                            size="lg"
+                          />
+                          <Box>
+                            <Text fw={700} style={{ color: isOwner ? getBg(colorScheme, "#166534", theme.colors.green[3]) : getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
+                              ✅ Yes, it is my car
+                            </Text>
+                            <Text size="sm" c="dimmed">
+                              Confirm ownership of this vehicle
+                            </Text>
+                          </Box>
+                        </Group>
+                        {isOwner && (
+                          <Badge color="green" variant="filled" size="lg">
+                            Selected
+                          </Badge>
+                        )}
+                      </Group>
+                    </Card>
+
+                    <Card
+                      withBorder
+                      style={{
+                        cursor: "pointer",
+                        backgroundColor: isFalseAlert 
+                          ? getBg(colorScheme, "#fee2e2", theme.colors.red[9]) 
+                          : getBg(colorScheme, "white", theme.colors.dark[6]),
+                        borderColor: isFalseAlert 
+                          ? "#ef4444" 
+                          : getBg(colorScheme, "#e5e7eb", theme.colors.dark[4]),
+                        borderLeft: isFalseAlert 
+                          ? "4px solid #ef4444" 
+                          : `4px solid ${getBg(colorScheme, "#e5e7eb", theme.colors.dark[4])}`,
+                        transition: "all 0.2s",
+                      }}
+                      onClick={() => handleConfirmation('false')}
+                    >
+                      <Group justify="space-between">
+                        <Group>
+                          <Checkbox 
+                            checked={isFalseAlert}
+                            onChange={() => handleConfirmation('false')}
+                            color="red"
+                            size="lg"
+                          />
+                          <Box>
+                            <Text fw={700} style={{ color: isFalseAlert ? getBg(colorScheme, "#dc2626", theme.colors.red[3]) : getBg(colorScheme, "#374151", theme.colors.gray[3]) }}>
+                              ❌ No, false alert
+                            </Text>
+                            <Text size="sm" c="dimmed">
+                              Report this as incorrect detection
+                            </Text>
+                          </Box>
+                        </Group>
+                        {isFalseAlert && (
+                          <Badge color="red" variant="filled" size="lg">
+                            Selected
+                          </Badge>
+                        )}
+                      </Group>
+                    </Card>
+
+                    <Button
+                      fullWidth
+                      size="lg"
+                      color={isOwner ? "green" : isFalseAlert ? "red" : "blue"}
+                      leftSection={<IconCheck size={20} />}
+                      mt="md"
+                      disabled={!isOwner && !isFalseAlert}
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "16px",
+                        padding: "12px",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      {isOwner ? "✅ Confirm Ownership" : 
+                       isFalseAlert ? "❌ Report False Alert" : 
+                       "Select an option above"}
+                    </Button>
+                  </Stack>
+                </Box>
+              </Paper>
+            </Stack>
+          </Grid.Col>
         </Grid>
 
         {/* Detection Metadata */}
-        <Paper withBorder radius="md" mt="xl">
+        <Paper withBorder radius="md" mt="xl" bg={paperBg}>
           <Box
             p="md"
             style={{
-              borderBottom: "1px solid #eee",
-              backgroundColor: "#f8f9fa",
-              color: "#212529",
+              borderBottom: `1px solid ${borderColor}`,
+              backgroundColor: detectionMetadataHeaderBg,
             }}
           >
             <Text fw={600} size="lg">Detection Details</Text>
@@ -907,6 +962,12 @@ export default function SingleDetectionDetailPage() {
                 </Badge>
               </Stack>
             </SimpleGrid>
+            {detectionData.description && (
+              <Box mt="md">
+                <Text size="sm" c="dimmed">Description</Text>
+                <Text>{detectionData.description}</Text>
+              </Box>
+            )}
           </Box>
         </Paper>
 
