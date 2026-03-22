@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "set NEXT_FORCE_WEBPACK=1 && next dev",
+    "dev": "cross-env NEXT_FORCE_WEBPACK=1 next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -56,6 +56,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.21",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4"

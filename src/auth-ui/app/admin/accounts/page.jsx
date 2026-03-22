@@ -1,43 +1,203 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from "react";
 import {
-  Title, Text, Group, Box, Paper, SimpleGrid, TextInput,
-  Table, Badge, Avatar, ActionIcon, Button, Select, Pagination,
-  Modal, Stack, Grid, Divider, Tooltip, UnstyledButton,
-  useMantineTheme, useMantineColorScheme
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
+  Title,
+  Text,
+  Group,
+  Box,
+  Paper,
+  SimpleGrid,
+  TextInput,
+  Table,
+  Badge,
+  Avatar,
+  ActionIcon,
+  Button,
+  Select,
+  Pagination,
+  Modal,
+  Stack,
+  Grid,
+  Divider,
+  Tooltip,
+  UnstyledButton,
+  useMantineTheme,
+  useMantineColorScheme,
+  Loader,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
-  IconUsers, IconSearch, IconEdit, IconPlus, IconDownload, IconSettings, IconBell,
-  IconTrash, IconEye, IconCheck, IconFileSpreadsheet, IconChevronRight
-} from '@tabler/icons-react';
-import { useForm } from '@mantine/form';
-import { useRouter } from 'next/navigation';
+  IconUsers,
+  IconSearch,
+  IconEdit,
+  IconPlus,
+  IconDownload,
+  IconSettings,
+  IconBell,
+  IconTrash,
+  IconEye,
+  IconCheck,
+  IconFileSpreadsheet,
+  IconChevronRight,
+} from "@tabler/icons-react";
+import { useForm } from "@mantine/form";
+import { useRouter } from "next/navigation";
+
+// API base URL – adjust to your JSON Server endpoint
+const API_BASE_URL = "http://localhost:3001";
 
 // Helper to get dynamic background/color values
-const getBg = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
-const getTextColor = (colorScheme, light, dark) => (colorScheme === 'dark' ? dark : light);
+const getBg = (colorScheme: string, light: string, dark: string) =>
+  colorScheme === "dark" ? dark : light;
+const getTextColor = (colorScheme: string, light: string, dark: string) =>
+  colorScheme === "dark" ? dark : light;
 
-// ---------- Initial Data ----------
-const initialUsers = [
-  { id: 1, name: 'John Smith', email: 'john.smith@gmail.com', username: 'jonny77', status: 'Paid', role: 'Admin', joined: 'March 12, 2023', joinedDate: new Date('2023-03-12'), active: '1 minute ago' },
-  { id: 2, name: 'Olivia Bennett', email: 'ollyben@gmail.com', username: 'olly659', status: 'Free', role: 'User', joined: 'June 27, 2022', joinedDate: new Date('2022-06-27'), active: '1 month ago' },
-  { id: 3, name: 'Daniel Warren', email: 'dwarren3@gmail.com', username: 'dwarren3', status: 'Paid', role: 'User', joined: 'January 8, 2024', joinedDate: new Date('2024-01-08'), active: '4 days ago' },
-  { id: 4, name: 'Chloe Hayes', email: 'chloehhye@gmail.com', username: 'chloehh', status: 'Paid', role: 'Guest', joined: 'October 5, 2021', joinedDate: new Date('2021-10-05'), active: '10 days ago' },
-  { id: 5, name: 'Marcus Reed', email: 'reeds777@gmail.com', username: 'reeds7', status: 'Free', role: 'User', joined: 'February 19, 2023', joinedDate: new Date('2023-02-19'), active: '3 months ago' },
-];
+// Type definitions for API user
+interface ApiUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+  role: string;
+  lastLogin: string;
+  registrations: number;
+  hasPaidSubscription: boolean;
+  address?: string;
+}
 
-// ---------- Helper Functions ----------
-const formatDateForInput = (date) => date.toISOString().split('T')[0];
+// Type for component user (derived from API)
+interface ComponentUser {
+  id: string;
+  name: string;
+  email: string;
+  username: string; // generated from email or name
+  status: "Paid" | "Free";
+  role: string;
+  joined: string; // formatted createdAt
+  joinedDate: Date;
+  active: string; // formatted lastLogin
+  lastLogin: string; // raw date for threshold
+  phone: string;
+  address?: string;
+  isActive: boolean;
+  registrations: number;
+}
 
-const getActiveThreshold = (activeStr) => {
-  if (activeStr.includes('minute') || activeStr.includes('hour') || (activeStr.includes('day') && !activeStr.includes('days'))) return 1;
-  if (activeStr.includes('days')) return parseInt(activeStr) || 7;
-  if (activeStr.includes('week')) return 7;
-  if (activeStr.includes('month')) return 30;
-  return 365;
+// Helper functions to map between API and component formats
+const mapApiToComponent = (apiUser: ApiUser): ComponentUser => {
+  const name = `${apiUser.firstName} ${apiUser.lastName}`.trim();
+  // Generate username from email or name
+  const username = apiUser.email.split("@")[0] || name.replace(/\s/g, "").toLowerCase();
+
+  // Format joined date
+  const joinedDate = new Date(apiUser.createdAt);
+  const joined = joinedDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  // Format last active string
+  let active = "Just now";
+  const lastLoginDate = new Date(apiUser.lastLogin);
+  const now = new Date();
+  const diffMs = now.getTime() - lastLoginDate.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  if (diffMinutes < 1) active = "Just now";
+  else if (diffMinutes < 60) active = `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
+  else if (diffHours < 24) active = `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+  else if (diffDays < 30) active = `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  else if (diffMonths < 12) active = `${diffMonths} month${diffMonths !== 1 ? "s" : ""} ago`;
+  else active = `${diffYears} year${diffYears !== 1 ? "s" : ""} ago`;
+
+  return {
+    id: apiUser.id,
+    name,
+    email: apiUser.email,
+    username,
+    status: apiUser.hasPaidSubscription ? "Paid" : "Free",
+    role: apiUser.role,
+    joined,
+    joinedDate,
+    active,
+    lastLogin: apiUser.lastLogin,
+    phone: apiUser.phone,
+    address: apiUser.address,
+    isActive: apiUser.isActive,
+    registrations: apiUser.registrations,
+  };
+};
+
+const mapComponentToApi = (componentUser: ComponentUser): ApiUser => {
+  // Split name into first and last
+  const nameParts = componentUser.name.split(" ");
+  const firstName = nameParts[0] || "";
+  const lastName = nameParts.slice(1).join(" ") || "";
+
+  return {
+    id: componentUser.id,
+    firstName,
+    lastName,
+    email: componentUser.email,
+    phone: componentUser.phone,
+    password: "", // We won't send password on updates, but for full object we need it; we'll handle separately
+    createdAt: componentUser.joinedDate.toISOString(),
+    updatedAt: new Date().toISOString(),
+    isActive: componentUser.isActive,
+    role: componentUser.role,
+    lastLogin: componentUser.lastLogin,
+    registrations: componentUser.registrations,
+    hasPaidSubscription: componentUser.status === "Paid",
+    address: componentUser.address,
+  };
+};
+
+// Form values for adding a new user (subset of ApiUser)
+interface AddUserFormValues {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: string;
+  hasPaidSubscription: boolean;
+  address?: string;
+}
+
+const mapFormToApi = (values: AddUserFormValues): Omit<ApiUser, "id"> => ({
+  firstName: values.firstName,
+  lastName: values.lastName,
+  email: values.email,
+  phone: values.phone,
+  password: values.password,
+  role: values.role,
+  hasPaidSubscription: values.hasPaidSubscription,
+  address: values.address,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  isActive: true,
+  lastLogin: new Date().toISOString(),
+  registrations: 0,
+});
+
+// Helper to compute active threshold (days since last login)
+const getActiveThreshold = (lastLogin: string): number => {
+  const lastLoginDate = new Date(lastLogin);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - lastLoginDate.getTime()) / (1000 * 3600 * 24));
+  return diffDays;
 };
 
 export default function UserManagementPage() {
@@ -46,28 +206,54 @@ export default function UserManagementPage() {
   const { colorScheme } = useMantineColorScheme();
 
   // Dynamic colors
-  const mainBg = getBg(colorScheme, '#F4F7FE', theme.colors.dark[7]);
-  const primaryText = getTextColor(colorScheme, '#2B3674', theme.colors.gray[3]);
-  const headerBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
-  const cardBg = getBg(colorScheme, 'white', theme.colors.dark[6]);
-  const tableHeaderBg = '#4318FF'; // brand color stays
-  const buttonPrimaryBg = '#2B3674'; // brand color stays
+  const mainBg = getBg(colorScheme, "#F4F7FE", theme.colors.dark[7]);
+  const primaryText = getTextColor(colorScheme, "#2B3674", theme.colors.gray[3]);
+  const headerBg = getBg(colorScheme, "white", theme.colors.dark[6]);
+  const cardBg = getBg(colorScheme, "white", theme.colors.dark[6]);
+  const tableHeaderBg = "#4318FF";
+  const buttonPrimaryBg = "#2B3674";
 
   // ---------- State ----------
-  const [users, setUsers] = useState(initialUsers);
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState(null);
-  const [statusFilter, setStatusFilter] = useState(null);
-  const [dateSort, setDateSort] = useState('Newest');
+  const [users, setUsers] = useState<ComponentUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [dateSort, setDateSort] = useState("Newest");
   const [activePage, setActivePage] = useState(1);
-  const [pageSize, setPageSize] = useState('10');
-  const [editingUser, setEditingUser] = useState(null);
-  const [viewingUser, setViewingUser] = useState(null);
+  const [pageSize, setPageSize] = useState("10");
+  const [editingUser, setEditingUser] = useState<ComponentUser | null>(null);
+  const [viewingUser, setViewingUser] = useState<ComponentUser | null>(null);
 
   // ---------- Modals ----------
   const [addModalOpened, addModalHandlers] = useDisclosure(false);
   const [editModalOpened, editModalHandlers] = useDisclosure(false);
   const [viewModalOpened, viewModalHandlers] = useDisclosure(false);
+
+  // ---------- Fetch users from API ----------
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/users`);
+      if (!response.ok) throw new Error("Failed to fetch users");
+      const apiUsers: ApiUser[] = await response.json();
+      const componentUsers = apiUsers.map(mapApiToComponent);
+      setUsers(componentUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      notifications.show({
+        title: "Error",
+        message: "Could not load users",
+        color: "red",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   // ---------- Filtered & Sorted Users ----------
   const filteredUsers = useMemo(() => {
@@ -75,24 +261,25 @@ export default function UserManagementPage() {
 
     if (search) {
       const lower = search.toLowerCase();
-      result = result.filter(u =>
-        u.name.toLowerCase().includes(lower) ||
-        u.email.toLowerCase().includes(lower) ||
-        u.username.toLowerCase().includes(lower)
+      result = result.filter(
+        (u) =>
+          u.name.toLowerCase().includes(lower) ||
+          u.email.toLowerCase().includes(lower) ||
+          u.username.toLowerCase().includes(lower)
       );
     }
 
-    if (roleFilter && roleFilter !== 'All') {
-      result = result.filter(u => u.role === roleFilter);
+    if (roleFilter && roleFilter !== "All") {
+      result = result.filter((u) => u.role === roleFilter);
     }
 
-    if (statusFilter && statusFilter !== 'All') {
-      result = result.filter(u => u.status === statusFilter);
+    if (statusFilter && statusFilter !== "All") {
+      result = result.filter((u) => u.status === statusFilter);
     }
 
-    if (dateSort === 'Newest') {
+    if (dateSort === "Newest") {
       result.sort((a, b) => b.joinedDate.getTime() - a.joinedDate.getTime());
-    } else if (dateSort === 'Oldest') {
+    } else if (dateSort === "Oldest") {
       result.sort((a, b) => a.joinedDate.getTime() - b.joinedDate.getTime());
     }
 
@@ -106,7 +293,10 @@ export default function UserManagementPage() {
     return filteredUsers.slice(start, start + size);
   }, [filteredUsers, activePage, pageSize]);
 
-  const totalPages = useMemo(() => Math.ceil(filteredUsers.length / parseInt(pageSize)), [filteredUsers, pageSize]);
+  const totalPages = useMemo(
+    () => Math.ceil(filteredUsers.length / parseInt(pageSize)),
+    [filteredUsers, pageSize]
+  );
 
   useEffect(() => {
     setActivePage(1);
@@ -115,104 +305,181 @@ export default function UserManagementPage() {
   // ---------- Stats ----------
   const stats = useMemo(() => {
     const total = users.length;
-    const activeUsers = users.filter(u => getActiveThreshold(u.active) < 7).length;
-    const paidUsers = users.filter(u => u.status === 'Paid').length;
+    const activeUsers = users.filter((u) => getActiveThreshold(u.lastLogin) < 7).length;
+    const paidUsers = users.filter((u) => u.status === "Paid").length;
     const now = new Date();
-    const thisMonth = users.filter(u =>
-      u.joinedDate.getMonth() === now.getMonth() &&
-      u.joinedDate.getFullYear() === now.getFullYear()
+    const thisMonth = users.filter(
+      (u) =>
+        u.joinedDate.getMonth() === now.getMonth() &&
+        u.joinedDate.getFullYear() === now.getFullYear()
     ).length;
     return { total, activeUsers, paidUsers, thisMonth };
   }, [users]);
 
   // ---------- CRUD Operations ----------
-  const addUser = (values) => {
-    const newId = Math.max(...users.map(u => u.id), 0) + 1;
-    const joinedDate = new Date(values.joined);
-    const joinedDisplay = joinedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const newUser = {
-      ...values,
-      id: newId,
-      joined: joinedDisplay,
-      joinedDate,
-      active: 'Just now',
-    };
-    setUsers(prev => [newUser, ...prev]);
-    notifications.show({
-      title: 'Success',
-      message: `User ${newUser.name} added`,
-      color: 'green',
-      icon: <IconCheck size={18} />,
-    });
-    addModalHandlers.close();
+  const addUser = async (values: AddUserFormValues) => {
+    try {
+      const newApiUser = mapFormToApi(values);
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newApiUser),
+      });
+      if (!response.ok) throw new Error("Failed to add user");
+      const createdUser: ApiUser = await response.json();
+      const newComponentUser = mapApiToComponent(createdUser);
+      setUsers((prev) => [newComponentUser, ...prev]);
+      notifications.show({
+        title: "Success",
+        message: `User ${newComponentUser.name} added`,
+        color: "green",
+        icon: <IconCheck size={18} />,
+      });
+      addModalHandlers.close();
+    } catch (error) {
+      console.error("Error adding user:", error);
+      notifications.show({
+        title: "Error",
+        message: "Could not add user",
+        color: "red",
+      });
+    }
   };
 
-  const updateUser = (values) => {
-    setUsers(prev => prev.map(u => u.id === values.id ? { ...values } : u));
-    notifications.show({
-      title: 'Updated',
-      message: `User ${values.name} updated`,
-      color: 'blue',
-      icon: <IconCheck size={18} />,
-    });
-    editModalHandlers.close();
+  const updateUser = async (values: ComponentUser) => {
+    try {
+      // Get the full API user object (we need all fields, including password)
+      // Since we don't have the password in the component, we fetch it first or keep it in state
+      // Alternatively, we can make a PATCH request with only changed fields.
+      // Here we'll fetch the existing user to get the password.
+      const existingUserResponse = await fetch(`${API_BASE_URL}/users/${values.id}`);
+      if (!existingUserResponse.ok) throw new Error("User not found");
+      const existingApiUser: ApiUser = await existingUserResponse.json();
+
+      // Update fields from the component user
+      const updatedApiUser: ApiUser = {
+        ...existingApiUser,
+        firstName: values.name.split(" ")[0] || "",
+        lastName: values.name.split(" ").slice(1).join(" ") || "",
+        email: values.email,
+        phone: values.phone,
+        role: values.role,
+        hasPaidSubscription: values.status === "Paid",
+        address: values.address,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/users/${values.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedApiUser),
+      });
+      if (!response.ok) throw new Error("Failed to update user");
+      const updatedUser: ApiUser = await response.json();
+      const updatedComponentUser = mapApiToComponent(updatedUser);
+      setUsers((prev) => prev.map((u) => (u.id === updatedComponentUser.id ? updatedComponentUser : u)));
+      notifications.show({
+        title: "Updated",
+        message: `User ${updatedComponentUser.name} updated`,
+        color: "blue",
+        icon: <IconCheck size={18} />,
+      });
+      editModalHandlers.close();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      notifications.show({
+        title: "Error",
+        message: "Could not update user",
+        color: "red",
+      });
+    }
   };
 
-  const deleteUser = (id) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
-    notifications.show({
-      title: 'Deleted',
-      message: 'User removed',
-      color: 'red',
-      icon: <IconTrash size={18} />,
-    });
+  const deleteUser = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete user");
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      notifications.show({
+        title: "Deleted",
+        message: "User removed",
+        color: "red",
+        icon: <IconTrash size={18} />,
+      });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      notifications.show({
+        title: "Error",
+        message: "Could not delete user",
+        color: "red",
+      });
+    }
   };
 
   // ---------- Export CSV ----------
   const exportToCSV = () => {
-    const headers = ['Name', 'Email', 'Username', 'Status', 'Role', 'Joined Date', 'Last Active'];
-    const data = filteredUsers.map(u => [
-      u.name, u.email, u.username, u.status, u.role, u.joined, u.active
-    ]);
-    const csv = [headers.join(','), ...data.map(row => row.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const headers = ["Name", "Email", "Username", "Status", "Role", "Joined Date", "Last Active"];
+    const data = filteredUsers.map((u) => [u.name, u.email, u.username, u.status, u.role, u.joined, u.active]);
+    const csv = [headers.join(","), ...data.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `users_export_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
     notifications.show({
-      title: 'Exported',
+      title: "Exported",
       message: `${filteredUsers.length} users exported`,
-      color: 'green',
+      color: "green",
       icon: <IconFileSpreadsheet size={18} />,
     });
   };
 
   // ---------- Forms ----------
-  const addForm = useForm({
+  const addForm = useForm<AddUserFormValues>({
     initialValues: {
-      name: '',
-      email: '',
-      username: '',
-      status: 'Free',
-      role: 'User',
-      joined: formatDateForInput(new Date()),
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      password: "",
+      role: "user",
+      hasPaidSubscription: false,
+      address: "",
     },
     validate: {
-      name: (v) => (v.trim().length < 2 ? 'Name is too short' : null),
-      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : 'Invalid email'),
-      username: (v) => (v.trim().length < 3 ? 'Username too short' : null),
+      firstName: (v) => (v.trim().length < 2 ? "First name is too short" : null),
+      lastName: (v) => (v.trim().length < 2 ? "Last name is too short" : null),
+      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : "Invalid email"),
+      phone: (v) => (v.trim().length < 10 ? "Phone number too short" : null),
+      password: (v) => (v.length < 6 ? "Password must be at least 6 characters" : null),
     },
   });
 
-  const editForm = useForm({
-    initialValues: editingUser || {},
+  const editForm = useForm<ComponentUser>({
+    initialValues: editingUser || {
+      id: "",
+      name: "",
+      email: "",
+      username: "",
+      status: "Free",
+      role: "user",
+      joined: "",
+      joinedDate: new Date(),
+      active: "",
+      lastLogin: "",
+      phone: "",
+      address: "",
+      isActive: true,
+      registrations: 0,
+    },
     validate: {
-      name: (v) => (v?.trim().length < 2 ? 'Name is too short' : null),
-      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : 'Invalid email'),
-      username: (v) => (v?.trim().length < 3 ? 'Username too short' : null),
+      name: (v) => (v?.trim().length < 2 ? "Name is too short" : null),
+      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : "Invalid email"),
+      phone: (v) => (v?.trim().length < 10 ? "Phone number too short" : null),
     },
   });
 
@@ -224,12 +491,24 @@ export default function UserManagementPage() {
   }, [editingUser]);
 
   // ---------- Render ----------
+  if (loading) {
+    return (
+      <Box bg={mainBg} style={{ minHeight: "100vh" }} p="xl">
+        <Group justify="center" mt={100}>
+          <Loader size="xl" />
+        </Group>
+      </Box>
+    );
+  }
+
   return (
-    <Box bg={mainBg} style={{ minHeight: '100vh' }} p="xl">
+    <Box bg={mainBg} style={{ minHeight: "100vh" }} p="xl">
       {/* Header */}
       <Group justify="space-between" mb="xl">
-        <Title order={2} fw={700} c={primaryText}>User Management</Title>
-        <Group bg={headerBg} p={8} style={{ borderRadius: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Title order={2} fw={700} c={primaryText}>
+          User Management
+        </Title>
+        <Group bg={headerBg} p={8} style={{ borderRadius: "30px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
           <Tooltip label="Settings">
             <ActionIcon variant="subtle" color="gray" size="lg">
               <IconSettings size={22} />
@@ -246,16 +525,27 @@ export default function UserManagementPage() {
       {/* Stats Cards */}
       <SimpleGrid cols={{ base: 1, sm: 4 }} spacing="lg" mb="xl">
         {[
-          { label: 'Total Users', value: stats.total, color: '#4318FF' },
-          { label: 'Active (7d)', value: stats.activeUsers, color: '#00B8D9' },
-          { label: 'Paid Users', value: stats.paidUsers, color: '#20C997' },
-          { label: 'New This Month', value: stats.thisMonth, color: '#F59E0B' }
+          { label: "Total Users", value: stats.total, color: "#4318FF" },
+          { label: "Active (7d)", value: stats.activeUsers, color: "#00B8D9" },
+          { label: "Paid Users", value: stats.paidUsers, color: "#20C997" },
+          { label: "New This Month", value: stats.thisMonth, color: "#F59E0B" },
         ].map((stat, i) => (
-          <Paper key={i} p="md" radius="lg" bg={`linear-gradient(145deg, ${stat.color}, ${stat.color}DD)`} c="white" shadow="md">
+          <Paper
+            key={i}
+            p="md"
+            radius="lg"
+            bg={`linear-gradient(145deg, ${stat.color}, ${stat.color}DD)`}
+            c="white"
+            shadow="md"
+          >
             <Group justify="space-between" align="flex-start">
               <Box>
-                <Text size="xl" fw={800} style={{ fontSize: '32px' }}>{stat.value}</Text>
-                <Text size="sm" fw={500}>{stat.label}</Text>
+                <Text size="xl" fw={800} style={{ fontSize: "32px" }}>
+                  {stat.value}
+                </Text>
+                <Text size="sm" fw={500}>
+                  {stat.label}
+                </Text>
               </Box>
               <IconUsers size={48} opacity={0.3} />
             </Group>
@@ -263,10 +553,12 @@ export default function UserManagementPage() {
               w="100%"
               py={8}
               mt="md"
-              style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
-              onClick={() => notifications.show({ message: `Showing ${stat.label.toLowerCase()}`, color: 'blue' })}
+              style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "8px" }}
+              onClick={() => notifications.show({ message: `Showing ${stat.label.toLowerCase()}`, color: "blue" })}
             >
-              <Text size="xs" fw={600}>More info →</Text>
+              <Text size="xs" fw={600}>
+                More info →
+              </Text>
             </UnstyledButton>
           </Paper>
         ))}
@@ -288,7 +580,7 @@ export default function UserManagementPage() {
               />
               <Select
                 placeholder="Role"
-                data={['All', 'Admin', 'User', 'Guest']}
+                data={["All", "Admin", "User", "Guest"]}
                 w={110}
                 radius="md"
                 value={roleFilter}
@@ -297,7 +589,7 @@ export default function UserManagementPage() {
               />
               <Select
                 placeholder="Status"
-                data={['All', 'Paid', 'Free']}
+                data={["All", "Paid", "Free"]}
                 w={110}
                 radius="md"
                 value={statusFilter}
@@ -306,7 +598,7 @@ export default function UserManagementPage() {
               />
               <Select
                 placeholder="Sort by"
-                data={['Newest', 'Oldest']}
+                data={["Newest", "Oldest"]}
                 w={130}
                 radius="md"
                 value={dateSort}
@@ -347,14 +639,18 @@ export default function UserManagementPage() {
                   <Table.Th c="white">Role</Table.Th>
                   <Table.Th c="white">Joined Date</Table.Th>
                   <Table.Th c="white">Last Active</Table.Th>
-                  <Table.Th c="white" style={{ width: 140 }}>Actions</Table.Th>
+                  <Table.Th c="white" style={{ width: 140 }}>
+                    Actions
+                  </Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {paginatedUsers.length === 0 ? (
                   <Table.Tr>
                     <Table.Td colSpan={8}>
-                      <Text ta="center" py="xl" c="dimmed">No users found</Text>
+                      <Text ta="center" py="xl" c="dimmed">
+                        No users found
+                      </Text>
                     </Table.Td>
                   </Table.Tr>
                 ) : (
@@ -365,21 +661,22 @@ export default function UserManagementPage() {
                           <Avatar size="sm" radius="xl" color="blue">
                             {user.name.charAt(0)}
                           </Avatar>
-                          <Text size="sm" fw={500}>{user.name}</Text>
+                          <Text size="sm" fw={500}>
+                            {user.name}
+                          </Text>
                         </Group>
                       </Table.Td>
                       <Table.Td>{user.email}</Table.Td>
                       <Table.Td>{user.username}</Table.Td>
                       <Table.Td>
-                        <Badge color={user.status === 'Paid' ? 'green' : 'gray'} variant="filled" radius="xl">
+                        <Badge color={user.status === "Paid" ? "green" : "gray"} variant="filled" radius="xl">
                           {user.status}
                         </Badge>
                       </Table.Td>
                       <Table.Td>
                         <Badge
                           color={
-                            user.role === 'Admin' ? 'red' :
-                            user.role === 'User' ? 'blue' : 'cyan'
+                            user.role === "Admin" ? "red" : user.role === "User" ? "blue" : "cyan"
                           }
                           variant="light"
                         >
@@ -435,16 +732,18 @@ export default function UserManagementPage() {
           {/* Pagination */}
           <Group justify="space-between" mt="md">
             <Group gap="xs">
-              <Text size="sm" c="dimmed">Rows per page</Text>
+              <Text size="sm" c="dimmed">
+                Rows per page
+              </Text>
               <Select
                 size="xs"
                 w={70}
-                data={['10', '20', '50']}
+                data={["10", "20", "50"]}
                 value={pageSize}
-                onChange={(val) => setPageSize(val || '10')}
+                onChange={(val) => setPageSize(val || "10")}
               />
               <Text size="sm" c="dimmed">
-                {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+                {filteredUsers.length} {filteredUsers.length === 1 ? "user" : "users"}
               </Text>
             </Group>
             <Pagination
@@ -460,81 +759,128 @@ export default function UserManagementPage() {
       </Paper>
 
       {/* ---------- Modals ---------- */}
-      <Modal opened={addModalOpened} onClose={addModalHandlers.close} title={<Text fw={700} size="lg">Add New User</Text>} centered size="lg" radius="md">
+      <Modal
+        opened={addModalOpened}
+        onClose={addModalHandlers.close}
+        title={<Text fw={700} size="lg">Add New User</Text>}
+        centered
+        size="lg"
+        radius="md"
+      >
         <form onSubmit={addForm.onSubmit(addUser)}>
           <Stack gap="sm">
             <Grid>
               <Grid.Col span={6}>
-                <TextInput label="Full Name" placeholder="John Doe" {...addForm.getInputProps('name')} required />
+                <TextInput label="First Name" placeholder="John" {...addForm.getInputProps("firstName")} required />
               </Grid.Col>
               <Grid.Col span={6}>
-                <TextInput label="Email" placeholder="john@example.com" {...addForm.getInputProps('email')} required />
+                <TextInput label="Last Name" placeholder="Doe" {...addForm.getInputProps("lastName")} required />
               </Grid.Col>
               <Grid.Col span={6}>
-                <TextInput label="Username" placeholder="john123" {...addForm.getInputProps('username')} required />
+                <TextInput label="Email" placeholder="john@example.com" {...addForm.getInputProps("email")} required />
               </Grid.Col>
               <Grid.Col span={6}>
-                <TextInput label="Join Date" type="date" {...addForm.getInputProps('joined')} required />
+                <TextInput label="Phone" placeholder="+251911111111" {...addForm.getInputProps("phone")} required />
               </Grid.Col>
               <Grid.Col span={6}>
-                <Select label="Status" data={['Free', 'Paid']} {...addForm.getInputProps('status')} required />
+                <TextInput label="Password" type="password" placeholder="******" {...addForm.getInputProps("password")} required />
               </Grid.Col>
               <Grid.Col span={6}>
-                <Select label="Role" data={['Admin', 'User', 'Guest']} {...addForm.getInputProps('role')} required />
+                <Select
+                  label="Role"
+                  data={["admin", "user", "guest"]}
+                  {...addForm.getInputProps("role")}
+                  required
+                />
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <Select
+                  label="Subscription Status"
+                  data={[
+                    { value: "true", label: "Paid" },
+                    { value: "false", label: "Free" },
+                  ]}
+                  value={String(addForm.values.hasPaidSubscription)}
+                  onChange={(val) => addForm.setFieldValue("hasPaidSubscription", val === "true")}
+                  required
+                />
+              </Grid.Col>
+              <Grid.Col span={6}>
+                <TextInput label="Address" placeholder="Addis Ababa" {...addForm.getInputProps("address")} />
               </Grid.Col>
             </Grid>
             <Group justify="flex-end" mt="md">
-              <Button variant="subtle" onClick={addModalHandlers.close}>Cancel</Button>
-              <Button type="submit" bg={buttonPrimaryBg}>Add User</Button>
+              <Button variant="subtle" onClick={addModalHandlers.close}>
+                Cancel
+              </Button>
+              <Button type="submit" bg={buttonPrimaryBg}>
+                Add User
+              </Button>
             </Group>
           </Stack>
         </form>
       </Modal>
 
-      <Modal opened={editModalOpened} onClose={editModalHandlers.close} title={<Text fw={700} size="lg">Edit User</Text>} centered size="lg" radius="md">
+      <Modal
+        opened={editModalOpened}
+        onClose={editModalHandlers.close}
+        title={<Text fw={700} size="lg">Edit User</Text>}
+        centered
+        size="lg"
+        radius="md"
+      >
         {editingUser && (
           <form onSubmit={editForm.onSubmit(updateUser)}>
             <Stack gap="sm">
               <Grid>
-                <Grid.Col span={6}>
-                  <TextInput label="Full Name" {...editForm.getInputProps('name')} required />
+                <Grid.Col span={12}>
+                  <TextInput label="Full Name" {...editForm.getInputProps("name")} required />
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <TextInput label="Email" {...editForm.getInputProps('email')} required />
+                  <TextInput label="Email" {...editForm.getInputProps("email")} required />
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <TextInput label="Username" {...editForm.getInputProps('username')} required />
+                  <TextInput label="Phone" {...editForm.getInputProps("phone")} required />
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <TextInput
-                    label="Join Date"
-                    type="date"
-                    value={formatDateForInput(editingUser.joinedDate)}
-                    onChange={(e) => {
-                      const newDate = new Date(e.currentTarget.value);
-                      editForm.setFieldValue('joinedDate', newDate);
-                      editForm.setFieldValue('joined', newDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
-                    }}
+                  <Select
+                    label="Role"
+                    data={["Admin", "User", "Guest"]}
+                    {...editForm.getInputProps("role")}
                     required
                   />
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <Select label="Status" data={['Free', 'Paid']} {...editForm.getInputProps('status')} required />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Select label="Role" data={['Admin', 'User', 'Guest']} {...editForm.getInputProps('role')} required />
+                  <Select
+                    label="Status"
+                    data={["Paid", "Free"]}
+                    {...editForm.getInputProps("status")}
+                    required
+                  />
                 </Grid.Col>
                 <Grid.Col span={12}>
-                  <TextInput label="Last Active" {...editForm.getInputProps('active')} />
+                  <TextInput label="Address" {...editForm.getInputProps("address")} />
                 </Grid.Col>
               </Grid>
               <Group justify="space-between" mt="md">
-                <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={() => { deleteUser(editingUser.id); editModalHandlers.close(); }}>
+                <Button
+                  color="red"
+                  variant="light"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() => {
+                    deleteUser(editingUser.id);
+                    editModalHandlers.close();
+                  }}
+                >
                   Delete
                 </Button>
                 <Group>
-                  <Button variant="subtle" onClick={editModalHandlers.close}>Cancel</Button>
-                  <Button type="submit" bg={buttonPrimaryBg}>Update</Button>
+                  <Button variant="subtle" onClick={editModalHandlers.close}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" bg={buttonPrimaryBg}>
+                    Update
+                  </Button>
                 </Group>
               </Group>
             </Stack>
@@ -542,38 +888,87 @@ export default function UserManagementPage() {
         )}
       </Modal>
 
-      <Modal opened={viewModalOpened} onClose={viewModalHandlers.close} title={<Text fw={700} size="lg">User Details</Text>} centered size="lg" radius="md">
+      <Modal
+        opened={viewModalOpened}
+        onClose={viewModalHandlers.close}
+        title={<Text fw={700} size="lg">User Details</Text>}
+        centered
+        size="lg"
+        radius="md"
+      >
         {viewingUser && (
           <Stack gap="md">
             <Group gap="xl">
-              <Avatar size={80} radius="xl" color="blue">{viewingUser.name.charAt(0)}</Avatar>
+              <Avatar size={80} radius="xl" color="blue">
+                {viewingUser.name.charAt(0)}
+              </Avatar>
               <Box>
-                <Text fw={700} size="xl">{viewingUser.name}</Text>
-                <Text size="sm" c="dimmed">@{viewingUser.username}</Text>
+                <Text fw={700} size="xl">
+                  {viewingUser.name}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  @{viewingUser.username}
+                </Text>
               </Box>
             </Group>
             <Divider />
             <Grid>
-              <Grid.Col span={4}>
-                <Text size="sm" c="dimmed">Email</Text>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">
+                  Email
+                </Text>
                 <Text>{viewingUser.email}</Text>
               </Grid.Col>
-              <Grid.Col span={4}>
-                <Text size="sm" c="dimmed">Status</Text>
-                <Badge color={viewingUser.status === 'Paid' ? 'green' : 'gray'}>{viewingUser.status}</Badge>
+              <Grid.Col span={6}>
+                <Text size="sm" c="dimmed">
+                  Phone
+                </Text>
+                <Text>{viewingUser.phone}</Text>
               </Grid.Col>
               <Grid.Col span={4}>
-                <Text size="sm" c="dimmed">Role</Text>
-                <Badge color={viewingUser.role === 'Admin' ? 'red' : viewingUser.role === 'User' ? 'blue' : 'cyan'}>{viewingUser.role}</Badge>
+                <Text size="sm" c="dimmed">
+                  Status
+                </Text>
+                <Badge color={viewingUser.status === "Paid" ? "green" : "gray"}>{viewingUser.status}</Badge>
+              </Grid.Col>
+              <Grid.Col span={4}>
+                <Text size="sm" c="dimmed">
+                  Role
+                </Text>
+                <Badge
+                  color={
+                    viewingUser.role === "Admin" ? "red" : viewingUser.role === "User" ? "blue" : "cyan"
+                  }
+                >
+                  {viewingUser.role}
+                </Badge>
+              </Grid.Col>
+              <Grid.Col span={4}>
+                <Text size="sm" c="dimmed">
+                  Registrations
+                </Text>
+                <Text>{viewingUser.registrations}</Text>
               </Grid.Col>
               <Grid.Col span={6}>
-                <Text size="sm" c="dimmed">Joined</Text>
+                <Text size="sm" c="dimmed">
+                  Joined
+                </Text>
                 <Text>{viewingUser.joined}</Text>
               </Grid.Col>
               <Grid.Col span={6}>
-                <Text size="sm" c="dimmed">Last Active</Text>
+                <Text size="sm" c="dimmed">
+                  Last Active
+                </Text>
                 <Text>{viewingUser.active}</Text>
               </Grid.Col>
+              {viewingUser.address && (
+                <Grid.Col span={12}>
+                  <Text size="sm" c="dimmed">
+                    Address
+                  </Text>
+                  <Text>{viewingUser.address}</Text>
+                </Grid.Col>
+              )}
             </Grid>
             <Group justify="flex-end">
               <Button
