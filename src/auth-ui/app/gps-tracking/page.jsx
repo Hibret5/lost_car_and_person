@@ -93,7 +93,7 @@ export default function GpsTrackingPage() {
         flexDirection: 'column',
       }}
     >
-      {/* Sticky Header - overflow hidden added */}
+      {/* Sticky Header */}
       <Box
         bg={headerBg}
         py="sm"
@@ -102,7 +102,6 @@ export default function GpsTrackingPage() {
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          overflowX: 'hidden', // Prevents horizontal scroll
         }}
       >
         <Container size="xl" px={isMobile ? 'md' : 'xl'}>
@@ -119,7 +118,7 @@ export default function GpsTrackingPage() {
               />
             </Link>
 
-            {/* Search Bar - Hidden on mobile */}
+            {/* Search Bar - Hidden on very small screens or shown as icon? Keep as is but shrink */}
             {!isMobile && (
               <TextInput
                 placeholder="Search..."
@@ -197,7 +196,7 @@ export default function GpsTrackingPage() {
         </Container>
       </Box>
 
-      {/* Full‑width content area */}
+      {/* Full‑width content area - no horizontal padding */}
       <Box
         style={{
           flex: 1,
@@ -207,6 +206,7 @@ export default function GpsTrackingPage() {
           padding: isMobile ? '8px' : '16px',
         }}
       >
+        {/* Title row with icon - responsive margins */}
         <Container size="xl" px={0} mb="md">
           <Flex direction={isMobile ? 'column' : 'row'} align={isMobile ? 'flex-start' : 'center'} gap="xs">
             <IconGps size={28} color="#2f80ed" />
@@ -216,6 +216,7 @@ export default function GpsTrackingPage() {
           {isMobile && <Text c="dimmed" size="xs" mt={4}>Real‑time location monitoring</Text>}
         </Container>
 
+        {/* GpsTracker takes remaining height */}
         <Box style={{ flex: 1, minHeight: 0 }}>
           <GpsTracker />
         </Box>
