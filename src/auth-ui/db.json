@@ -217,10 +217,10 @@
       "phone": "+251911111111",
       "password": "User@1111",
       "createdAt": "2026-02-05T06:52:23.735Z",
-      "updatedAt": "2026-03-04T11:50:10.427Z",
+      "updatedAt": "2026-03-28T10:05:03.381Z",
       "isActive": true,
       "role": "user",
-      "lastLogin": "2026-02-20T10:23:23.928Z",
+      "lastLogin": "2026-03-28T10:05:03.381Z",
       "registrations": 8,
       "hasPaidSubscription": true
     },
@@ -232,14 +232,10 @@
       "phone": "0962061126",
       "password": "User@2222",
       "createdAt": "2026-02-05T14:38:14.973Z",
-      "updatedAt": "2026-02-07T15:12:43.690Z",
-      "isActive": true,
-      "role": "user",
-      "lastLogin": "2026-02-07T15:12:43.690Z",
-      "updatedAt": "2026-03-04T11:50:10.427Z",
+      "updatedAt": "2026-03-28T10:04:33.777Z",
       "isActive": true,
       "role": "admin",
-      "lastLogin": "2026-02-20T09:25:12.569Z"
+      "lastLogin": "2026-03-28T10:04:33.777Z"
     },
     {
       "id": "05ed362e-1797-4f9b-be13-a7df9880dd55",
@@ -256,5 +252,86 @@
       "registrations": 1,
       "address": "adama"
     }
-  ]
+  ],
+  "gpsDevices": [
+    {
+      "id": "device-1",
+      "name": "Smart Belt - Patient A",
+      "status": "active",
+      "battery": 85,
+      "lastLocation": {
+        "lat": 9.03,
+        "lng": 38.74,
+        "address": "Addis Ababa, Bole",
+        "location": "Bole, Addis Ababa",
+        "timestamp": "2025-03-30T12:00:00Z"
+      },
+      "geofence": null
+    },
+    {
+      "id": "device-2",
+      "name": "Smart Belt - Elderly B",
+      "status": "low_battery",
+      "battery": 15,
+      "lastLocation": {
+        "lat": 9.04,
+        "lng": 38.73,
+        "address": "Addis Ababa, Kazanchis",
+        "location": "Kazanchis, Addis Ababa",
+        "timestamp": "2025-03-30T11:45:00Z"
+      },
+      "geofence": null
+    },
+    {
+      "id": "VeEHllIxcUY",
+      "name": "device name",
+      "serialNumber": "1234567890",
+      "assignedTo": "tegs345678",
+      "status": "active",
+      "battery": 100,
+      "lastLocation": {
+        "lat": 9.031971332002028,
+        "lng": 38.73709990547747,
+        "address": "መርካቶ ገበያ, Shema Tera, Addis Ketema, Addis Ababa, 3658, Ethiopia",
+        "location": "መርካቶ ገበያ, Shema Tera, Addis Ketema, Addis Ababa, 3658, Ethiopia",
+        "timestamp": "2026-03-31T05:21:53.350Z"
+      },
+      "geofence": {
+        "lat": 9.031971332002028,
+        "lng": 38.73709990547747,
+        "radius": 10
+      },
+      "createdAt": "2026-03-31T05:21:53.363Z"
+    }
+  ],
+  "gpsLocations": [
+    {
+      "id": "loc1",
+      "deviceId": "device-1",
+      "lat": 9.03,
+      "lng": 38.74,
+      "address": "Addis Ababa, Bole",
+      "location": "Bole, Addis Ababa",
+      "timestamp": "2025-03-30T12:00:00Z"
+    },
+    {
+      "id": "loc2",
+      "deviceId": "device-1",
+      "lat": 9.031,
+      "lng": 38.741,
+      "address": "Addis Ababa, Bole Medhanialem",
+      "location": "Bole Medhanialem, Addis Ababa",
+      "timestamp": "2025-03-30T11:30:00Z"
+    },
+    {
+      "id": "loc3",
+      "deviceId": "device-2",
+      "lat": 9.04,
+      "lng": 38.73,
+      "address": "Addis Ababa, Kazanchis",
+      "location": "Kazanchis, Addis Ababa",
+      "timestamp": "2025-03-30T11:45:00Z"
+    }
+  ],
+  "$schema": "./node_modules/json-server/schema.json"
 }

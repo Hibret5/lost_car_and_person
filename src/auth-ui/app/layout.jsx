@@ -12,14 +12,15 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      {/* 👇 This comment absorbs the whitespace that causes hydration mismatch */}
+      {/* */}
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
       </head>
       <body style={{ margin: 0 }}>
         <Providers>
           {children}
-          {/* Floating dark mode button appears on all pages */}
           <DarkModeFloatingButton />
         </Providers>
       </body>
