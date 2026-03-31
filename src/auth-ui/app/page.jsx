@@ -76,8 +76,9 @@ import {
   IconSun,
   IconMoon,
   IconPlus,
-  IconMap,           // <-- added for the button
+  IconMap,
   IconMessageCircle,
+  IconGps,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -89,6 +90,7 @@ import { Carousel } from "@mantine/carousel";
 import "@mantine/carousel/styles.css";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import GpsTracker from "../components/GpsTracker";
 
 // Dynamically import map to avoid SSR issues
 const LocationPicker = dynamic(() => import("../components/LocationPicker"), {
@@ -1499,6 +1501,26 @@ export default function Dashboard() {
           )}
         </Paper>
 
+        {/* GPS Tracking Section */}
+        <Paper
+          mb={{ base: 40, md: 60 }}
+          p={{ base: "md", md: "lg" }}
+          withBorder
+          radius="lg"
+          style={{
+            background: getBg(
+              "linear-gradient(to bottom, white, #f8f9fa)",
+              `linear-gradient(to bottom, ${theme.colors.dark[6]}, ${theme.colors.dark[7]})`
+            ),
+          }}
+        >
+          <Flex align="center" gap="sm" mb="lg">
+            <IconGps size={24} color="var(--mantine-color-blue-6)" />
+            <Title order={3}>GPS Smart Belt Tracking</Title>
+          </Flex>
+          <GpsTracker />
+        </Paper>
+
         {/* Call to Action for Non-logged Users */}
         {!user && (
           <Paper
@@ -1813,7 +1835,7 @@ export default function Dashboard() {
             </Text>
           </motion.div>
 
-          {/* Reviews Carousel */}
+          {/* Reviews Carousel - fixed styles */}
           <Box px={{ base: 0, md: 20 }} mb={60}>
             <Carousel
               slideSize={{ base: "100%", sm: "50%", md: "33.333%" }}
@@ -1821,14 +1843,13 @@ export default function Dashboard() {
               align="start"
               loop
               withIndicators
-              dragFree
               speed={300}
               styles={{
                 indicator: {
                   width: 12,
                   height: 4,
                   transition: "width 250ms ease",
-                  "&[data-active]": {
+                  "&[dataActive]": {
                     width: 40,
                   },
                 },

@@ -1,227 +1,482 @@
-'use client';
+"use client";
 
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
-  Container, Title, Paper, Text, Table, Badge, Group, Avatar, Loader, Center, Grid, Button
-} from '@mantine/core';
-import { 
-  IconSettings, IconBell, IconChevronRight, IconSelector, IconFilter, IconDotsVertical
-} from '@tabler/icons-react';
+  Box,
+  Paper,
+  Title,
+  Text,
+  Group,
+  Avatar,
+  Badge,
+  Stack,
+  Grid,
+  Button,
+  Loader,
+  Divider,
+  useMantineTheme,
+  useMantineColorScheme,
+  Modal,
+  TextInput,
+  Select,
+  Switch,
+  ActionIcon,
+  Tooltip,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
+import { useForm } from "@mantine/form";
+import {
+  IconArrowLeft,
+  IconEdit,
+  IconTrash,
+  IconRefresh,
+  IconLock,
+  IconLockOpen,
+  IconCheck,
+} from "@tabler/icons-react";
 
-export default function AccountManagement() {
-  const [viewMode, setViewMode] = useState('person'); // toggle between 'person' and 'vehicle'
+const API_BASE_URL = "http://localhost:3001";
 
-  // Mock data tailored to each Figma screenshot
-  const vehicleData = {
-    title: "Toyota Corolla",
-    subtitle: "Sedan 2013",
-    avatar: "https://images.unsplash.com/photo-1623854275532-67350de77d5e?w=400",
-    stats: [
-      { label: "Total Alerts", value: "40" },
-      { label: "CCTV alerts", value: "7" }
-    ],
-    tableHeader: "Location",
-    logs: [
-      { time: '2:40 PM', info: '9°00\'22.2" N, 38°45\'24.0" E.' },
-      { time: '2:55 PM', info: '9°00\'00" N, 38°44\'39" E.' },
-      { time: '3:10 PM', info: '9°02\'12.1" N, 38°45\'05.1" E.' },
-      { time: '3:11 PM', info: '9°00\'22.2" N, 38°45\'24.0" E.' },
-      { time: '4:00 PM', info: '' },
-      { time: '5:20 PM', info: '' },
-    ]
+// Helper functions
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+// Map API user to component shape (for the edit form)
+const mapApiToEditForm = (apiUser) => ({
+  id: apiUser.id,
+  name: `${apiUser.firstName} ${apiUser.lastName}`.trim(),
+  email: apiUser.email,
+  phone: apiUser.phone,
+  role: apiUser.role,
+  status: apiUser.hasPaidSubscription ? "Paid" : "Free",
+  address: apiUser.address || "",
+  isActive: apiUser.isActive,
+});
+
+export default function UserDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const theme = useMantineTheme();
+  const { colorScheme } = useMantineColorScheme();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editingUser, setEditingUser] = useState(null);
+
+  // Modal controls
+  const [editModalOpened, editModalHandlers] = useDisclosure(false);
+  const [deleteModalOpened, deleteModalHandlers] = useDisclosure(false);
+  const [resetPasswordModalOpened, resetPasswordModalHandlers] = useDisclosure(false);
+
+  // Fetch user
+  const fetchUser = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/users/${params.id}`);
+      if (!response.ok) throw new Error("User not found");
+      const data = await response.json();
+      setUser(data);
+    } catch (error) {
+      console.error(error);
+      notifications.show({
+        title: "Error",
+        message: "Could not load user details",
+        color: "red",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const personData = {
-    title: "Example User",
-    subtitle: "exampleuser@gmail.com",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
-    stats: [
-      { label: "Reported car", value: "1" },
-      { label: "Recieved alerts", value: "20" }
-    ],
-    tableHeader: "Action",
-    logs: [
-      { time: '2:40 PM', info: 'Login' },
-      { time: '2:55 PM', info: 'Edit' },
-      { time: '3:10 PM', info: 'Delete' },
-      { time: '3:11 PM', info: 'save' },
-      { time: '4:00 PM', info: 'subscribe' },
-      { time: '5:20 PM', info: 'logged out' },
-    ]
+  useEffect(() => {
+    if (params.id) {
+      fetchUser();
+    }
+  }, [params.id]);
+
+  // Edit form
+  const editForm = useForm({
+    initialValues: editingUser || {
+      id: "",
+      name: "",
+      email: "",
+      phone: "",
+      role: "user",
+      status: "Free",
+      address: "",
+      isActive: true,
+    },
+    validate: {
+      name: (v) => (v?.trim().length < 2 ? "Name is too short" : null),
+      email: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : "Invalid email"),
+      phone: (v) => (v?.trim().length < 10 ? "Phone number too short" : null),
+    },
+  });
+
+  // Set form values when editingUser changes
+  useEffect(() => {
+    if (editingUser) {
+      editForm.setValues(editingUser);
+      editForm.resetDirty();
+    }
+  }, [editingUser]);
+
+  // Update user
+  const updateUser = async (values) => {
+    try {
+      // Fetch the existing user to preserve password and other fields
+      const existingUserResponse = await fetch(`${API_BASE_URL}/users/${values.id}`);
+      if (!existingUserResponse.ok) throw new Error("User not found");
+      const existingApiUser = await existingUserResponse.json();
+
+      const nameParts = values.name.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      const updatedApiUser = {
+        ...existingApiUser,
+        firstName,
+        lastName,
+        email: values.email,
+        phone: values.phone,
+        role: values.role,
+        hasPaidSubscription: values.status === "Paid",
+        address: values.address,
+        isActive: values.isActive,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/users/${values.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedApiUser),
+      });
+      if (!response.ok) throw new Error("Failed to update user");
+
+      const updatedUser = await response.json();
+      setUser(updatedUser); // update the displayed user
+      notifications.show({
+        title: "Updated",
+        message: `User ${updatedUser.firstName} ${updatedUser.lastName} updated`,
+        color: "blue",
+        icon: <IconCheck size={18} />,
+      });
+      editModalHandlers.close();
+    } catch (error) {
+      console.error(error);
+      notifications.show({
+        title: "Error",
+        message: "Could not update user",
+        color: "red",
+      });
+    }
   };
 
-  const active = viewMode === 'vehicle' ? vehicleData : personData;
+  // Delete user
+  const deleteUser = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete user");
+      notifications.show({
+        title: "Deleted",
+        message: "User removed",
+        color: "red",
+        icon: <IconTrash size={18} />,
+      });
+      router.push("/admin/accounts"); // redirect to list after deletion
+    } catch (error) {
+      console.error(error);
+      notifications.show({
+        title: "Error",
+        message: "Could not delete user",
+        color: "red",
+      });
+    }
+  };
 
-  return (
-    <Container size="lg" py="xl">
-      <Title order={2} mb="lg">User Details</Title>
-      <Paper withBorder p="lg" radius="md" shadow="sm">
-        {/* User header with avatar and action buttons */}
-        <Group justify="space-between" align="center">
-          <Group gap="xl">
-            <Avatar size={80} radius="xl" color="blue">
-              {user.name.charAt(0)}
-            </Avatar>
-            <div>
-              <Text fw={700} size="xl">{user.name}</Text>
-              <Text size="sm" c="dimmed">@{user.username}</Text>
-            </div>
-          </Group>
-          <Group>
-            <Button variant="outline" onClick={handleEdit}>Edit</Button>
-            <Button color="red" onClick={handleDelete}>Delete</Button>
-          </Group>
-        </Group>
+  // Toggle account status
+  const toggleUserStatus = async () => {
+    try {
+      const newStatus = !user.isActive;
+      const updatedApiUser = { ...user, isActive: newStatus, updatedAt: new Date().toISOString() };
+      const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedApiUser),
+      });
+      if (!response.ok) throw new Error("Failed to update status");
+      const updatedUser = await response.json();
+      setUser(updatedUser);
+      notifications.show({
+        title: "Status updated",
+        message: `User ${updatedUser.firstName} ${updatedUser.lastName} ${updatedUser.isActive ? "activated" : "deactivated"}`,
+        color: "blue",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Could not update status",
+        color: "red",
+      });
+    }
+  };
 
-      <Grid gutter="xl">
-        {/* LEFT PANEL: DETAILS */}
-        <Grid.Col span={{ base: 12, md: 7 }}>
-          <Paper p="xl" radius="lg" shadow="xs">
-            <Group mb="xl" align="center">
-              <Avatar 
-                src={active.avatar} 
-                size={120} 
-                radius="100%" 
-                style={{ border: `4px solid ${viewMode === 'person' ? '#2d7a4d' : '#F4F7FE'}` }}
-              />
-              <Box>
-                <Title order={3} c="#1B2559" fw={700}>{active.title}</Title>
-                <Text c="dimmed" fw={500}>{active.subtitle}</Text>
-              </Box>
-            </Group>
+  // Reset password (simulated)
+  const resetPassword = async () => {
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      notifications.show({
+        title: "Password reset",
+        message: `A password reset link has been sent to ${user.email}`,
+        color: "green",
+      });
+      resetPasswordModalHandlers.close();
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Password reset failed",
+        color: "red",
+      });
+    }
+  };
 
-            {/* PERSON VIEW FORM (3-column layout for names) */}
-            {viewMode === 'person' ? (
-              <Stack gap="md">
-                <SimpleGrid cols={3}>
-                  <TextInput label="First name" defaultValue="Example user" radius="md" />
-                  <TextInput label="Middle name" defaultValue="Example user" radius="md" />
-                  <TextInput label="Last name" defaultValue="Example user" radius="md" />
-                </SimpleGrid>
-                <SimpleGrid cols={2}>
-                  <TextInput label="Email" defaultValue="exampleuser@gmail.com" radius="md" />
-                  <TextInput label="Phone number" defaultValue="+2519xxxxxxxxx" radius="md" />
-                </SimpleGrid>
-                <SimpleGrid cols={2}>
-                  <Select label="Account type" defaultValue="Private" data={['Private', 'Business']} radius="md" />
-                  <TextInput label="Status" defaultValue="Paid" radius="md" />
-                </SimpleGrid>
-                <SimpleGrid cols={2}>
-                  <Select label="Role" defaultValue="User" data={['User', 'Admin']} radius="md" />
-                  <TextInput label="Joined at" defaultValue="xx/xx/xxxx" radius="md" />
-                </SimpleGrid>
-              </Stack>
-            ) : (
-              /* VEHICLE VIEW FORM (2-column layout) */
-              <SimpleGrid cols={2} spacing="md">
-                <TextInput label="Color" defaultValue="Silver" radius="md" />
-                <TextInput label="Description" defaultValue="A sark blue with a scrach..." radius="md" />
-                <TextInput label="Plate number" defaultValue="AA 2 1XXXX" radius="md" />
-                <TextInput label="Phone number" defaultValue="+2519xxxxxxxxx" radius="md" />
-                <TextInput label="Last seen location" defaultValue="Addis Abeba, Mexico" radius="md" />
-                <TextInput label="Last seen date and time" defaultValue="December 1, 2:33 Pm" radius="md" />
-                <Select label="Status" defaultValue="Verified" data={['Verified', 'Pending']} radius="md" />
-                <TextInput label="owner" defaultValue="user Example" radius="md" />
-              </SimpleGrid>
-            )}
-
-            <Group grow mt="xl">
-              <Button bg="#4CF033" size="lg" radius="md" fw={700}>Edit</Button>
-              <Button bg="#FF0000" size="lg" radius="md" fw={700}>Remove</Button>
-            </Group>
-          </Paper>
-        </Grid.Col>
-
-        {/* RIGHT PANEL: STATS & TABLE */}
-        <Grid.Col span={{ base: 12, md: 5 }}>
-          <Stack gap="lg">
-            <Group grow>
-              {active.stats.map((stat, i) => (
-                <StatCardSmall key={i} label={stat.label} value={stat.value} color="#FFB800" />
-              ))}
-            </Group>
-
-            <Box>
-              <Title order={4} c="#2B3674" mb="xs">
-                {viewMode === 'person' ? 'User Logs' : 'Alerts'}
-              </Title>
-              <Paper radius="lg" shadow="md" style={{ overflow: 'hidden' }}>
-                <Box bg="#A0C4FF">
-                  <Table verticalSpacing="sm">
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th c="black">Time <IconSelector size={14} /></Table.Th>
-                        <Table.Th c="black">{active.tableHeader} <IconSelector size={14} /></Table.Th>
-                        <Table.Th>
-                            <Group justify="flex-end" gap="xs">
-                                <IconFilter size={16} />
-                                <IconDotsVertical size={16} />
-                            </Group>
-                        </Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {active.logs.map((log, i) => (
-                        <Table.Tr key={i} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-                          <Table.Td fw={600} size="sm">{log.time}</Table.Td>
-                          <Table.Td fw={600} size="xs">{log.info}</Table.Td>
-                          <Table.Td align="right">
-                            <ActionIcon variant="white" color="blue" size="sm" radius="md">
-                                <IconChevronRight size={14} />
-                            </ActionIcon>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                      {/* Fill empty rows to match Figma height */}
-                      {[...Array(4)].map((_, i) => (
-                        <Table.Tr key={`empty-${i}`}>
-                           <Table.Td>----</Table.Td>
-                           <Table.Td size="xs">urael , khalid ..</Table.Td>
-                           <Table.Td align="right">
-                            <ActionIcon variant="white" color="blue" size="sm" radius="md">
-                                <IconChevronRight size={14} />
-                            </ActionIcon>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                  
-                  {/* FOOTER */}
-                  <Box bg="#4A90E2" p="xs">
-                    <Group justify="space-between">
-                      <Group gap={4}>
-                        <Text size="xs" c="white">Page</Text>
-                        <Select size="xs" w={60} data={['1']} defaultValue="1" variant="filled" />
-                        <Text size="xs" c="white">of 10</Text>
-                      </Group>
-                      <Pagination total={1} size="xs" radius="md" color="gray" />
-                    </Group>
-                  </Box>
-                </Box>
-              </Paper>
-            </Box>
-          </Stack>
-        </Grid.Col>
-      </Grid>
-    </Box>
-  );
-}
-
-function StatCardSmall({ label, value, color }) {
-  return (
-    <Paper radius="lg" shadow="md" style={{ overflow: 'hidden' }}>
-      <Box p="md" bg={color} c="white">
-        <Text size="32px" fw={800}>{value}</Text>
-        <Text size="xs" fw={500}>{label}</Text>
+  if (loading) {
+    return (
+      <Box p="xl" style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Loader size="xl" />
       </Box>
-      <UnstyledButton w="100%" py={4} bg="rgba(0,0,0,0.1)" style={{ textAlign: 'center' }}>
-        <Group justify="center" gap={4}>
-          <Text size="xs" fw={700} c="white">More info</Text>
-          <IconChevronRight size={12} stroke={3} color="white" />
+    );
+  }
+
+  if (!user) {
+    return (
+      <Box p="xl">
+        <Title order={2}>User not found</Title>
+        <Button onClick={() => router.push("/admin/accounts")} mt="md">
+          Back to users
+        </Button>
+      </Box>
+    );
+  }
+
+  // Prepare user data for display
+  const fullName = `${user.firstName} ${user.lastName}`.trim();
+  const username = user.email.split("@")[0];
+
+  return (
+    <Box p="xl" bg={colorScheme === "dark" ? theme.colors.dark[7] : "#F4F7FE"} style={{ minHeight: "100vh" }}>
+      <Group justify="space-between" mb="lg">
+        <Button
+          variant="subtle"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => router.push("/admin/accounts")}
+        >
+          Back to users
+        </Button>
+        <Group gap="sm">
+          <Tooltip label={user.isActive ? "Deactivate" : "Activate"}>
+            <ActionIcon
+              variant="light"
+              color={user.isActive ? "yellow" : "green"}
+              size="lg"
+              onClick={toggleUserStatus}
+            >
+              {user.isActive ? <IconLockOpen size={20} /> : <IconLock size={20} />}
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Reset password">
+            <ActionIcon
+              variant="light"
+              color="orange"
+              size="lg"
+              onClick={() => resetPasswordModalHandlers.open()}
+            >
+              <IconRefresh size={20} />
+            </ActionIcon>
+          </Tooltip>
+          <Button
+            variant="light"
+            leftSection={<IconEdit size={16} />}
+            onClick={() => {
+              setEditingUser(mapApiToEditForm(user));
+              editModalHandlers.open();
+            }}
+          >
+            Edit User
+          </Button>
+          <Button
+            variant="light"
+            color="red"
+            leftSection={<IconTrash size={16} />}
+            onClick={deleteModalHandlers.open}
+          >
+            Delete
+          </Button>
         </Group>
-      </UnstyledButton>
-    </Paper>
+      </Group>
+
+      <Paper p="xl" radius="lg" shadow="sm" withBorder>
+        <Group gap="xl" mb="lg">
+          <Avatar size={100} radius="xl" color="blue">
+            {fullName.charAt(0)}
+          </Avatar>
+          <Box>
+            <Title order={2}>{fullName}</Title>
+            <Text size="sm" c="dimmed">@{username}</Text>
+          </Box>
+        </Group>
+
+        <Divider my="lg" />
+
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Email</Text>
+              <Text>{user.email}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Phone</Text>
+              <Text>{user.phone}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Role</Text>
+              <Badge
+                color={
+                  user.role === "admin" ? "red" :
+                  user.role === "user" ? "blue" : "cyan"
+                }
+                size="lg"
+              >
+                {user.role}
+              </Badge>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Status</Text>
+              <Badge color={user.hasPaidSubscription ? "green" : "gray"} size="lg">
+                {user.hasPaidSubscription ? "Paid" : "Free"}
+              </Badge>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Joined</Text>
+              <Text>{formatDate(user.createdAt)}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Last Login</Text>
+              <Text>{formatDate(user.lastLogin)}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Registrations</Text>
+              <Text>{user.registrations || 0}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Stack gap="xs">
+              <Text fw={600}>Account Active</Text>
+              <Badge color={user.isActive ? "green" : "red"} size="lg">
+                {user.isActive ? "Active" : "Inactive"}
+              </Badge>
+            </Stack>
+          </Grid.Col>
+          {user.address && (
+            <Grid.Col span={12}>
+              <Stack gap="xs">
+                <Text fw={600}>Address</Text>
+                <Text>{user.address}</Text>
+              </Stack>
+            </Grid.Col>
+          )}
+        </Grid>
+      </Paper>
+
+      {/* Edit User Modal */}
+      <Modal
+        opened={editModalOpened}
+        onClose={editModalHandlers.close}
+        title={<Text fw={700} size="lg">Edit User</Text>}
+        centered
+        size="lg"
+        radius="md"
+      >
+        <form onSubmit={editForm.onSubmit(updateUser)}>
+          <Stack gap="sm">
+            <TextInput label="Full Name" {...editForm.getInputProps("name")} required />
+            <TextInput label="Email" {...editForm.getInputProps("email")} required />
+            <TextInput label="Phone" {...editForm.getInputProps("phone")} required />
+            <Select
+              label="Role"
+              data={["admin", "user", "guest"]}
+              {...editForm.getInputProps("role")}
+              required
+            />
+            <Select
+              label="Status"
+              data={["Paid", "Free"]}
+              {...editForm.getInputProps("status")}
+              required
+            />
+            <Switch
+              label="Account Active"
+              checked={editForm.values.isActive}
+              onChange={(event) => editForm.setFieldValue("isActive", event.currentTarget.checked)}
+            />
+            <TextInput label="Address" {...editForm.getInputProps("address")} />
+            <Group justify="flex-end" mt="md">
+              <Button variant="subtle" onClick={editModalHandlers.close}>Cancel</Button>
+              <Button type="submit" bg="#2B3674">Update</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        opened={deleteModalOpened}
+        onClose={deleteModalHandlers.close}
+        title="Confirm Delete"
+        centered
+      >
+        <Text>Are you sure you want to delete this user? This action cannot be undone.</Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="subtle" onClick={deleteModalHandlers.close}>Cancel</Button>
+          <Button color="red" onClick={deleteUser}>Delete</Button>
+        </Group>
+      </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal
+        opened={resetPasswordModalOpened}
+        onClose={resetPasswordModalHandlers.close}
+        title="Reset Password"
+        centered
+      >
+        <Text>Send a password reset link to {user.email}?</Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="subtle" onClick={resetPasswordModalHandlers.close}>Cancel</Button>
+          <Button color="orange" onClick={resetPassword}>Send reset link</Button>
+        </Group>
+      </Modal>
+    </Box>
   );
 }
